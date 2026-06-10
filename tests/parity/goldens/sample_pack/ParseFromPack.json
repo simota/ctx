@@ -1,0 +1,29 @@
+{
+  "contract": {
+    "schema_version": 1,
+    "created": "2026-05-20T10:00:00Z",
+    "files": [
+      {
+        "path": "internal/limit/limit.go",
+        "line_start": 1,
+        "line_end": 14,
+        "sha256": "abc123def456abc123def456abc123def456abc123def456abc123def456abcd",
+        "symbols": [
+          "Allow",
+          "Limiter",
+          "NewLimiter"
+        ]
+      },
+      {
+        "path": "internal/limit/limit_test.go",
+        "line_start": 1,
+        "line_end": 8,
+        "sha256": "def456abc123def456abc123def456abc123def456abc123def456abc123def4",
+        "symbols": [
+          "TestLimiter"
+        ]
+      }
+    ]
+  },
+  "ok": true
+}

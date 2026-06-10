@@ -1,0 +1,57 @@
+{
+  "pack_file": "multi_lang_pack",
+  "schema_version": 1,
+  "total_files_in_contract": 3,
+  "references_found": 9,
+  "violations": [],
+  "ok": [
+    {
+      "kind": "file",
+      "path": "src/auth/token.ts",
+      "source_line": 10
+    },
+    {
+      "kind": "file",
+      "path": "src/auth/token.py",
+      "source_line": 11
+    },
+    {
+      "kind": "file",
+      "path": "README.md",
+      "source_line": 12
+    },
+    {
+      "kind": "file",
+      "path": "src/auth/token.ts",
+      "source_line": 18
+    },
+    {
+      "kind": "file",
+      "path": "src/auth/token.py",
+      "source_line": 31
+    },
+    {
+      "kind": "file",
+      "path": "README.md",
+      "source_line": 46
+    },
+    {
+      "kind": "file",
+      "path": "README.md",
+      "source_line": 59
+    },
+    {
+      "kind": "file",
+      "path": "src/auth/token.py",
+      "source_line": 65
+    },
+    {
+      "kind": "file",
+      "path": "src/auth/token.ts",
+      "source_line": 72
+    }
+  ],
+  "stale_files": [],
+  "repack_suggestions": [],
+  "exit_code": 0
+}

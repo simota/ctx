@@ -1,0 +1,23 @@
+schema_version = 1
+
+[[strand]]
+name = "broad-where"
+source = "where 'router' --regex 'router|Router|Handler' --limit 50"
+share = 0.5
+
+[[strand]]
+name = "deep-focus"
+source = "focus PaymentProcessor --hops 3"
+share = 0.4
+policy = "prefer-newer"
+
+[[strand]]
+name = "hot-changes"
+source = "digest --since 14d --top 30"
+share = 0.3
+policy = "exclude-overlap"
+
+[[strand]]
+name = "tail-where"
+source = "where 'metrics'"
+share = 0.15

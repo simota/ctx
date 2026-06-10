@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "aabbccdd11223344",
+  "name": "Alpha Mix",
+  "goal": "parity test alpha mix",
+  "created": "2026-01-01T10:00:00Z",
+  "files": [
+    "hello.txt",
+    "notes.md"
+  ],
+  "budget": {}
+}

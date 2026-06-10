@@ -1,0 +1,49 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/vendor/
+
+# Build outputs
+/bin/
+/dist/
+# Root cargo target + the cached go-oracle/v1 parity build (ci/build-go-oracle.sh)
+/target/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Antigravity CLI runtime state (created by `agy` when reviewing locally)
+.antigravitycli/
+
+# Nexus / agent journals (created by the Nexus skill when orchestrating locally)
+.agents/
+
+# ctx cache
+.ctx-cache/
+
+# Embedded web SPA (Vite/pnpm). `make web` builds into crates/ctx-web/dist,
+# which is committed (vendored) and embedded by ctx-web via rust-embed.
+web/node_modules/
+web/.vite/
+web/dist/
+
+# Rust crates (Summit pioneer port and follow-ups)
+crates/**/target/
+crates/**/*.rs.bk
+
+# Parity scratch (regenerated goldens, transient diff artifacts)
+tests/parity/goldens-tmp/
+.pnpm-store/

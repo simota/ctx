@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "snap-verify",
+  "created_at": "2026-01-04T10:00:00Z",
+  "ctx_version": "test",
+  "goal": "parity test verify snapshot",
+  "budget": 5000,
+  "used": 800,
+  "root": ".",
+  "format": "markdown",
+  "entries": [
+    {
+      "path": "main.go",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "tokens": 10,
+      "relevance": "core",
+      "score": 9
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+[
+  {
+    "path": "env_config.txt",
+    "line": 1,
+    "kind": "env_assignment",
+    "severity": "high",
+    "message": "secret-like pattern detected",
+    "preview": "OPEN[...]mnop"
+  },
+  {
+    "path": "env_config.txt",
+    "line": 1,
+    "kind": "high_entropy",
+    "severity": "low",
+    "message": "high-entropy string detected",
+    "preview": "OPEN[...]mnop"
+  },
+  {
+    "path": "env_config.txt",
+    "line": 2,
+    "kind": "env_assignment",
+    "severity": "high",
+    "message": "secret-like pattern detected",
+    "preview": "STRI[...]ghij"
+  },
+  {
+    "path": "env_config.txt",
+    "line": 2,
+    "kind": "high_entropy",
+    "severity": "low",
+    "message": "high-entropy string detected",
+    "preview": "STRI[...]ghij"
+  },
+  {
+    "path": "env_config.txt",
+    "line": 4,
+    "kind": "high_entropy",
+    "severity": "low",
+    "message": "high-entropy string detected",
+    "preview": "NORM[...]alue"
+  },
+  {
+    "path": "env_config.txt",
+    "line": 6,
+    "kind": "env_assignment",
+    "severity": "high",
+    "message": "secret-like pattern detected",
+    "preview": "ACCE[...]wXyZ"
+  },
+  {
+    "path": "env_config.txt",
+    "line": 6,
+    "kind": "high_entropy",
+    "severity": "low",
+    "message": "high-entropy string detected",
+    "preview": "ACCE[...]wXyZ"
+  }
+]

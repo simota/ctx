@@ -1,0 +1,1892 @@
+[
+  {
+    "Path": "auth/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "auth/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "pkg1/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session1",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg10/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session10",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg11/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session11",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg12/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session12",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg13/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session13",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg14/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session14",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg15/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session15",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg16/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session16",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg17/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session17",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg18/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session18",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg19/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session19",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg2/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session2",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg20/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session20",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg21/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session21",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg22/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session22",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg23/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session23",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg24/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session24",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg25/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session25",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg26/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session26",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg27/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session27",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg28/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session28",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg29/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session29",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg3/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session3",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg30/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session30",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg31/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session31",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg32/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session32",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg33/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session33",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg34/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session34",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg35/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session35",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg36/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session36",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg37/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session37",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg38/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session38",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg39/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session39",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg4/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session4",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg40/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session40",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg5/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session5",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg6/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session6",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg7/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session7",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg8/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session8",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "pkg9/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session9",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "service/service.py",
+    "Symbols": [
+      {
+        "Name": "build_session",
+        "Kind": "function",
+        "Line": 5
+      },
+      {
+        "Name": "Symbol",
+        "Kind": "class",
+        "Line": 10
+      },
+      {
+        "Name": "__init__",
+        "Kind": "function",
+        "Line": 11
+      },
+      {
+        "Name": "Render",
+        "Kind": "function",
+        "Line": 15
+      },
+      {
+        "Name": "_private_impl",
+        "Kind": "function",
+        "Line": 19
+      }
+    ]
+  },
+  {
+    "Path": "ts1/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession1",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session1",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol1",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts10/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession10",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session10",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol10",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts11/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession11",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session11",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol11",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts12/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession12",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session12",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol12",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts13/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession13",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session13",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol13",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts14/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession14",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session14",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol14",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts15/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession15",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session15",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol15",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts16/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession16",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session16",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol16",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts17/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession17",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session17",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol17",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts18/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession18",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session18",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol18",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts19/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession19",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session19",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol19",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts2/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession2",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session2",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol2",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts20/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession20",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session20",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol20",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts3/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession3",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session3",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol3",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts4/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession4",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session4",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol4",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts5/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession5",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session5",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol5",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts6/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession6",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session6",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol6",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts7/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession7",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session7",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol7",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts8/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession8",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session8",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol8",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "ts9/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession9",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session9",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol9",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  }
+]

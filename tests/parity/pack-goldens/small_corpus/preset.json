@@ -1,0 +1,43 @@
+{
+  "cases": [
+    {
+      "name": "blog",
+      "patch": {
+        "format": "markdown",
+        "no_warnings": true,
+        "no_paths": true,
+        "no_metadata": true,
+        "frontmatter": "mdx"
+      }
+    },
+    {
+      "name": "review",
+      "patch": {
+        "format": "markdown",
+        "no_warnings": false,
+        "no_paths": false,
+        "no_metadata": false
+      }
+    },
+    {
+      "name": "debug",
+      "patch": {
+        "format": "markdown",
+        "no_warnings": false,
+        "no_paths": false,
+        "no_metadata": false,
+        "explain": true
+      }
+    },
+    {
+      "name": "llm",
+      "patch": {
+        "format": "plain",
+        "no_warnings": true,
+        "no_paths": false,
+        "no_metadata": true,
+        "plain_file_contents": true
+      }
+    }
+  ]
+}

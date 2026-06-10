@@ -1,0 +1,16 @@
+[package]
+name = "ctx-testinsights"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Rust port of internal/testinsights — static Go test and coverage insight"
+license = "MIT"
+
+[lib]
+name = "ctx_testinsights"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+tree-sitter = "=0.22.6"
+tree-sitter-go = "=0.21.2"

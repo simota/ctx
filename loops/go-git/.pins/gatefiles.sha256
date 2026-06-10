@@ -1,0 +1,4 @@
+4a0d9e5c572b9f880dd85b5d03e2b479612e2ee993e9f7f28c15fd40407f30b3 loops/go-git/goal.md
+de0866e5e56c377581d278e38c4efd4121ee4cfa40cfadd2e56e50339ad182a9 loops/go-git/verify.sh
+bf8475a57f68bbb77de73c1b6d2db4585c91cf0c74579bd5f8d615d5ee4a6a84 loops/go-git/run-loop.sh
+08bc05612632068d25611ae911eea7c67718486a4abe5ef8dbe28c1fda708513 crates/ctx-web/tests/git_parity.rs

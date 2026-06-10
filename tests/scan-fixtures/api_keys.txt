@@ -1,0 +1,7 @@
+aws_secret="example_secret_aws_detector_fixture"
+gcp_api_key="example_secret_Aiza12345678901234567890123456789012345"
+github_token="example_secret_123456789012345678901234567890123456"
+slack_token="example_secret_abcdefghijklmnop"
+private_key_line="example_secret_private_key_marker"
+webhook_url="https://example.invalid/services/TABCDEFGH/BXYZ12345/AbCdEfGhIjKlMnOpQrStUvWx"
+jwt="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"

@@ -1,0 +1,50 @@
+[
+  {
+    "path": "internal/cli/root.go",
+    "is_dir": false,
+    "tokens": 1200,
+    "symbols": 18
+  },
+  {
+    "path": "internal/cli/where.go",
+    "is_dir": false,
+    "tokens": 850,
+    "symbols": 12
+  },
+  {
+    "path": "internal/cli/focus.go",
+    "is_dir": false,
+    "tokens": 740,
+    "symbols": 9
+  },
+  {
+    "path": "internal/walk/walk.go",
+    "is_dir": false,
+    "tokens": 620,
+    "symbols": 8
+  },
+  {
+    "path": "internal/walk/flatten.go",
+    "is_dir": false,
+    "tokens": 280,
+    "symbols": 4
+  },
+  {
+    "path": "cmd/ctx/main.go",
+    "is_dir": false,
+    "tokens": 140,
+    "symbols": 1
+  },
+  {
+    "path": "README.md",
+    "is_dir": false,
+    "tokens": 480,
+    "symbols": 0
+  },
+  {
+    "path": "internal/binary/blob.png",
+    "is_dir": false,
+    "tokens": 0,
+    "symbols": 0
+  }
+]

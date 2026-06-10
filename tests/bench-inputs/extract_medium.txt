@@ -1,0 +1,513 @@
+path fixture pack scanner regex pack references scanner
+regex path rust manifest references verify go benchmark
+context symbol contract symbol pack benchmark verify symbol
+regex path path contract go
+see tests/parity/lslauj.rs for the implementation.
+manifest the contract references symbol sha256 fixture
+fixture symbol references verify
+references references context contract
+rust scanner the references pack
+context verify fixture verify benchmark context references
+look at internal/limit/qlgcwv.ts:L353-L362 for context.
+manifest symbol regex go path fixture go
+deterministic fixture sha256 regex
+pack contract scanner benchmark symbol fixture deterministic go path references benchmark
+manifest rust path the regex regex the deterministic sha256
+call `renderMarkdown` before returning.
+manifest path context verify benchmark benchmark pack verify benchmark rust symbol
+sha256 manifest context symbol the
+the path deterministic manifest path references contract references benchmark regex manifest
++++ b/cmd/ctx/sltgsv.tsx
+rust contract context manifest
+context pack scanner deterministic rust
+rust references sha256 go symbol symbol the deterministic benchmark sha256 benchmark
+contract contract deterministic go deterministic
+see cmd/ctx/zhlspn.md for the implementation.
+path sha256 scanner context
+regex the fixture scanner contract references
+rust sha256 verify benchmark regex symbol regex sha256 go benchmark scanner
+fixture the path rust go benchmark regex context
+references references deterministic path context references scanner rust pack rust regex
+look at crates/ctx-contract/src/lpazvy.json:L329-L351 for context.
+go the benchmark references deterministic go contract
+the the scanner benchmark benchmark
+deterministic context manifest rust path go benchmark deterministic path go manifest
+manifest scanner regex benchmark rust go the pack fixture
+call `Verify` before returning.
+contract fixture symbol path context pack go
+pack the fixture symbol rust verify verify
+contract pack scanner contract references deterministic context rust the symbol
+regex scanner context deterministic the scanner benchmark verify benchmark rust
++++ b/tests/parity/zjhgts.sh
+context symbol verify the
+contract symbol context references context path rust verify fixture context
+scanner path scanner verify scanner fixture symbol
+symbol go context go deterministic
+go symbol context sha256 verify
+see tests/parity/dfnzwn.py for the implementation.
+deterministic symbol scanner go symbol contract verify path pack manifest
+scanner deterministic benchmark references verify the contract rust references
+context contract verify regex context rust path rust rust path
+look at docs/specs/gtqtyv.rs:L50-L69 for context.
+references manifest the contract path pack contract
+the go context go rust scanner sha256 path path rust sha256
+benchmark sha256 sha256 the scanner benchmark fixture go contract benchmark
+rust deterministic regex scanner verify pack
+call `ExtractReferences` before returning.
+the the pack symbol context
+manifest scanner fixture verify benchmark contract deterministic
+verify go references go deterministic benchmark contract sha256 benchmark path
+deterministic deterministic fixture scanner
++++ b/tests/parity/zgphds.json
+rust path path sha256
+references fixture rust scanner verify pack scanner context verify benchmark deterministic
+scanner rust scanner go the verify benchmark fixture scanner manifest benchmark
+deterministic rust benchmark rust verify fixture
+see tests/parity/fdzslt.rs for the implementation.
+manifest context path fixture benchmark the fixture
+regex verify context references go deterministic
+go context path scanner symbol manifest pack references pack symbol
+benchmark rust path symbol deterministic verify references manifest contract verify
+look at docs/specs/fvkefy.json:L250-L272 for context.
+contract manifest manifest the deterministic scanner
+benchmark regex sha256 rust benchmark pack context
+regex benchmark fixture the context pack deterministic sha256 the
+rust sha256 manifest benchmark path rust benchmark verify
+call `ParseFromPack` before returning.
+sha256 symbol sha256 the deterministic
+path the scanner manifest the rust the references path
+benchmark symbol benchmark deterministic path pack fixture benchmark path regex contract
+manifest rust deterministic rust deterministic symbol
++++ b/docs/specs/thtsgf.md
+symbol benchmark path contract context references fixture sha256 path
+path pack benchmark regex regex
+rust go scanner deterministic fixture path symbol manifest
+path go regex verify go regex verify pack verify regex
+see internal/contract/btarmo.rs for the implementation.
+manifest context references benchmark
+scanner benchmark fixture references manifest the context deterministic references benchmark
+rust rust scanner context
+scanner benchmark benchmark rust context
+path pack context context scanner rust go verify
+look at internal/contract/tgetax.py:L47-L73 for context.
+scanner verify path the verify rust pack sha256 path the symbol
+regex verify go context context go regex scanner verify
+deterministic pack references the scanner sha256 path
+benchmark verify path pack scanner deterministic deterministic go manifest
+call `lastDotSegment` before returning.
+path contract contract deterministic deterministic manifest
+benchmark rust regex rust
+scanner context go regex
+context references sha256 context path regex
+contract sha256 fixture symbol benchmark deterministic
++++ b/cmd/ctx/qypffp.ts
+benchmark verify context rust symbol the regex verify rust benchmark references
+go fixture regex scanner pack deterministic fixture fixture pack the rust
+symbol manifest the pack contract manifest context references
+see web/src/pages/smayvw.yaml for the implementation.
+manifest regex verify context context contract go
+benchmark path references pack pack go context scanner context
+scanner context fixture deterministic references path benchmark symbol context context
+look at internal/limit/nxvkjo.md:L32-L37 for context.
+deterministic fixture manifest pack
+verify contract manifest path pack manifest the
+benchmark deterministic deterministic benchmark sha256 symbol deterministic manifest manifest contract
+fixture context go the scanner context symbol symbol the contract fixture
+call `renderMarkdown` before returning.
+verify go scanner symbol
+benchmark path manifest path scanner regex scanner symbol the rust
+verify symbol pack benchmark
+benchmark pack context context
+fixture context scanner benchmark scanner contract
++++ b/cmd/ctx/jxdfis.py
+symbol path pack path deterministic the manifest contract
+rust benchmark pack sha256 path path
+contract contract scanner regex
+fixture regex rust pack manifest deterministic regex context deterministic sha256
+see internal/contract/vfbkjc.json for the implementation.
+context pack fixture contract regex fixture scanner path verify rust scanner
+contract manifest rust context
+sha256 symbol go go benchmark contract the rust path symbol the
+manifest regex context regex
+look at cmd/ctx/ryzwfn.rs:L371-L382 for context.
+manifest symbol manifest regex benchmark scanner deterministic benchmark path go
+sha256 the benchmark verify scanner benchmark contract go path fixture
+contract the verify pack rust pack path
+benchmark symbol pack regex the pack manifest context the deterministic
+call `lastDotSegment` before returning.
+fixture references verify context contract
+references contract benchmark manifest manifest references fixture pack context
+context rust regex rust the symbol fixture pack manifest fixture
+context scanner pack context symbol go context regex scanner the
++++ b/tests/parity/asryos.sh
+benchmark sha256 sha256 symbol
+path the go go verify
+regex verify benchmark go
+regex sha256 deterministic go go deterministic fixture
+symbol path references context the pack path pack context
+scanner scanner rust deterministic pack pack contract
+see crates/ctx-contract/src/vyinzk.go for the implementation.
+verify path references contract verify symbol fixture scanner references rust contract
+the rust regex references
+deterministic deterministic fixture the context the verify
+path deterministic the references contract path references
+look at internal/pack/psjwac.json:L178-L197 for context.
+the fixture regex sha256 verify
+scanner manifest deterministic the manifest
+references verify references fixture
+path symbol verify benchmark verify path deterministic
+manifest verify references contract rust rust rust fixture the
+call `lookupPath` before returning.
+regex contract the rust pack references contract
+rust benchmark symbol pack pack regex benchmark benchmark sha256 rust deterministic
+the deterministic verify pack pack rust rust verify
+manifest the deterministic go
++++ b/tests/parity/iknaoc.yaml
+go benchmark deterministic go sha256 benchmark path contract
+regex deterministic context sha256 verify the the the regex references deterministic
+references contract go manifest sha256 contract
+deterministic references the go context verify
+see cmd/ctx/doghii.py for the implementation.
+deterministic verify path go sha256
+symbol sha256 context context references symbol path contract rust benchmark
+context go rust regex rust scanner sha256
+sha256 manifest go the sha256 pack verify symbol scanner fixture
+look at internal/limit/iiuzpu.ts:L74-L97 for context.
+benchmark benchmark benchmark symbol symbol verify sha256
+regex go path fixture rust path sha256 verify verify
+deterministic context symbol fixture deterministic context sha256 deterministic rust scanner go
+call `lookupPath` before returning.
+deterministic references context the references pack regex path the contract symbol
+the symbol deterministic deterministic verify pack benchmark regex deterministic
+contract go verify the deterministic path scanner contract go deterministic fixture
++++ b/internal/pack/wpamii.go
+references path go regex manifest go regex
+pack regex symbol verify context fixture symbol sha256 regex
+manifest the symbol pack pack path symbol sha256 rust contract
+contract manifest symbol scanner manifest references the sha256 the
+see internal/pack/vaysur.md for the implementation.
+sha256 references fixture rust
+rust fixture benchmark sha256 verify context scanner go
+sha256 sha256 contract deterministic the manifest contract
+regex pack contract contract scanner pack go context pack
+look at tests/parity/lodnwj.tsx:L309-L324 for context.
+references the path benchmark regex the
+symbol context context path
+context pack sha256 verify scanner fixture manifest pack benchmark contract
+path path verify fixture benchmark
+context the references sha256 benchmark benchmark verify
+call `lastDotSegment` before returning.
+benchmark deterministic benchmark go deterministic go regex pack
+context context rust benchmark fixture rust
+verify context sha256 scanner
+context verify fixture verify path contract symbol the sha256 context pack
++++ b/tests/parity/kwmfnd.json
+deterministic deterministic fixture symbol contract regex scanner pack
+rust pack rust regex sha256 references
+context references scanner path regex rust
+rust references regex symbol manifest references symbol contract references regex
+see internal/limit/fdxupf.json for the implementation.
+deterministic go sha256 pack deterministic contract contract regex path benchmark
+regex the verify sha256 regex
+the sha256 pack the rust pack sha256 context pack rust verify
+context sha256 contract scanner deterministic regex context sha256 deterministic pack contract
+look at web/src/pages/jlwyki.go:L163-L171 for context.
+context deterministic go the path manifest
+references rust references references fixture scanner pack fixture symbol
+path the path references go manifest rust
+references contract fixture contract the references manifest sha256
+call `lastDotSegment` before returning.
+manifest manifest benchmark rust benchmark scanner contract go
+verify path context context rust symbol the contract references
+the path deterministic benchmark contract rust go
+scanner benchmark symbol rust fixture pack
++++ b/web/src/pages/odygsz.rs
+scanner symbol fixture regex deterministic the contract pack
+go go contract the scanner benchmark regex verify go
+fixture references deterministic symbol go context benchmark
+path benchmark contract rust
+see internal/pack/rfbtvj.py for the implementation.
+path path scanner fixture
+manifest sha256 fixture deterministic the scanner pack
+benchmark deterministic path the manifest context deterministic fixture regex
+sha256 benchmark go symbol go the
+path benchmark manifest verify symbol benchmark context fixture symbol
+look at web/src/pages/sildou.sh:L328-L346 for context.
+path verify rust benchmark sha256
+references references context contract
+go references the pack
+verify the manifest fixture context rust scanner
+path regex sha256 path references contract symbol context the regex
+call `Verify` before returning.
+manifest references context path benchmark
+manifest references context sha256 path path rust the scanner go go
+contract references go benchmark contract fixture
+symbol go path contract benchmark rust symbol go go
++++ b/internal/pack/sqboro.yaml
+contract manifest symbol sha256
+manifest manifest fixture scanner deterministic path fixture context references
+symbol verify manifest scanner verify contract rust
+verify benchmark contract path sha256 regex pack
+see tests/parity/zzdnhe.md for the implementation.
+contract pack pack context go scanner fixture contract regex verify go
+regex symbol the path
+contract fixture contract go fixture
+fixture rust verify fixture deterministic context go rust rust manifest pack
+look at crates/ctx-contract/src/ppssca.go:L242-L248 for context.
+the the regex the references rust regex symbol deterministic references path
+path path pack scanner regex scanner contract manifest sha256 sha256 symbol
+go regex the regex benchmark deterministic sha256 rust contract contract rust
+call `Verify` before returning.
+references go manifest regex references verify the scanner deterministic symbol
+sha256 verify the the path path contract path symbol pack
+scanner contract sha256 rust context benchmark contract verify manifest
++++ b/crates/ctx-contract/src/mazpli.py
+context the verify scanner contract regex path go the contract
+contract the references manifest
+regex the verify contract
+manifest deterministic go path regex scanner verify path
+manifest regex scanner the symbol sha256
+see internal/pack/fkmkgf.rs for the implementation.
+path verify rust pack symbol rust manifest fixture go manifest verify
+context regex the fixture verify
+manifest contract benchmark verify manifest
+pack path references the path benchmark sha256 manifest
+look at internal/limit/qfefwe.sh:L157-L182 for context.
+rust deterministic contract regex path deterministic
+sha256 contract deterministic sha256 benchmark manifest context verify
+context sha256 the symbol go references benchmark symbol scanner
+contract path the symbol context symbol path rust
+call `ParseFromPack` before returning.
+verify deterministic manifest go deterministic manifest
+path context verify pack
+contract scanner references symbol rust references symbol manifest
+go the scanner references
+pack rust symbol the manifest contract references verify fixture the
++++ b/internal/contract/kplfvj.md
+verify path pack context context regex
+references scanner rust regex contract the pack manifest fixture
+context sha256 benchmark go deterministic go manifest verify manifest go
+pack the contract manifest manifest contract symbol deterministic rust sha256 symbol
+see internal/pack/lltvuk.yaml for the implementation.
+verify symbol fixture scanner contract benchmark rust symbol symbol rust
+context contract regex deterministic scanner manifest rust regex
+symbol manifest deterministic context symbol fixture
+references benchmark references references sha256 fixture regex
+look at internal/limit/sazagw.yaml:L225-L250 for context.
+symbol path contract deterministic pack
+references fixture the the context contract benchmark sha256 verify
+go manifest the manifest
+references verify contract references pack
+scanner scanner the context the pack the fixture
+call `renderJSON` before returning.
+path manifest scanner fixture fixture go verify
+deterministic verify path path manifest pack
+path deterministic symbol regex symbol path deterministic verify pack deterministic
+contract regex symbol the context fixture verify the verify
++++ b/docs/specs/kgxksh.md
+verify references the fixture benchmark references
+rust the contract go sha256
+context rust scanner benchmark context context references scanner sha256
+deterministic symbol context go regex deterministic contract fixture
+see internal/limit/ysmctb.yaml for the implementation.
+contract path sha256 pack pack symbol context regex context rust deterministic
+go regex pack symbol manifest
+pack sha256 fixture regex deterministic deterministic
+fixture deterministic deterministic deterministic benchmark sha256 regex fixture
+look at web/src/pages/hhuokk.json:L292-L297 for context.
+references path scanner benchmark path benchmark deterministic
+sha256 rust contract contract rust sha256 fixture the manifest go
+pack fixture manifest regex benchmark pack deterministic symbol scanner go context
+call `rangeContained` before returning.
+fixture scanner references deterministic
+contract contract fixture context rust manifest symbol references regex references
+deterministic verify context the references go
+context rust references manifest rust scanner
++++ b/web/src/pages/eabhjc.md
+rust verify go pack benchmark
+symbol symbol scanner regex fixture symbol benchmark
+contract regex fixture fixture benchmark context rust rust contract scanner
+path context fixture benchmark
+deterministic verify references contract go references
+see web/src/pages/qhezbi.json for the implementation.
+manifest go manifest verify scanner fixture rust regex
+sha256 references symbol benchmark scanner pack
+fixture sha256 scanner symbol pack benchmark rust
+context verify the references references rust verify verify context references
+look at internal/pack/gbqofv.md:L50-L64 for context.
+scanner regex regex contract deterministic fixture rust the
+scanner sha256 benchmark sha256 manifest the scanner benchmark pack
+path benchmark path verify go rust context scanner rust pack symbol
+regex sha256 sha256 symbol symbol go go fixture contract
+call `lastDotSegment` before returning.
+rust rust scanner benchmark deterministic the
+pack scanner manifest sha256 path the sha256 path
+symbol go scanner sha256 path
+path contract benchmark scanner deterministic path
+scanner the benchmark pack path contract deterministic the fixture
++++ b/internal/pack/xtubei.py
+go path rust deterministic sha256 scanner pack regex sha256 manifest benchmark
+sha256 contract manifest verify
+pack fixture rust regex pack the deterministic symbol symbol path
+benchmark scanner regex context go manifest go pack verify
+see cmd/ctx/prpaub.yaml for the implementation.
+the benchmark references path manifest
+symbol contract manifest verify contract symbol
+the deterministic context go path rust scanner context rust deterministic context
+benchmark sha256 context rust fixture
+look at internal/contract/ngljem.rs:L389-L411 for context.
+regex go verify context manifest verify
+fixture benchmark fixture pack
+sha256 benchmark verify deterministic manifest go rust contract fixture context
+rust symbol manifest verify
+deterministic rust benchmark symbol pack references context context the regex
+call `rangeContained` before returning.
+contract benchmark pack verify references contract references fixture symbol
+the manifest pack contract references manifest fixture
+fixture pack regex pack regex deterministic
+references path benchmark benchmark verify regex context fixture manifest go
++++ b/docs/specs/vlikeb.yaml
+sha256 go contract go sha256 context go path deterministic
+path benchmark scanner scanner deterministic contract path symbol verify
+pack the regex deterministic verify context go benchmark manifest
+manifest go contract deterministic context benchmark fixture contract
+see tests/parity/nstrni.json for the implementation.
+references fixture contract references fixture benchmark regex references go manifest pack
+manifest manifest pack regex symbol pack benchmark contract fixture pack
+manifest references benchmark verify verify pack rust the the context
+look at cmd/ctx/qsiklw.md:L231-L241 for context.
+fixture verify regex fixture
+go path fixture path contract references context verify the manifest benchmark
+fixture the verify manifest manifest sha256 benchmark
+sha256 pack verify sha256 the
+pack verify fixture go pack verify references verify deterministic sha256 contract
+call `Build` before returning.
+benchmark rust fixture context the references context path
+rust benchmark sha256 the
+fixture context context benchmark sha256
+contract fixture the the scanner scanner manifest
+go contract deterministic manifest
++++ b/crates/ctx-contract/src/yvsree.md
+references deterministic the regex benchmark symbol
+regex sha256 manifest symbol pack scanner scanner context
+fixture the manifest fixture manifest fixture rust references regex
+benchmark scanner deterministic fixture pack manifest verify fixture fixture
+see cmd/ctx/frcllw.py for the implementation.
+regex verify sha256 pack manifest regex
+benchmark regex verify contract fixture verify manifest
+symbol pack regex manifest pack benchmark contract pack
+symbol regex regex symbol
+contract scanner benchmark deterministic contract contract context
+look at internal/pack/lsrorb.rs:L206-L214 for context.
+verify the contract regex
+regex manifest sha256 verify references manifest regex the regex deterministic
+contract contract deterministic sha256 regex symbol contract path fixture
+rust symbol fixture sha256
+call `lookupPath` before returning.
+verify sha256 scanner deterministic
+manifest fixture symbol path pack fixture scanner go
+fixture manifest regex path context deterministic sha256 pack deterministic benchmark
+verify go benchmark path go fixture verify regex scanner contract
++++ b/web/src/pages/ddwgye.rs
+references path rust symbol rust benchmark path references fixture the fixture
+fixture deterministic scanner verify contract
+path verify fixture the benchmark go
+context manifest path benchmark scanner context
+see cmd/ctx/rmrmvs.ts for the implementation.
+deterministic manifest contract rust deterministic
+deterministic scanner sha256 references manifest scanner deterministic regex
+manifest regex verify pack
+pack pack the contract symbol contract symbol sha256 scanner references
+look at crates/ctx-contract/src/yluuri.tsx:L351-L357 for context.
+rust benchmark pack go sha256 context the regex
+symbol benchmark verify go contract context go path references go the
+go verify deterministic sha256 manifest regex fixture pack symbol
+deterministic scanner regex manifest context scanner path contract go go
+call `Verify` before returning.
+path fixture path deterministic
+rust rust symbol manifest path the fixture go symbol references
+contract manifest pack regex symbol benchmark rust manifest deterministic
+symbol sha256 rust path symbol contract sha256 pack context
++++ b/internal/contract/amxnie.yaml
+scanner manifest benchmark regex go path manifest manifest fixture go contract
+references benchmark contract benchmark verify the manifest go fixture verify contract
+manifest references manifest context rust manifest go context fixture verify
+see crates/ctx-contract/src/mzxhou.json for the implementation.
+benchmark rust context pack rust sha256 references go pack contract
+symbol pack contract symbol path scanner scanner references symbol
+the manifest fixture references pack contract go regex
+context contract context references benchmark
+look at internal/contract/meuibu.json:L37-L38 for context.
+the sha256 the benchmark fixture scanner
+deterministic pack benchmark path verify references context path
+rust sha256 scanner regex go path
+regex benchmark verify symbol fixture fixture deterministic fixture
+call `rangeContained` before returning.
+verify pack contract symbol deterministic benchmark scanner fixture
+the manifest deterministic pack the scanner fixture scanner rust
+contract pack deterministic manifest sha256 sha256 rust pack
+symbol verify sha256 contract manifest go
++++ b/internal/pack/cipwup.tsx
+context rust scanner manifest manifest symbol
+deterministic scanner references the context fixture
+path the go go
+deterministic path scanner regex go the manifest
+path path path fixture deterministic go pack
+see web/src/pages/kkwizy.go for the implementation.
+the pack scanner contract symbol the regex deterministic benchmark sha256 deterministic
+references context deterministic verify pack manifest benchmark sha256 context path
+benchmark manifest go contract
+look at tests/parity/dlngie.go:L204-L209 for context.
+symbol verify verify verify the path regex fixture context
+go pack scanner symbol scanner
+rust pack path verify scanner sha256 the context
+sha256 references symbol deterministic
+verify symbol manifest verify scanner references sha256 benchmark
+call `lastDotSegment` before returning.
+symbol deterministic contract sha256 benchmark
+pack pack benchmark pack
+the fixture sha256 rust manifest go
+rust context pack context rust regex path benchmark verify
+path fixture benchmark pack contract
++++ b/internal/pack/boveyp.rs
+regex sha256 benchmark verify verify pack symbol
+context regex path go
+deterministic references symbol regex verify benchmark verify rust context deterministic regex
+scanner verify context verify context symbol
+see internal/contract/fdisex.yaml for the implementation.
+pack regex regex contract
+regex references benchmark the rust context rust context fixture
+the rust scanner pack references regex verify manifest
+manifest rust go references scanner context benchmark path path path
+look at internal/pack/gqyczi.yaml:L387-L396 for context.
+sha256 verify regex the
+contract references pack references regex symbol manifest manifest fixture manifest
+rust verify manifest the path
+verify context deterministic the contract contract references pack sha256 verify
+call `sha256Hex` before returning.
+rust regex path go context deterministic scanner manifest
+scanner manifest verify go contract benchmark the verify the pack
+pack path path scanner regex
+symbol contract manifest context scanner path sha256
++++ b/cmd/ctx/abhxfv.py
+the rust the symbol the sha256 sha256 contract fixture fixture
+regex references go contract deterministic
+sha256 pack the fixture context references go contract go context
+rust manifest context manifest
+see tests/parity/fjovbe.sh for the implementation.
+symbol rust fixture references fixture sha256 references
+deterministic references pack regex
+the pack fixture rust scanner path context scanner
+symbol context symbol regex sha256 manifest verify sha256 deterministic
+look at crates/ctx-contract/src/xhlziy.py:L338-L354 for context.
+verify go scanner go context contract
+benchmark symbol contract scanner sha256 symbol pack the
+go contract scanner path fixture contract go symbol fixture
+verify contract manifest the
+deterministic references context context regex fixture rust
+call `lookupPath` before returning.
+symbol deterministic contract the sha256 contract path symbol go
+sha256 scanner regex sha256 contract
+go sha256 rust pack verify references the the symbol contract
+context scanner manifest benchmark verify references regex rust go
++++ b/internal/pack/srfrsv.go

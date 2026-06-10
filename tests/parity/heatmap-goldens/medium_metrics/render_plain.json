@@ -1,0 +1,12 @@
+Heatmap (by tokens, root=., total=23,050 tokens)
+
+1. tests — 3,880 tokens (5 files, 25 symbols).
+2. docs — 3,530 tokens (5 files, 20 symbols).
+3. cmd/where — 3,180 tokens (5 files, 15 symbols).
+4. cmd/ctx — 2,830 tokens (5 files, 17 symbols).
+5. internal/web — 2,480 tokens (5 files, 19 symbols).
+6. internal/pack — 2,130 tokens (5 files, 21 symbols).
+7. internal/symbols — 1,780 tokens (5 files, 23 symbols).
+8. internal/walk — 1,430 tokens (5 files, 25 symbols).
+9. internal/heatmap — 1,080 tokens (5 files, 20 symbols).
+10. internal/cli — 730 tokens (5 files, 15 symbols).

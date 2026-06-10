@@ -1,0 +1,8 @@
+{
+  "input_base64": "W3sicGF0aCI6ImIuZ28iLCJzY29yZSI6MC41fSx7InBhdGgiOiJhLmdvIiwic2NvcmUiOjAuOX0seyJwYXRoIjoiYy5nbyIsInNjb3JlIjowLjF9XQ==",
+  "paths": [
+    "a.go",
+    "b.go",
+    "c.go"
+  ]
+}

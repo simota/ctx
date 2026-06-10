@@ -1,0 +1,35 @@
+[package]
+name = "ctx-cli"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Experimental Rust entrypoint for ctx CLI with Go subprocess delegation"
+license = "MIT"
+
+[[bin]]
+name = "ctx"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+ctx-contract = { path = "../ctx-contract" }
+ctx-braid = { path = "../ctx-braid" }
+ctx-echo = { path = "../ctx-echo" }
+ctx-focus = { path = "../ctx-focus" }
+ctx-heatmap = { path = "../ctx-heatmap" }
+ctx-mcp = { path = "../ctx-mcp" }
+ctx-pack = { path = "../ctx-pack" }
+ctx-relations = { path = "../ctx-relations" }
+ctx-replay = { path = "../ctx-replay" }
+ctx-scan = { path = "../ctx-scan" }
+ctx-symbols = { path = "../ctx-symbols" }
+ctx-tokens = { path = "../ctx-tokens" }
+ctx-tui = { path = "../ctx-tui" }
+ctx-web = { path = "../ctx-web" }
+ctx-where = { path = "../ctx-where" }
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tokio = { version = "1", features = ["rt-multi-thread", "signal", "macros"] }
+toml = "0.8"

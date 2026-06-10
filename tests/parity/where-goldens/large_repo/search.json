@@ -1,0 +1,1202 @@
+[
+  {
+    "path": "alpha/alphaa/alphaaa/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphaaa; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphaaa struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphaaa is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphaaa struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphaaa returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphaaa() *Handleralphaaa {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphaaa{ID: 1, Name: \"alphaaa\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphaaa) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphaa/alphaab/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphaab; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphaab struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphaab is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphaab struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphaab returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphaab() *Handleralphaab {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphaab{ID: 1, Name: \"alphaab\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphaab) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphaa/alphaac/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphaac; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphaac struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphaac is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphaac struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphaac returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphaac() *Handleralphaac {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphaac{ID: 1, Name: \"alphaac\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphaac) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphaa/alphaad/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphaad; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphaad struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphaad is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphaad struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphaad returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphaad() *Handleralphaad {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphaad{ID: 1, Name: \"alphaad\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphaad) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphaa/alphaae/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphaae; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphaae struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphaae is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphaae struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphaae returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphaae() *Handleralphaae {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphaae{ID: 1, Name: \"alphaae\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphaae) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphaa/alphaaf/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphaaf; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphaaf struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphaaf is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphaaf struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphaaf returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphaaf() *Handleralphaaf {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphaaf{ID: 1, Name: \"alphaaf\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphaaf) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphaa/alphaag/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphaag; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphaag struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphaag is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphaag struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphaag returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphaag() *Handleralphaag {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphaag{ID: 1, Name: \"alphaag\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphaag) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphaa/alphaah/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphaah; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphaah struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphaah is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphaah struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphaah returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphaah() *Handleralphaah {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphaah{ID: 1, Name: \"alphaah\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphaah) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphaa/alphaai/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphaai; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphaai struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphaai is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphaai struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphaai returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphaai() *Handleralphaai {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphaai{ID: 1, Name: \"alphaai\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphaai) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphaa/alphaaj/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphaaj; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphaaj struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphaaj is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphaaj struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphaaj returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphaaj() *Handleralphaaj {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphaaj{ID: 1, Name: \"alphaaj\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphaaj) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphab/alphaba/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphaba; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphaba struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphaba is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphaba struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphaba returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphaba() *Handleralphaba {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphaba{ID: 1, Name: \"alphaba\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphaba) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphab/alphabb/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphabb; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphabb struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphabb is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphabb struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphabb returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphabb() *Handleralphabb {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphabb{ID: 1, Name: \"alphabb\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphabb) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphab/alphabc/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphabc; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphabc struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphabc is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphabc struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphabc returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphabc() *Handleralphabc {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphabc{ID: 1, Name: \"alphabc\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphabc) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphab/alphabd/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphabd; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphabd struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphabd is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphabd struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphabd returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphabd() *Handleralphabd {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphabd{ID: 1, Name: \"alphabd\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphabd) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphab/alphabe/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphabe; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphabe struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphabe is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphabe struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphabe returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphabe() *Handleralphabe {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphabe{ID: 1, Name: \"alphabe\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphabe) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphab/alphabf/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphabf; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphabf struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphabf is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphabf struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphabf returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphabf() *Handleralphabf {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphabf{ID: 1, Name: \"alphabf\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphabf) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphab/alphabg/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphabg; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphabg struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphabg is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphabg struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphabg returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphabg() *Handleralphabg {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphabg{ID: 1, Name: \"alphabg\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphabg) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphab/alphabh/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphabh; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphabh struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphabh is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphabh struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphabh returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphabh() *Handleralphabh {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphabh{ID: 1, Name: \"alphabh\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphabh) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphab/alphabi/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphabi; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphabi struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphabi is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphabi struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphabi returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphabi() *Handleralphabi {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphabi{ID: 1, Name: \"alphabi\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphabi) ProcessRequest(req string) string {"
+      }
+    ]
+  },
+  {
+    "path": "alpha/alphab/alphabj/handler.go",
+    "score": 43,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 10,
+      "content": 21
+    },
+    "reason": "symbol match: Handleralphabj; content match: handler, relevance; basename match: handler",
+    "matches": [
+      {
+        "line": 4,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Handleralphabj struct {"
+      },
+      {
+        "line": 3,
+        "column": 4,
+        "type": "content",
+        "text": "// Handleralphabj is a synthetic struct."
+      },
+      {
+        "line": 4,
+        "column": 6,
+        "type": "content",
+        "text": "type Handleralphabj struct {"
+      },
+      {
+        "line": 9,
+        "column": 29,
+        "type": "content",
+        "text": "// Newalphabj returns a new handler."
+      },
+      {
+        "line": 10,
+        "column": 20,
+        "type": "content",
+        "text": "func Newalphabj() *Handleralphabj {"
+      },
+      {
+        "line": 11,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Handleralphabj{ID: 1, Name: \"alphabj\"}"
+      },
+      {
+        "line": 14,
+        "column": 50,
+        "type": "content",
+        "text": "// ProcessRequest handles incoming requests with relevance scoring."
+      },
+      {
+        "line": 15,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *Handleralphabj) ProcessRequest(req string) string {"
+      }
+    ]
+  }
+]

@@ -1,0 +1,219 @@
+//! `GET /api/git/*` — incremental port of Go git route boundaries.
+//!
+//! The git producers themselves are still being ported. This module first
+//! mirrors the request validation that happens before any git work in Go, so
+//! individual parity cases can turn green without touching the oracle tests.
+
+use axum::extract::{Query, State};
+use axum::http::StatusCode;
+use axum::response::Response;
+use serde::Deserialize;
+use serde::Serialize;
+
+use crate::response;
+use crate::safepath;
+use crate::AppState;
+
+#[derive(Deserialize)]
+pub struct GitDiffParams {
+    #[serde(default)]
+    path: String,
+}
+
+#[derive(Deserialize)]
+pub struct FileLogParams {
+    #[serde(default)]
+    path: String,
+    #[serde(default)]
+    limit: String,
+}
+
+#[derive(Deserialize)]
+pub struct CommitDiffParams {
+    #[serde(default)]
+    path: String,
+    #[serde(default)]
+    from: String,
+    #[serde(default)]
+    to: String,
+}
+
+#[derive(Serialize)]
+struct GitDiffLine {
+    #[serde(rename = "type")]
+    typ: String,
+    text: String,
+    #[serde(skip_serializing_if = "is_zero")]
+    old_num: i32,
+    #[serde(skip_serializing_if = "is_zero")]
+    new_num: i32,
+}
+
+#[derive(Serialize)]
+struct GitDiffResponse {
+    path: String,
+    #[serde(skip_serializing_if = "is_false")]
+    added: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    deleted: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    binary: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    no_change: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    truncated: bool,
+    lines: Vec<GitDiffLine>,
+}
+
+#[derive(Serialize)]
+struct FileLogEntry {
+    hash: String,
+    hash_full: String,
+    author: String,
+    author_email: String,
+    subject: String,
+    date: i64,
+}
+
+#[derive(Serialize)]
+struct FileLogResponse {
+    path: String,
+    commits: Vec<FileLogEntry>,
+    truncated: bool,
+}
+
+pub async fn handle_diff(
+    State(state): State<AppState>,
+    Query(params): Query<GitDiffParams>,
+) -> Response {
+    if params.path.is_empty() {
+        return response::error(StatusCode::BAD_REQUEST, "bad_request", "path is required");
+    }
+    let target = match safepath::resolve(&state.root, &params.path) {
+        Ok(target) => target,
+        Err(err) => return response::bad_path(err),
+    };
+    let rel_slash = relative_to_root(&state.root, &target);
+
+    match ctx_git::worktree_diff(&state.root, &rel_slash) {
+        Ok(diff) => response::json(StatusCode::OK, &GitDiffResponse::from(diff)),
+        Err(err) => response::error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "git_diff",
+            &err.to_string(),
+        ),
+    }
+}
+
+pub async fn handle_file_log(
+    State(state): State<AppState>,
+    Query(params): Query<FileLogParams>,
+) -> Response {
+    if params.path.is_empty() {
+        return response::error(StatusCode::BAD_REQUEST, "bad_request", "path is required");
+    }
+    let target = match safepath::resolve(&state.root, &params.path) {
+        Ok(target) => target,
+        Err(err) => return response::bad_path(err),
+    };
+    let rel_slash = relative_to_root(&state.root, &target);
+    let mut limit = params.limit.parse::<i32>().unwrap_or(50);
+    limit = limit.clamp(1, 200);
+
+    match ctx_git::file_log(&state.root, &rel_slash, limit as usize) {
+        Ok((entries, truncated)) => response::json(
+            StatusCode::OK,
+            &FileLogResponse {
+                path: rel_slash,
+                commits: entries
+                    .into_iter()
+                    .map(|entry| FileLogEntry {
+                        hash: entry.hash,
+                        hash_full: entry.hash_full,
+                        author: entry.author,
+                        author_email: entry.author_email,
+                        subject: entry.subject,
+                        date: entry.date,
+                    })
+                    .collect(),
+                truncated,
+            },
+        ),
+        Err(err) => response::error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "git_file_log",
+            &err.to_string(),
+        ),
+    }
+}
+
+pub async fn handle_commit_diff(
+    State(state): State<AppState>,
+    Query(params): Query<CommitDiffParams>,
+) -> Response {
+    if params.path.is_empty() {
+        return response::error(StatusCode::BAD_REQUEST, "bad_request", "path is required");
+    }
+    if params.from.is_empty() || params.to.is_empty() {
+        return response::error(
+            StatusCode::BAD_REQUEST,
+            "bad_request",
+            "from and to are required",
+        );
+    }
+
+    let target = match safepath::resolve(&state.root, &params.path) {
+        Ok(target) => target,
+        Err(err) => return response::bad_path(err),
+    };
+    let rel_slash = relative_to_root(&state.root, &target);
+
+    match ctx_git::commit_diff(&state.root, &params.from, &params.to, &rel_slash) {
+        Ok(diff) => response::json(StatusCode::OK, &GitDiffResponse::from(diff)),
+        Err(err) => response::error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "git_commit_diff",
+            &err.to_string(),
+        ),
+    }
+}
+
+impl From<ctx_git::WorktreeFileDiff> for GitDiffResponse {
+    fn from(diff: ctx_git::WorktreeFileDiff) -> Self {
+        Self {
+            path: diff.path,
+            added: diff.added,
+            deleted: diff.deleted,
+            binary: diff.binary,
+            no_change: diff.no_change,
+            truncated: diff.truncated,
+            lines: diff
+                .lines
+                .into_iter()
+                .map(|line| GitDiffLine {
+                    typ: line.typ,
+                    text: line.text,
+                    old_num: line.old_num,
+                    new_num: line.new_num,
+                })
+                .collect(),
+        }
+    }
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
+fn is_zero(value: &i32) -> bool {
+    *value == 0
+}
+
+fn relative_to_root(root: &str, target: &std::path::Path) -> String {
+    let abs_root = std::fs::canonicalize(root).unwrap_or_else(|_| std::path::PathBuf::from(root));
+    target
+        .strip_prefix(&abs_root)
+        .unwrap_or(target)
+        .to_string_lossy()
+        .replace(std::path::MAIN_SEPARATOR, "/")
+}

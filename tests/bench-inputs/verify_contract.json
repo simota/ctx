@@ -1,0 +1,495 @@
+{
+  "schema_version": 1,
+  "created": "2026-05-29T00:00:00Z",
+  "files": [
+    {
+      "path": "internal/contract/file_000.go",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "9f947e54c61c9a117c4ce393cd68b0d86757a87df7bea4cd192f3b4b92647a52",
+      "symbols": [
+        "Verify",
+        "Build"
+      ]
+    },
+    {
+      "path": "internal/pack/file_001.ts",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "aded45b929ec7d3cac409b7fbb97be25b97448fe0f24a82efe84a6a18a44383a",
+      "symbols": [
+        "Build",
+        "StripContractBlock"
+      ]
+    },
+    {
+      "path": "internal/limit/file_002.py",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "e84ec77fc2065e27a3923a51c9e9ca5bb9603f7a93b55c62dfa33c8b9edb11be",
+      "symbols": [
+        "ExtractReferences"
+      ]
+    },
+    {
+      "path": "cmd/ctx/file_003.rs",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "96b7d567eac0072c527524eb366fd09b37462d8260b79dd4b4e3d19728ded0ad",
+      "symbols": [
+        "ParseFromPack"
+      ]
+    },
+    {
+      "path": "web/src/pages/file_004.md",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "10a40eac25e7d345731533576446984824dfbcf3c76c36763f82c85d5005e749",
+      "symbols": [
+        "ExtractReferences",
+        "ParseFromPack",
+        "Embed"
+      ]
+    },
+    {
+      "path": "internal/contract/file_005.go",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "26b07dec03f4b9945dd6d22897dc0a30877b409740d06cae76ae5c5a004d5058",
+      "symbols": [
+        "rangeContained"
+      ]
+    },
+    {
+      "path": "internal/pack/file_006.ts",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "8a692a9c2228c6046bf17f69f5314fac8ef66595fa2319d379e24b41658f4978",
+      "symbols": [
+        "lookupPath"
+      ]
+    },
+    {
+      "path": "internal/limit/file_007.py",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "12d475dc1edc6a850db592a749aa99ad33ab1b9ef4ec340241b6cf90742f3260",
+      "symbols": [
+        "Format",
+        "rangeContained"
+      ]
+    },
+    {
+      "path": "cmd/ctx/file_008.rs",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "b6e7706def7a3aa720d507f603e16966c746125a3aad39ce7f8afe33245fe97b",
+      "symbols": [
+        "ExtractReferences",
+        "Verify",
+        "Build"
+      ]
+    },
+    {
+      "path": "web/src/pages/file_009.md",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "bbf99c67b29a420d678a4800946eaa7650053cd9a2332614fed767e98816aefa",
+      "symbols": [
+        "lookupPath",
+        "ToJSONField"
+      ]
+    },
+    {
+      "path": "internal/contract/file_010.go",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "a0687e29c0a6c74d535dfcacfd3f8a46a54f20b73e942077c4a380a4a362f0f8",
+      "symbols": [
+        "ToJSONField",
+        "Embed"
+      ]
+    },
+    {
+      "path": "internal/pack/file_011.ts",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "95a7b8de606718da7839cdb463c8c255fbb4b5c3c6540493296ab3219b098731",
+      "symbols": [
+        "ParseFromPack"
+      ]
+    },
+    {
+      "path": "internal/limit/file_012.py",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "a4da36580155a2b4d729f94ee65622f34db931d7bf074b244e09e8c1552ac331",
+      "symbols": [
+        "lookupPath",
+        "Verify"
+      ]
+    },
+    {
+      "path": "cmd/ctx/file_013.rs",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "f77ec7e54c212d4b0bcc64418239ef7520c6d1d05f50fc5754ceee13964b18c3",
+      "symbols": [
+        "StripContractBlock"
+      ]
+    },
+    {
+      "path": "web/src/pages/file_014.md",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "35e18c6dc2164b5ccd334d756743335e10d495b12f7666e2cfd2876614cb563b",
+      "symbols": [
+        "Verify"
+      ]
+    },
+    {
+      "path": "internal/contract/file_015.go",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "37d1f0a643ec13fd96235f7b9b5488b0ac6d08b4f1483845a9698ce673224d7b",
+      "symbols": [
+        "StripContractBlock",
+        "lookupPath",
+        "Verify"
+      ]
+    },
+    {
+      "path": "internal/pack/file_016.ts",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "489e0f1ee66f51ccc21a6fd0f0f15d0a25636bac65b1058c10433b434534e5b0",
+      "symbols": [
+        "Embed",
+        "Build"
+      ]
+    },
+    {
+      "path": "internal/limit/file_017.py",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "0138f3db706f73054ba71d0a2114a1b9b25a55f33b0a0a24e088e1ee7d61559b",
+      "symbols": [
+        "Format",
+        "ToJSONField"
+      ]
+    },
+    {
+      "path": "cmd/ctx/file_018.rs",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "979bfc20ab4ce59908f29c373f85110cc96d3e7accf6a33b68c73dbed4ab7edc",
+      "symbols": [
+        "Format",
+        "StripContractBlock",
+        "Embed"
+      ]
+    },
+    {
+      "path": "web/src/pages/file_019.md",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "57d391bc96593fe34ccd876b61c041b72d6865c9c46fcf8862566a25029ba3ae",
+      "symbols": [
+        "Embed"
+      ]
+    },
+    {
+      "path": "internal/contract/file_020.go",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "d9538060af108d826a9043160cb59b57368be910ea7cfb59b56d6143fcbe080b",
+      "symbols": [
+        "rangeContained",
+        "Verify",
+        "Format"
+      ]
+    },
+    {
+      "path": "internal/pack/file_021.ts",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "fbcdf0271ae76cb4ef2b2ad54b7868813fb5e549ce70ba3378999e3ebed7c384",
+      "symbols": [
+        "ParseFromPack"
+      ]
+    },
+    {
+      "path": "internal/limit/file_022.py",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "503cfb34023ea593af9156eeea1ca27845c3e5390b08e56653709a2bbf00d7c9",
+      "symbols": [
+        "Build",
+        "ParseFromPack",
+        "ExtractReferences"
+      ]
+    },
+    {
+      "path": "cmd/ctx/file_023.rs",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "cd76830730aea8367b5b849d875bdd85ae3e721a6134d3c0256acd24895b211f",
+      "symbols": [
+        "ToJSONField"
+      ]
+    },
+    {
+      "path": "web/src/pages/file_024.md",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "647ee9bf2c5dacf65af6949dc30f9af43704b3726d83234a276898a83da7f8ea",
+      "symbols": [
+        "StripContractBlock"
+      ]
+    },
+    {
+      "path": "internal/contract/file_025.go",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "58284e9f0d7526cbc6ff3ac9f67295e3d9db6eec2a9c26b4fa28e434d46ae1ed",
+      "symbols": [
+        "ToJSONField",
+        "Embed",
+        "StripContractBlock"
+      ]
+    },
+    {
+      "path": "internal/pack/file_026.ts",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "21bb0528a1d2f20322043de726eaf84d147d546e756c608bb1dca21860b74dd0",
+      "symbols": [
+        "StripContractBlock"
+      ]
+    },
+    {
+      "path": "internal/limit/file_027.py",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "7970469c399c249808f2e424f985b46d0e9f1bc817639975ca7321d47923952e",
+      "symbols": [
+        "ToJSONField"
+      ]
+    },
+    {
+      "path": "cmd/ctx/file_028.rs",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "e4cd635e278720017d240afe7833f8c52b7f35010634d1724da7265d9473d07b",
+      "symbols": [
+        "ExtractReferences",
+        "Embed",
+        "StripContractBlock"
+      ]
+    },
+    {
+      "path": "web/src/pages/file_029.md",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "3ef2b5a2f4f1503246d1027f65a09c44b8587eb7618bd0e247da7382453be732",
+      "symbols": [
+        "ExtractReferences",
+        "ParseFromPack"
+      ]
+    },
+    {
+      "path": "internal/contract/file_030.go",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "84a7a4ac7473d002f526e302658390b9dd792763c3e6349a5a833077f0334318",
+      "symbols": [
+        "ExtractReferences",
+        "ParseFromPack",
+        "Verify"
+      ]
+    },
+    {
+      "path": "internal/pack/file_031.ts",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "10fc9634df63677b19163f8407b1e469a017c02b1039770681c262c156b40cad",
+      "symbols": [
+        "ParseFromPack",
+        "Embed"
+      ]
+    },
+    {
+      "path": "internal/limit/file_032.py",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "cb671d3ae9c1f5ecf148b24c902509b074a5d1e5387b4ebdc1a7a24488b9397f",
+      "symbols": [
+        "rangeContained"
+      ]
+    },
+    {
+      "path": "cmd/ctx/file_033.rs",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "16e4d10eea5bd10d73c008a13cb3d641d32f440c0574d88f6d84c0acf07d3ce9",
+      "symbols": [
+        "ToJSONField"
+      ]
+    },
+    {
+      "path": "web/src/pages/file_034.md",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "91191492c2ac2f0579061c983ddd94fd446eac6e861bf17585be1b8a3d8534b6",
+      "symbols": [
+        "Format"
+      ]
+    },
+    {
+      "path": "internal/contract/file_035.go",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "35ba1c6c3f08216611e9b4a0302133d0d78b7bf7cf88cc5e850f76178f01d0b3",
+      "symbols": [
+        "ExtractReferences"
+      ]
+    },
+    {
+      "path": "internal/pack/file_036.ts",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "7c78c244542a60c9f26de1ebed1ffe0d3020d69966650de0b89f5b26f4101810",
+      "symbols": [
+        "lookupPath",
+        "Embed"
+      ]
+    },
+    {
+      "path": "internal/limit/file_037.py",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "3236da7aa0ddb3d1237ba599de74d5e9a5eb4d0a45cd633b44141d20cb595839",
+      "symbols": [
+        "Verify",
+        "StripContractBlock",
+        "Build"
+      ]
+    },
+    {
+      "path": "cmd/ctx/file_038.rs",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "99194657e18aef7b7d25d59d2794e9eb429a48df554ac329afe2ae5d13cb25fe",
+      "symbols": [
+        "Embed"
+      ]
+    },
+    {
+      "path": "web/src/pages/file_039.md",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "ec91bf4a740eae5f401beac7d83fc7d28f3a9926e7dbeb669be723974748a4d1",
+      "symbols": [
+        "Build",
+        "StripContractBlock"
+      ]
+    },
+    {
+      "path": "internal/contract/file_040.go",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "80b1d6be09cd15d0f53a816857c5a03613d3f64ae74325da5322d0110f53ad8d",
+      "symbols": [
+        "rangeContained",
+        "Build",
+        "Format"
+      ]
+    },
+    {
+      "path": "internal/pack/file_041.ts",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "90cfd311d1a823eddfec5bdf2d8b24954e957ff47b6bc9fdeb1c420b8a9be39e",
+      "symbols": [
+        "Format"
+      ]
+    },
+    {
+      "path": "internal/limit/file_042.py",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "ecb9d83801f0c48088b1fcb1fc12e456ebd152876b12a940e05fa35882c053fd",
+      "symbols": [
+        "Format"
+      ]
+    },
+    {
+      "path": "cmd/ctx/file_043.rs",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "d53bd84c15a16ad485ac41e04e9fe65bbfef0b76c977728fc82a21633c06eb02",
+      "symbols": [
+        "ParseFromPack",
+        "ToJSONField"
+      ]
+    },
+    {
+      "path": "web/src/pages/file_044.md",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "8cab20f60f6a5577cd7aa43d0adb020da8c281b19b6f8566a7adc5fcd56121d7",
+      "symbols": [
+        "ToJSONField",
+        "StripContractBlock"
+      ]
+    },
+    {
+      "path": "internal/contract/file_045.go",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "edcb9e1525544b34e6ed7f1e8f8d68dcccad7119fea0f34f41a5a04f5725e835",
+      "symbols": [
+        "lookupPath"
+      ]
+    },
+    {
+      "path": "internal/pack/file_046.ts",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "580d9f61c975252b990e0dd2fa508523a75f1070680f77977100c53a9c9f3131",
+      "symbols": [
+        "ExtractReferences",
+        "lookupPath"
+      ]
+    },
+    {
+      "path": "internal/limit/file_047.py",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "a9fe72140e1314a1eba4cec64f4f9e077e631de8f643c9917bd678586e94be13",
+      "symbols": [
+        "lookupPath"
+      ]
+    },
+    {
+      "path": "cmd/ctx/file_048.rs",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "1556738092cb5dc048e3a811f2eef653d4a12ce774f7845b98cc985280bfd549",
+      "symbols": [
+        "lookupPath",
+        "StripContractBlock"
+      ]
+    },
+    {
+      "path": "web/src/pages/file_049.md",
+      "line_start": 1,
+      "line_end": 200,
+      "sha256": "e2b4830dbb92b5c794efc5c826c0d1f8866f6f791caa29bf6eb4a6b1d357bb32",
+      "symbols": [
+        "ToJSONField",
+        "ExtractReferences"
+      ]
+    }
+  ]
+}

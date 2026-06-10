@@ -1,0 +1,72 @@
+[
+  {
+    "Path": "cmd/ctx",
+    "Tokens": 2830,
+    "Files": 5,
+    "Symbols": 17,
+    "Weight": 5
+  },
+  {
+    "Path": "cmd/where",
+    "Tokens": 3180,
+    "Files": 5,
+    "Symbols": 15,
+    "Weight": 5
+  },
+  {
+    "Path": "docs",
+    "Tokens": 3530,
+    "Files": 5,
+    "Symbols": 20,
+    "Weight": 5
+  },
+  {
+    "Path": "internal/cli",
+    "Tokens": 730,
+    "Files": 5,
+    "Symbols": 15,
+    "Weight": 5
+  },
+  {
+    "Path": "internal/heatmap",
+    "Tokens": 1080,
+    "Files": 5,
+    "Symbols": 20,
+    "Weight": 5
+  },
+  {
+    "Path": "internal/pack",
+    "Tokens": 2130,
+    "Files": 5,
+    "Symbols": 21,
+    "Weight": 5
+  },
+  {
+    "Path": "internal/symbols",
+    "Tokens": 1780,
+    "Files": 5,
+    "Symbols": 23,
+    "Weight": 5
+  },
+  {
+    "Path": "internal/walk",
+    "Tokens": 1430,
+    "Files": 5,
+    "Symbols": 25,
+    "Weight": 5
+  },
+  {
+    "Path": "internal/web",
+    "Tokens": 2480,
+    "Files": 5,
+    "Symbols": 19,
+    "Weight": 5
+  },
+  {
+    "Path": "tests",
+    "Tokens": 3880,
+    "Files": 5,
+    "Symbols": 25,
+    "Weight": 5
+  }
+]

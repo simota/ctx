@@ -1,0 +1,510 @@
+{
+  "anchor": {
+    "Kind": "symbol",
+    "Raw": "Score",
+    "Name": "Score",
+    "OriginPath": "internal/where/score.go"
+  },
+  "files": [
+    {
+      "Path": "internal/where/score.go",
+      "Reason": "anchor-origin",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/where/score_test.go",
+      "Reason": "same-dir",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/where/where.go",
+      "Reason": "same-dir",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg00/file00.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg00/file01.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg00/file02.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg00/file03.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg00/file04.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg00/file05.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg00/file06.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg00/file07.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg00/file08.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg00/file09.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg00/file10.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg00/file11.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg00/uses_score.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg01/file00.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg01/file01.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg01/file02.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg01/file03.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg01/file04.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg01/file05.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg01/file06.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg01/file07.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg01/file08.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg01/file09.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg01/file10.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg01/file11.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg02/file00.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg02/file01.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg02/file02.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg02/file03.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg02/file04.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg02/file05.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg02/file06.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg02/file07.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg02/file08.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg02/file09.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg02/file10.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg02/file11.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg03/file00.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg03/file01.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg03/file02.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg03/file03.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg03/file04.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg03/file05.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg03/file06.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg03/file07.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg03/file08.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg03/file09.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg03/file10.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg03/file11.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg04/file00.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg04/file01.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg04/file02.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg04/file03.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg04/file04.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg04/file05.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg04/file06.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg04/file07.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg04/file08.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg04/file09.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg04/file10.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg04/file11.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg05/file00.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg05/file01.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg05/file02.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg05/file03.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg05/file04.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg05/file05.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg05/file06.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg05/file07.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg05/file08.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg05/file09.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg05/file10.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg05/file11.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg06/file00.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg06/file01.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg06/file02.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg06/file03.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg06/file04.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg06/file05.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg06/file06.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg06/file07.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg06/file08.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg06/file09.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg06/file10.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg06/file11.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg07/file00.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg07/file01.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg07/file02.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg07/file03.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg07/file04.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg07/file05.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg07/file06.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg07/file07.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg07/file08.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg07/file09.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg07/file10.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    },
+    {
+      "Path": "internal/pkg07/file11.go",
+      "Reason": "name-match",
+      "Tokens": 0
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+03c856db3a41c0e8e1690754c09872e1becbbba21f28eb6bcfeafe724bb73f81 loops/go-mcp/goal.md
+5475352024ae609fbabc77fe157dbc4869bbe1f0723b4db23a1590269505f358 loops/go-mcp/verify.sh
+06513c7857611fa11b06cdc02c3c4454a354b029735174d612f13aa409df1db6 loops/go-mcp/run-loop.sh
+1a8b5d80dc7a806a2019780712b8a721b7cc6cca0ad633dffdf13836d32fe90f crates/ctx-mcp/tests/parity.rs

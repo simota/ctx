@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" viewBox="0 0 80 20" width="960" height="240">
+  <title id="title">Heatmap by tokens</title>
+  <desc id="desc">root=., total=4,310 tokens</desc>
+  <style>
+    .cell rect { stroke: #172554; stroke-width: 0.14; }
+    .cell text { fill: #111827; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 1.2px; pointer-events: none; }
+    .cell .metric { fill: #374151; font-size: 1px; }
+    .over-budget rect { stroke-dasharray: 0.8 0.5; }
+  </style>
+  <g class="cell" data-path="internal/cli">
+    <title>internal/cli - 2,790 tokens, 3 files, 39 symbols</title>
+    <rect x="0" y="0" width="52" height="20" fill="#7dd3fc"/>
+    <clipPath id="cell-clip-0"><rect x="0" y="0" width="52" height="20"/></clipPath>
+    <g clip-path="url(#cell-clip-0)">
+      <text x="0.7" y="1.6">internal/cli</text>
+      <text class="metric" x="0.7" y="3.0">2,790t 3f 39s</text>
+    </g>
+  </g>
+  <g class="cell" data-path="internal/walk">
+    <title>internal/walk - 900 tokens, 2 files, 12 symbols</title>
+    <rect x="52" y="0" width="17" height="20" fill="#fca5a5"/>
+    <clipPath id="cell-clip-1"><rect x="52" y="0" width="17" height="20"/></clipPath>
+    <g clip-path="url(#cell-clip-1)">
+      <text x="52.7" y="1.6">internal/walk</text>
+      <text class="metric" x="52.7" y="3.0">900t 2f 12s</text>
+    </g>
+  </g>
+  <g class="cell" data-path=".">
+    <title>&lt;root&gt; - 480 tokens, 1 files, 0 symbols</title>
+    <rect x="69" y="0" width="11" height="16" fill="#86efac"/>
+    <clipPath id="cell-clip-2"><rect x="69" y="0" width="11" height="16"/></clipPath>
+    <g clip-path="url(#cell-clip-2)">
+      <text x="69.7" y="1.6">&lt;root&gt;</text>
+      <text class="metric" x="69.7" y="3.0">480t 1f 0s</text>
+    </g>
+  </g>
+  <g class="cell" data-path="cmd/ctx">
+    <title>cmd/ctx - 140 tokens, 1 files, 1 symbols</title>
+    <rect x="69" y="16" width="11" height="4" fill="#fde68a"/>
+    <clipPath id="cell-clip-3"><rect x="69" y="16" width="11" height="4"/></clipPath>
+    <g clip-path="url(#cell-clip-3)">
+      <text x="69.7" y="17.6">cmd/ctx</text>
+    </g>
+  </g>
+</svg>

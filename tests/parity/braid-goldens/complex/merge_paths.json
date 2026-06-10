@@ -1,0 +1,74 @@
+[
+  {
+    "path": "internal/router/handler.go",
+    "origin": "broad-where"
+  },
+  {
+    "path": "internal/cli/where.go",
+    "origin": "broad-where"
+  },
+  {
+    "path": "internal/cli/focus.go",
+    "origin": "broad-where"
+  },
+  {
+    "path": "internal/walk/walk.go",
+    "origin": "broad-where"
+  },
+  {
+    "path": "internal/pack/pack.go",
+    "origin": "broad-where"
+  },
+  {
+    "path": "internal/heatmap/heatmap.go",
+    "origin": "broad-where"
+  },
+  {
+    "path": "internal/digest/digest.go",
+    "origin": "broad-where"
+  },
+  {
+    "path": "internal/symbols/extract.go",
+    "origin": "broad-where"
+  },
+  {
+    "path": "internal/where/search.go",
+    "origin": "broad-where"
+  },
+  {
+    "path": "internal/payment/processor.go",
+    "origin": "deep-focus"
+  },
+  {
+    "path": "internal/payment/validator.go",
+    "origin": "deep-focus"
+  },
+  {
+    "path": "internal/router/router.go",
+    "origin": "deep-focus"
+  },
+  {
+    "path": "internal/payment/retry.go",
+    "origin": "deep-focus"
+  },
+  {
+    "path": "internal/payment/idempotency.go",
+    "origin": "deep-focus"
+  },
+  {
+    "path": "internal/cli/braid.go",
+    "origin": "hot-changes"
+  },
+  {
+    "path": "internal/heatmap/squarify.go",
+    "origin": "hot-changes"
+  },
+  {
+    "path": "internal/metrics/collect.go",
+    "origin": "tail-where"
+  },
+  {
+    "path": "internal/metrics/prometheus.go",
+    "origin": "tail-where"
+  }
+]

@@ -1,0 +1,23 @@
+{
+  "allocations": [
+    {
+      "Name": "api",
+      "Share": 0.4,
+      "Budget": 12800,
+      "Policy": "merge"
+    },
+    {
+      "Name": "recent",
+      "Share": 0.3,
+      "Budget": 9600,
+      "Policy": "prefer-newer"
+    },
+    {
+      "Name": "anchor",
+      "Share": 0.3,
+      "Budget": 9600,
+      "Policy": "merge"
+    }
+  ],
+  "warning": ""
+}

@@ -1,0 +1,14 @@
+language = "C"
+include_guard = "CTX_HEATMAP_H"
+header = "/* ctx-heatmap — Phase 4 heatmap port FFI surface. AUTO-GENERATED. */"
+autogen_warning = "/* Do not edit — regenerate via cargo build. */"
+no_includes = false
+sys_includes = ["stddef.h", "stdint.h"]
+style = "type"
+cpp_compat = true
+
+[export]
+prefix = ""
+
+[parse]
+parse_deps = false

@@ -1,0 +1,1786 @@
+[
+  {
+    "path": ".",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "cmd",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "cmd/main.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "main",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package main",
+      "func main() {}"
+    ]
+  },
+  {
+    "path": "internal",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/pkg00",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/pkg00/file00.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op00_00",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg00",
+      "",
+      "func Op00_00() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg00/file01.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op00_01",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg00",
+      "",
+      "func Op00_01() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg00/file02.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op00_02",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg00",
+      "",
+      "func Op00_02() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg00/file03.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op00_03",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg00",
+      "",
+      "func Op00_03() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg00/file04.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op00_04",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg00",
+      "",
+      "func Op00_04() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg00/file05.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op00_05",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg00",
+      "",
+      "func Op00_05() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg00/file06.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op00_06",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg00",
+      "",
+      "func Op00_06() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg00/file07.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op00_07",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg00",
+      "",
+      "func Op00_07() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg00/file08.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op00_08",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg00",
+      "",
+      "func Op00_08() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg00/file09.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op00_09",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg00",
+      "",
+      "func Op00_09() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg00/file10.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op00_10",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg00",
+      "",
+      "func Op00_10() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg00/file11.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op00_11",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg00",
+      "",
+      "func Op00_11() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg00/uses_score.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Caller",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg00",
+      "// uses Score from where pkg here",
+      "func Caller() {}"
+    ]
+  },
+  {
+    "path": "internal/pkg01",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/pkg01/file00.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op01_00",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg01",
+      "",
+      "func Op01_00() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg01/file01.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op01_01",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg01",
+      "",
+      "func Op01_01() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg01/file02.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op01_02",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg01",
+      "",
+      "func Op01_02() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg01/file03.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op01_03",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg01",
+      "",
+      "func Op01_03() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg01/file04.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op01_04",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg01",
+      "",
+      "func Op01_04() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg01/file05.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op01_05",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg01",
+      "",
+      "func Op01_05() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg01/file06.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op01_06",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg01",
+      "",
+      "func Op01_06() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg01/file07.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op01_07",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg01",
+      "",
+      "func Op01_07() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg01/file08.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op01_08",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg01",
+      "",
+      "func Op01_08() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg01/file09.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op01_09",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg01",
+      "",
+      "func Op01_09() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg01/file10.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op01_10",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg01",
+      "",
+      "func Op01_10() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg01/file11.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op01_11",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg01",
+      "",
+      "func Op01_11() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg02",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/pkg02/file00.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op02_00",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg02",
+      "",
+      "func Op02_00() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg02/file01.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op02_01",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg02",
+      "",
+      "func Op02_01() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg02/file02.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op02_02",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg02",
+      "",
+      "func Op02_02() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg02/file03.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op02_03",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg02",
+      "",
+      "func Op02_03() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg02/file04.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op02_04",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg02",
+      "",
+      "func Op02_04() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg02/file05.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op02_05",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg02",
+      "",
+      "func Op02_05() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg02/file06.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op02_06",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg02",
+      "",
+      "func Op02_06() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg02/file07.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op02_07",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg02",
+      "",
+      "func Op02_07() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg02/file08.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op02_08",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg02",
+      "",
+      "func Op02_08() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg02/file09.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op02_09",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg02",
+      "",
+      "func Op02_09() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg02/file10.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op02_10",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg02",
+      "",
+      "func Op02_10() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg02/file11.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op02_11",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg02",
+      "",
+      "func Op02_11() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg03",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/pkg03/file00.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op03_00",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg03",
+      "",
+      "func Op03_00() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg03/file01.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op03_01",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg03",
+      "",
+      "func Op03_01() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg03/file02.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op03_02",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg03",
+      "",
+      "func Op03_02() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg03/file03.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op03_03",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg03",
+      "",
+      "func Op03_03() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg03/file04.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op03_04",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg03",
+      "",
+      "func Op03_04() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg03/file05.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op03_05",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg03",
+      "",
+      "func Op03_05() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg03/file06.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op03_06",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg03",
+      "",
+      "func Op03_06() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg03/file07.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op03_07",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg03",
+      "",
+      "func Op03_07() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg03/file08.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op03_08",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg03",
+      "",
+      "func Op03_08() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg03/file09.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op03_09",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg03",
+      "",
+      "func Op03_09() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg03/file10.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op03_10",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg03",
+      "",
+      "func Op03_10() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg03/file11.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op03_11",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg03",
+      "",
+      "func Op03_11() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg04",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/pkg04/file00.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op04_00",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg04",
+      "",
+      "func Op04_00() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg04/file01.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op04_01",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg04",
+      "",
+      "func Op04_01() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg04/file02.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op04_02",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg04",
+      "",
+      "func Op04_02() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg04/file03.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op04_03",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg04",
+      "",
+      "func Op04_03() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg04/file04.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op04_04",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg04",
+      "",
+      "func Op04_04() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg04/file05.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op04_05",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg04",
+      "",
+      "func Op04_05() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg04/file06.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op04_06",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg04",
+      "",
+      "func Op04_06() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg04/file07.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op04_07",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg04",
+      "",
+      "func Op04_07() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg04/file08.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op04_08",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg04",
+      "",
+      "func Op04_08() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg04/file09.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op04_09",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg04",
+      "",
+      "func Op04_09() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg04/file10.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op04_10",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg04",
+      "",
+      "func Op04_10() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg04/file11.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op04_11",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg04",
+      "",
+      "func Op04_11() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg05",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/pkg05/file00.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op05_00",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg05",
+      "",
+      "func Op05_00() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg05/file01.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op05_01",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg05",
+      "",
+      "func Op05_01() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg05/file02.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op05_02",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg05",
+      "",
+      "func Op05_02() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg05/file03.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op05_03",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg05",
+      "",
+      "func Op05_03() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg05/file04.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op05_04",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg05",
+      "",
+      "func Op05_04() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg05/file05.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op05_05",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg05",
+      "",
+      "func Op05_05() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg05/file06.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op05_06",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg05",
+      "",
+      "func Op05_06() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg05/file07.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op05_07",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg05",
+      "",
+      "func Op05_07() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg05/file08.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op05_08",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg05",
+      "",
+      "func Op05_08() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg05/file09.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op05_09",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg05",
+      "",
+      "func Op05_09() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg05/file10.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op05_10",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg05",
+      "",
+      "func Op05_10() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg05/file11.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op05_11",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg05",
+      "",
+      "func Op05_11() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg06",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/pkg06/file00.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op06_00",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg06",
+      "",
+      "func Op06_00() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg06/file01.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op06_01",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg06",
+      "",
+      "func Op06_01() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg06/file02.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op06_02",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg06",
+      "",
+      "func Op06_02() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg06/file03.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op06_03",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg06",
+      "",
+      "func Op06_03() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg06/file04.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op06_04",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg06",
+      "",
+      "func Op06_04() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg06/file05.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op06_05",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg06",
+      "",
+      "func Op06_05() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg06/file06.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op06_06",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg06",
+      "",
+      "func Op06_06() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg06/file07.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op06_07",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg06",
+      "",
+      "func Op06_07() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg06/file08.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op06_08",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg06",
+      "",
+      "func Op06_08() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg06/file09.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op06_09",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg06",
+      "",
+      "func Op06_09() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg06/file10.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op06_10",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg06",
+      "",
+      "func Op06_10() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg06/file11.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op06_11",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg06",
+      "",
+      "func Op06_11() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg07",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/pkg07/file00.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op07_00",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg07",
+      "",
+      "func Op07_00() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg07/file01.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op07_01",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg07",
+      "",
+      "func Op07_01() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg07/file02.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op07_02",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg07",
+      "",
+      "func Op07_02() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg07/file03.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op07_03",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg07",
+      "",
+      "func Op07_03() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg07/file04.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op07_04",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg07",
+      "",
+      "func Op07_04() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg07/file05.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op07_05",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg07",
+      "",
+      "func Op07_05() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg07/file06.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op07_06",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg07",
+      "",
+      "func Op07_06() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg07/file07.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op07_07",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg07",
+      "",
+      "func Op07_07() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg07/file08.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op07_08",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg07",
+      "",
+      "func Op07_08() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg07/file09.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op07_09",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg07",
+      "",
+      "func Op07_09() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg07/file10.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op07_10",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg07",
+      "",
+      "func Op07_10() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/pkg07/file11.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Op07_11",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pkg07",
+      "",
+      "func Op07_11() {}",
+      "// references Score in comment"
+    ]
+  },
+  {
+    "path": "internal/where",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/where/score.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Score",
+        "kind": "function",
+        "line": 4
+      }
+    ],
+    "lines": [
+      "package where",
+      "",
+      "// Score ranks results.",
+      "func Score(x int) int { return x }"
+    ]
+  },
+  {
+    "path": "internal/where/score_test.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "TestScore",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package where",
+      "import \"testing\"",
+      "func TestScore(t *testing.T) { Score(1) }"
+    ]
+  },
+  {
+    "path": "internal/where/where.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Search",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package where",
+      "",
+      "func Search() int { return Score(0) }"
+    ]
+  }
+]

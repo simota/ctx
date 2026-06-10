@@ -1,0 +1,56 @@
+{
+  "input_pack_bytes": 22,
+  "patched_pack": {
+    "contract": {
+      "created": "2026-05-29T00:00:00Z",
+      "files": [
+        {
+          "line_end": 1,
+          "line_hashes": [
+            {
+              "line": 1,
+              "sha256": "1058745a48243627fb52bf0d294853e6d20e466e3a598ef117e6a0f9f11c2809"
+            }
+          ],
+          "line_start": 1,
+          "path": "README.md",
+          "sha256": "1058745a48243627fb52bf0d294853e6d20e466e3a598ef117e6a0f9f11c2809"
+        },
+        {
+          "line_end": 1,
+          "line_hashes": [
+            {
+              "line": 1,
+              "sha256": "606e9e0f80b445b4ec29c3646e505a5580176ef6d8847ebc2077460a147ffa23"
+            }
+          ],
+          "line_start": 1,
+          "path": "src/auth/token.py",
+          "sha256": "606e9e0f80b445b4ec29c3646e505a5580176ef6d8847ebc2077460a147ffa23",
+          "symbols": [
+            "TokenStore",
+            "sign_token"
+          ]
+        },
+        {
+          "line_end": 1,
+          "line_hashes": [
+            {
+              "line": 1,
+              "sha256": "9ff10f7d0660a72a9fa8b54dbb03914aad02c32627f079c2bb8a867be96f19b9"
+            }
+          ],
+          "line_start": 1,
+          "path": "src/auth/token.ts",
+          "sha256": "9ff10f7d0660a72a9fa8b54dbb03914aad02c32627f079c2bb8a867be96f19b9",
+          "symbols": [
+            "TokenStore",
+            "signToken"
+          ]
+        }
+      ],
+      "schema_version": 1
+    },
+    "pack": "placeholder"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "module_path": "example.com/mixed",
+  "imports": {
+    "cmd/main.go": [
+      "internal/core/core.go"
+    ],
+    "web/index.ts": [
+      "web/greet.ts"
+    ]
+  },
+  "importers": {
+    "internal/core/core.go": [
+      "cmd/main.go"
+    ],
+    "web/greet.ts": [
+      "web/index.ts"
+    ]
+  }
+}

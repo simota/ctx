@@ -1,0 +1,12 @@
+Heatmap (by tokens, root=., total=53,800 tokens)
+
+1. internal/replay — 8,980 tokens (20 files, 60 symbols).
+2. internal/relations — 8,180 tokens (20 files, 60 symbols).
+3. internal/scan — 7,380 tokens (20 files, 60 symbols).
+4. internal/render — 6,580 tokens (20 files, 60 symbols).
+5. internal/web — 5,780 tokens (20 files, 60 symbols).
+6. internal/pack — 4,980 tokens (20 files, 60 symbols).
+7. internal/symbols — 4,180 tokens (20 files, 60 symbols).
+8. internal/walk — 3,380 tokens (20 files, 60 symbols).
+9. internal/heatmap — 2,580 tokens (20 files, 60 symbols).
+10. internal/cli — 1,780 tokens (20 files, 60 symbols).

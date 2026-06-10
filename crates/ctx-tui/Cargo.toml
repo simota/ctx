@@ -1,0 +1,24 @@
+[package]
+name = "ctx-tui"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Rust (ratatui) port of internal/tui/ — interactive context explorer. Verified by ANSI-stripped frame-snapshot goldens captured from the frozen Go tui (NOT byte-parity vs Go HTTP/CLI)."
+license = "MIT"
+
+[lib]
+name = "ctx_tui"
+path = "src/lib.rs"
+
+[dependencies]
+ratatui = "0.29"
+crossterm = "0.28"
+ctx-tokens = { path = "../ctx-tokens" }
+ctx-pack = { path = "../ctx-pack" }
+
+[dev-dependencies]
+pretty_assertions = "1"
+
+[[test]]
+name = "snapshot"
+path = "tests/snapshot.rs"

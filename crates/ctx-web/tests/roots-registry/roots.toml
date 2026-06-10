@@ -1,0 +1,10 @@
+[[roots]]
+name = "alpha"
+path = "/tmp/alpha-project"
+added_at = 2026-01-01T10:00:00Z
+
+[[roots]]
+name = "beta"
+path = "/tmp/beta-project"
+added_at = 2026-01-02T10:00:00Z
+last_opened_at = 2026-01-03T10:00:00Z

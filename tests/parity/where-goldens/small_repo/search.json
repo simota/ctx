@@ -1,0 +1,102 @@
+[
+  {
+    "path": "internal/pack/relevance.go",
+    "score": 71,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 20,
+      "splitname": 12,
+      "path": 6,
+      "content": 21
+    },
+    "reason": "symbol match: Relevance, ScoreRelevance; splitname match: relevance; content match: pack, relevance; basename match: relevance; path match: pack",
+    "matches": [
+      {
+        "line": 6,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Relevance struct {"
+      },
+      {
+        "line": 11,
+        "column": 6,
+        "type": "symbol",
+        "text": "func ScoreRelevance(path string) Relevance {"
+      },
+      {
+        "line": 1,
+        "column": 1,
+        "type": "content",
+        "text": "package pack"
+      },
+      {
+        "line": 5,
+        "column": 4,
+        "type": "content",
+        "text": "// Relevance ranks files based on multiple heuristics."
+      },
+      {
+        "line": 6,
+        "column": 6,
+        "type": "content",
+        "text": "type Relevance struct {"
+      },
+      {
+        "line": 10,
+        "column": 9,
+        "type": "content",
+        "text": "// ScoreRelevance computes a score for the given path."
+      },
+      {
+        "line": 11,
+        "column": 11,
+        "type": "content",
+        "text": "func ScoreRelevance(path string) Relevance {"
+      },
+      {
+        "line": 12,
+        "column": 7,
+        "type": "content",
+        "text": "r := Relevance{}"
+      },
+      {
+        "line": 13,
+        "column": 29,
+        "type": "content",
+        "text": "if strings.Contains(path, \"pack\") {"
+      }
+    ]
+  },
+  {
+    "path": "internal/cmd/main.go",
+    "score": 3,
+    "score_breakdown": {
+      "content": 3
+    },
+    "reason": "content match: pack",
+    "matches": [
+      {
+        "line": 1,
+        "column": 1,
+        "type": "content",
+        "text": "package cmd"
+      }
+    ]
+  },
+  {
+    "path": "internal/util/strings.go",
+    "score": 3,
+    "score_breakdown": {
+      "content": 3
+    },
+    "reason": "content match: pack",
+    "matches": [
+      {
+        "line": 1,
+        "column": 1,
+        "type": "content",
+        "text": "package util"
+      }
+    ]
+  }
+]

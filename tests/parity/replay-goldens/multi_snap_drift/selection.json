@@ -1,0 +1,88 @@
+{
+  "a": "drift-base",
+  "b": "drift-current",
+  "summary": {
+    "added": 2,
+    "removed": 1,
+    "promoted": 2,
+    "demoted": 1,
+    "score_changed": 1,
+    "token_delta": 210
+  },
+  "changes": {
+    "added": [
+      {
+        "path": "internal/replay/store.go",
+        "category": "added",
+        "cur_score": 55,
+        "cur_tier": "Medium",
+        "cur_tokens": 180
+      },
+      {
+        "path": "internal/replay/manifest.go",
+        "category": "added",
+        "cur_score": 50,
+        "cur_tier": "Medium",
+        "cur_tokens": 130
+      }
+    ],
+    "removed": [
+      {
+        "path": "internal/render/markdown.go",
+        "category": "removed",
+        "base_score": 55,
+        "base_tier": "Medium",
+        "base_tokens": 140
+      }
+    ],
+    "promoted": [
+      {
+        "path": "internal/relations/relations.go",
+        "category": "promoted",
+        "base_score": 70,
+        "cur_score": 95,
+        "base_tier": "Medium",
+        "cur_tier": "High",
+        "base_tokens": 410,
+        "cur_tokens": 410,
+        "reason_change": "tier:Medium→High"
+      },
+      {
+        "path": "internal/where/where.go",
+        "category": "promoted",
+        "base_score": 60,
+        "cur_score": 90,
+        "base_tier": "Medium",
+        "cur_tier": "High",
+        "base_tokens": 510,
+        "cur_tokens": 510,
+        "reason_change": "tier:Medium→High"
+      }
+    ],
+    "demoted": [
+      {
+        "path": "internal/symbols/extractor.go",
+        "category": "demoted",
+        "base_score": 50,
+        "cur_score": 20,
+        "base_tier": "Medium",
+        "base_tokens": 220,
+        "cur_tokens": 220,
+        "reason_change": "tier:Medium→"
+      }
+    ],
+    "score_changed": [
+      {
+        "path": "internal/replay/diff.go",
+        "category": "score_changed",
+        "base_score": 65,
+        "cur_score": 88,
+        "base_tier": "Medium",
+        "cur_tier": "Medium",
+        "base_tokens": 320,
+        "cur_tokens": 360,
+        "reason_change": "+35%"
+      }
+    ]
+  }
+}

@@ -1,0 +1,302 @@
+[
+  {
+    "path": "internal/cli/file_00.go",
+    "is_dir": false,
+    "tokens": 100,
+    "symbols": 1
+  },
+  {
+    "path": "internal/cli/file_01.go",
+    "is_dir": false,
+    "tokens": 123,
+    "symbols": 2
+  },
+  {
+    "path": "internal/cli/file_02.go",
+    "is_dir": false,
+    "tokens": 146,
+    "symbols": 3
+  },
+  {
+    "path": "internal/cli/file_03.go",
+    "is_dir": false,
+    "tokens": 169,
+    "symbols": 4
+  },
+  {
+    "path": "internal/cli/file_04.go",
+    "is_dir": false,
+    "tokens": 192,
+    "symbols": 5
+  },
+  {
+    "path": "internal/heatmap/file_00.go",
+    "is_dir": false,
+    "tokens": 170,
+    "symbols": 2
+  },
+  {
+    "path": "internal/heatmap/file_01.go",
+    "is_dir": false,
+    "tokens": 193,
+    "symbols": 3
+  },
+  {
+    "path": "internal/heatmap/file_02.go",
+    "is_dir": false,
+    "tokens": 216,
+    "symbols": 4
+  },
+  {
+    "path": "internal/heatmap/file_03.go",
+    "is_dir": false,
+    "tokens": 239,
+    "symbols": 5
+  },
+  {
+    "path": "internal/heatmap/file_04.go",
+    "is_dir": false,
+    "tokens": 262,
+    "symbols": 6
+  },
+  {
+    "path": "internal/walk/file_00.go",
+    "is_dir": false,
+    "tokens": 240,
+    "symbols": 3
+  },
+  {
+    "path": "internal/walk/file_01.go",
+    "is_dir": false,
+    "tokens": 263,
+    "symbols": 4
+  },
+  {
+    "path": "internal/walk/file_02.go",
+    "is_dir": false,
+    "tokens": 286,
+    "symbols": 5
+  },
+  {
+    "path": "internal/walk/file_03.go",
+    "is_dir": false,
+    "tokens": 309,
+    "symbols": 6
+  },
+  {
+    "path": "internal/walk/file_04.go",
+    "is_dir": false,
+    "tokens": 332,
+    "symbols": 7
+  },
+  {
+    "path": "internal/symbols/file_00.go",
+    "is_dir": false,
+    "tokens": 310,
+    "symbols": 4
+  },
+  {
+    "path": "internal/symbols/file_01.go",
+    "is_dir": false,
+    "tokens": 333,
+    "symbols": 5
+  },
+  {
+    "path": "internal/symbols/file_02.go",
+    "is_dir": false,
+    "tokens": 356,
+    "symbols": 6
+  },
+  {
+    "path": "internal/symbols/file_03.go",
+    "is_dir": false,
+    "tokens": 379,
+    "symbols": 7
+  },
+  {
+    "path": "internal/symbols/file_04.go",
+    "is_dir": false,
+    "tokens": 402,
+    "symbols": 1
+  },
+  {
+    "path": "internal/pack/file_00.go",
+    "is_dir": false,
+    "tokens": 380,
+    "symbols": 5
+  },
+  {
+    "path": "internal/pack/file_01.go",
+    "is_dir": false,
+    "tokens": 403,
+    "symbols": 6
+  },
+  {
+    "path": "internal/pack/file_02.go",
+    "is_dir": false,
+    "tokens": 426,
+    "symbols": 7
+  },
+  {
+    "path": "internal/pack/file_03.go",
+    "is_dir": false,
+    "tokens": 449,
+    "symbols": 1
+  },
+  {
+    "path": "internal/pack/file_04.go",
+    "is_dir": false,
+    "tokens": 472,
+    "symbols": 2
+  },
+  {
+    "path": "internal/web/file_00.go",
+    "is_dir": false,
+    "tokens": 450,
+    "symbols": 6
+  },
+  {
+    "path": "internal/web/file_01.go",
+    "is_dir": false,
+    "tokens": 473,
+    "symbols": 7
+  },
+  {
+    "path": "internal/web/file_02.go",
+    "is_dir": false,
+    "tokens": 496,
+    "symbols": 1
+  },
+  {
+    "path": "internal/web/file_03.go",
+    "is_dir": false,
+    "tokens": 519,
+    "symbols": 2
+  },
+  {
+    "path": "internal/web/file_04.go",
+    "is_dir": false,
+    "tokens": 542,
+    "symbols": 3
+  },
+  {
+    "path": "cmd/ctx/file_00.go",
+    "is_dir": false,
+    "tokens": 520,
+    "symbols": 7
+  },
+  {
+    "path": "cmd/ctx/file_01.go",
+    "is_dir": false,
+    "tokens": 543,
+    "symbols": 1
+  },
+  {
+    "path": "cmd/ctx/file_02.go",
+    "is_dir": false,
+    "tokens": 566,
+    "symbols": 2
+  },
+  {
+    "path": "cmd/ctx/file_03.go",
+    "is_dir": false,
+    "tokens": 589,
+    "symbols": 3
+  },
+  {
+    "path": "cmd/ctx/file_04.go",
+    "is_dir": false,
+    "tokens": 612,
+    "symbols": 4
+  },
+  {
+    "path": "cmd/where/file_00.go",
+    "is_dir": false,
+    "tokens": 590,
+    "symbols": 1
+  },
+  {
+    "path": "cmd/where/file_01.go",
+    "is_dir": false,
+    "tokens": 613,
+    "symbols": 2
+  },
+  {
+    "path": "cmd/where/file_02.go",
+    "is_dir": false,
+    "tokens": 636,
+    "symbols": 3
+  },
+  {
+    "path": "cmd/where/file_03.go",
+    "is_dir": false,
+    "tokens": 659,
+    "symbols": 4
+  },
+  {
+    "path": "cmd/where/file_04.go",
+    "is_dir": false,
+    "tokens": 682,
+    "symbols": 5
+  },
+  {
+    "path": "docs/file_00.go",
+    "is_dir": false,
+    "tokens": 660,
+    "symbols": 2
+  },
+  {
+    "path": "docs/file_01.go",
+    "is_dir": false,
+    "tokens": 683,
+    "symbols": 3
+  },
+  {
+    "path": "docs/file_02.go",
+    "is_dir": false,
+    "tokens": 706,
+    "symbols": 4
+  },
+  {
+    "path": "docs/file_03.go",
+    "is_dir": false,
+    "tokens": 729,
+    "symbols": 5
+  },
+  {
+    "path": "docs/file_04.go",
+    "is_dir": false,
+    "tokens": 752,
+    "symbols": 6
+  },
+  {
+    "path": "tests/file_00.go",
+    "is_dir": false,
+    "tokens": 730,
+    "symbols": 3
+  },
+  {
+    "path": "tests/file_01.go",
+    "is_dir": false,
+    "tokens": 753,
+    "symbols": 4
+  },
+  {
+    "path": "tests/file_02.go",
+    "is_dir": false,
+    "tokens": 776,
+    "symbols": 5
+  },
+  {
+    "path": "tests/file_03.go",
+    "is_dir": false,
+    "tokens": 799,
+    "symbols": 6
+  },
+  {
+    "path": "tests/file_04.go",
+    "is_dir": false,
+    "tokens": 822,
+    "symbols": 7
+  }
+]

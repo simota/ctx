@@ -1,0 +1,135 @@
+[
+  {
+    "path": ".",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "cmd",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "cmd/main.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "main",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package main",
+      "",
+      "func main() {}"
+    ]
+  },
+  {
+    "path": "internal",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/pack",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/pack/helper.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "helper",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pack",
+      "",
+      "func helper() {}"
+    ]
+  },
+  {
+    "path": "internal/pack/pack.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Pack",
+        "kind": "function",
+        "line": 4
+      },
+      {
+        "name": "Options",
+        "kind": "type",
+        "line": 9
+      }
+    ],
+    "lines": [
+      "package pack",
+      "",
+      "// Pack assembles files.",
+      "func Pack(files []string) error {",
+      "\treturn nil",
+      "}",
+      "",
+      "// Options holds pack options.",
+      "type Options struct {",
+      "\tBudget int",
+      "}"
+    ]
+  },
+  {
+    "path": "internal/pack/pack_test.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "TestPack",
+        "kind": "function",
+        "line": 5
+      }
+    ],
+    "lines": [
+      "package pack",
+      "",
+      "import \"testing\"",
+      "",
+      "func TestPack(t *testing.T) {",
+      "\terr := Pack(nil)",
+      "\tif err != nil {",
+      "\t\tt.Fatal(err)",
+      "\t}",
+      "}"
+    ]
+  },
+  {
+    "path": "internal/render",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/render/render.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "RenderPack",
+        "kind": "function",
+        "line": 4
+      }
+    ],
+    "lines": [
+      "package render",
+      "",
+      "// RenderPack calls Pack style output.",
+      "func RenderPack(budget int) {",
+      "\t// Pack output",
+      "}"
+    ]
+  }
+]

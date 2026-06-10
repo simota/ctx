@@ -1,0 +1,11 @@
+{
+  "allocations": [
+    {
+      "Name": "main",
+      "Share": 1,
+      "Budget": 32000,
+      "Policy": "merge"
+    }
+  ],
+  "warning": ""
+}

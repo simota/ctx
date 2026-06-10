@@ -1,0 +1,6 @@
+schema_version = 1
+
+[[strand]]
+name = "main"
+source = "where 'handler'"
+share = 1.0

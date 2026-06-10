@@ -1,0 +1,23 @@
+User-agent: *
+Allow: /
+
+# AI search/retrieval bots — allow citation (do NOT block these)
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: GoogleExtendedBot
+Allow: /
+
+Sitemap: https://simota.github.io/ctx/sitemap.xml

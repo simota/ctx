@@ -1,0 +1,19 @@
+{
+  "a": "base-2026-05-29-aaa",
+  "b": "current-2026-05-29-bbb",
+  "summary": {
+    "added": 0,
+    "removed": 0,
+    "promoted": 0,
+    "demoted": 0,
+    "score_changed": 0,
+    "token_delta": 0
+  },
+  "changes": {
+    "added": null,
+    "removed": null,
+    "promoted": null,
+    "demoted": null,
+    "score_changed": null
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "input_pack_bytes": 22,
+  "patched_pack": {
+    "contract": {
+      "created": "2026-05-29T00:00:00Z",
+      "files": [
+        {
+          "line_end": 1,
+          "line_hashes": [
+            {
+              "line": 1,
+              "sha256": "a2586f491c814dd940ab35a89e4fc86dd49a12ad3a502921358758b602b0a769"
+            }
+          ],
+          "line_start": 1,
+          "path": "empty_pack.synthetic.go",
+          "sha256": "a2586f491c814dd940ab35a89e4fc86dd49a12ad3a502921358758b602b0a769",
+          "symbols": [
+            "Synthetic"
+          ]
+        }
+      ],
+      "schema_version": 1
+    },
+    "pack": "placeholder"
+  }
+}

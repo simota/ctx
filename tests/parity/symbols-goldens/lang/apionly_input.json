@@ -1,0 +1,89 @@
+{
+  "lines": [
+    "// TypeScript fixture: generics, interfaces, type aliases, class methods,",
+    "// nested functions, function overloads.",
+    "import { type User } from \"./user\";",
+    "",
+    "export interface Repository\u003cT, K = string\u003e {}",
+    "  find(id: K): Promise\u003cT | null\u003e;",
+    "  save(entity: T): Promise\u003cvoid\u003e;",
+    "}",
+    "",
+    "export type Result\u003cT\u003e =",
+    "  |;",
+    "  | { ok: false; error: string };",
+    "",
+    "export function identity\u003cT\u003e(value: T): T;",
+    "  function clamp(): T;",
+    "    return value;",
+    "  }",
+    "  return clamp();",
+    "}",
+    "",
+    "export class UserRepository implements Repository\u003cUser\u003e {}",
+    "  async find(id: string): Promise\u003cUser | null\u003e;",
+    "    return null;",
+    "  }",
+    "  async save(entity: User): Promise\u003cvoid\u003e;",
+    "}",
+    "",
+    "interface Internal {",
+    "  flag: boolean;",
+    "}",
+    "",
+    "type Alias = string | number;",
+    "",
+    "function helper(): void {}",
+    ""
+  ],
+  "ranges": [
+    {
+      "start": 2,
+      "end": 2
+    },
+    {
+      "start": 4,
+      "end": 4
+    },
+    {
+      "start": 4,
+      "end": 4
+    },
+    {
+      "start": 9,
+      "end": 10
+    },
+    {
+      "start": 9,
+      "end": 10
+    },
+    {
+      "start": 13,
+      "end": 13
+    },
+    {
+      "start": 13,
+      "end": 13
+    },
+    {
+      "start": 14,
+      "end": 14
+    },
+    {
+      "start": 20,
+      "end": 20
+    },
+    {
+      "start": 20,
+      "end": 20
+    },
+    {
+      "start": 21,
+      "end": 21
+    },
+    {
+      "start": 24,
+      "end": 24
+    }
+  ]
+}

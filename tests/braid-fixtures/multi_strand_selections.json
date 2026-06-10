@@ -1,0 +1,27 @@
+[
+  {
+    "Name": "api",
+    "Policy": "merge",
+    "Paths": [
+      "internal/cli/where.go",
+      "internal/walk/walk.go",
+      "internal/symbols/extract.go"
+    ]
+  },
+  {
+    "Name": "recent",
+    "Policy": "prefer-newer",
+    "Paths": [
+      "internal/walk/walk.go",
+      "internal/digest/digest.go"
+    ]
+  },
+  {
+    "Name": "anchor",
+    "Policy": "merge",
+    "Paths": [
+      "internal/limit/limiter.go",
+      "internal/limit/window.go"
+    ]
+  }
+]

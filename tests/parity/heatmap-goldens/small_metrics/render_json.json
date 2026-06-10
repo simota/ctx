@@ -1,0 +1,65 @@
+{
+  "root": ".",
+  "by": "tokens",
+  "total": 4310,
+  "total_tokens": 4310,
+  "budget": null,
+  "buckets": [
+    {
+      "path": "internal/cli",
+      "tokens": 2790,
+      "files": 3,
+      "symbols": 39,
+      "weight": 2790,
+      "rect": {
+        "h": 20,
+        "w": 52,
+        "x": 0,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/walk",
+      "tokens": 900,
+      "files": 2,
+      "symbols": 12,
+      "weight": 900,
+      "rect": {
+        "h": 20,
+        "w": 17,
+        "x": 52,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": ".",
+      "tokens": 480,
+      "files": 1,
+      "symbols": 0,
+      "weight": 480,
+      "rect": {
+        "h": 16,
+        "w": 11,
+        "x": 69,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": "cmd/ctx",
+      "tokens": 140,
+      "files": 1,
+      "symbols": 1,
+      "weight": 140,
+      "rect": {
+        "h": 4,
+        "w": 11,
+        "x": 69,
+        "y": 16
+      },
+      "in_budget": false
+    }
+  ]
+}

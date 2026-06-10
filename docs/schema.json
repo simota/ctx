@@ -1,0 +1,80 @@
+{
+  "$id": "https://github.com/simota/ctx/docs/schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "title": "Tree",
+      "type": "object",
+      "required": ["path", "isDir", "metadata"],
+      "properties": {
+        "path": { "type": "string" },
+        "isDir": { "type": "boolean" },
+        "metadata": { "$ref": "#/$defs/metadata" },
+        "children": { "type": "array", "items": { "$ref": "#" } }
+      }
+    },
+    {
+      "title": "Budget",
+      "type": "object",
+      "required": ["budget", "used", "included", "excluded"],
+      "properties": {
+        "budget": { "type": "integer" },
+        "used": { "type": "integer" },
+        "included": { "type": "array", "items": { "$ref": "#/$defs/budgetItem" } },
+        "excluded": { "type": "array", "items": { "$ref": "#/$defs/budgetItem" } }
+      }
+    },
+    {
+      "title": "Symbols",
+      "type": "object",
+      "required": ["files"],
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "symbols"],
+            "properties": {
+              "path": { "type": "string" },
+              "symbols": { "type": "array", "items": { "$ref": "#/$defs/symbol" } }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "required": ["size", "tokens", "lines"],
+      "properties": {
+        "size": { "type": "integer" },
+        "tokens": { "type": "integer" },
+        "lines": { "type": "integer" },
+        "chars": { "type": "integer" },
+        "role": { "type": "string" },
+        "gitStatus": { "type": "string" },
+        "symbols": { "type": "array", "items": { "$ref": "#/$defs/symbol" } }
+      }
+    },
+    "symbol": {
+      "type": "object",
+      "required": ["name", "kind", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "kind": { "type": "string" },
+        "line": { "type": "integer" }
+      }
+    },
+    "budgetItem": {
+      "type": "object",
+      "required": ["path", "tokens", "reason"],
+      "properties": {
+        "path": { "type": "string" },
+        "tokens": { "type": "integer" },
+        "group": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}

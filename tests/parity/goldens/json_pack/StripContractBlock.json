@@ -1,0 +1,4 @@
+{
+  "stripped_body": "{\"goal\":\"json pack parity\",\"files\":[{\"path\":\"internal/limit/limit.go\",\"content\":\"package limit\\n\\nfunc Allow() bool { return true }\\n\"}],\"contract\":{\"schema_version\":1,\"created\":\"2026-05-29T00:00:00Z\",\"files\":[{\"path\":\"internal/limit/limit.go\",\"line_start\":1,\"line_end\":3,\"sha256\":\"4444444444444444444444444444444444444444444444444444444444444444\",\"symbols\":[\"Allow\"]}]}}",
+  "stripped_bytes": 371
+}

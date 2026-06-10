@@ -1,0 +1,4 @@
+{
+  "body": "\n\u003c!-- ctx:contract v1\n{\n  \"schema_version\": 1,\n  \"created\": \"2026-05-29T00:00:00Z\",\n  \"files\": [\n    {\n      \"path\": \"internal/limit/limit.go\",\n      \"line_start\": 1,\n      \"line_end\": 1,\n      \"sha256\": \"6d2ed31acad4c3a6c29141f22f1ac9267dffe8673a5497cd209ab82b7f7a9506\",\n      \"line_hashes\": [\n        {\n          \"line\": 1,\n          \"sha256\": \"6d2ed31acad4c3a6c29141f22f1ac9267dffe8673a5497cd209ab82b7f7a9506\"\n        }\n      ],\n      \"symbols\": [\n        \"Allow\"\n      ]\n    }\n  ]\n}\n--\u003e\n",
+  "bytes": 491
+}

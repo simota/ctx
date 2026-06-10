@@ -1,0 +1,26 @@
+[
+  {
+    "path": "internal/cli/where.go",
+    "origin": "api"
+  },
+  {
+    "path": "internal/symbols/extract.go",
+    "origin": "api"
+  },
+  {
+    "path": "internal/walk/walk.go",
+    "origin": "recent"
+  },
+  {
+    "path": "internal/digest/digest.go",
+    "origin": "recent"
+  },
+  {
+    "path": "internal/limit/limiter.go",
+    "origin": "anchor"
+  },
+  {
+    "path": "internal/limit/window.go",
+    "origin": "anchor"
+  }
+]

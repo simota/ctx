@@ -1,0 +1,45 @@
+{
+  "added": 0,
+  "modified": 0,
+  "removed": 0,
+  "unchanged": 4,
+  "token_delta": 0,
+  "changes": [
+    {
+      "path": "a.go",
+      "kind": "unchanged",
+      "base_sha256": "01",
+      "cur_sha256": "01",
+      "base_tokens": 50,
+      "cur_tokens": 55,
+      "token_delta": 0
+    },
+    {
+      "path": "b.go",
+      "kind": "unchanged",
+      "base_sha256": "02",
+      "cur_sha256": "02",
+      "base_tokens": 70,
+      "cur_tokens": 70,
+      "token_delta": 0
+    },
+    {
+      "path": "c.go",
+      "kind": "unchanged",
+      "base_sha256": "03",
+      "cur_sha256": "03",
+      "base_tokens": 30,
+      "cur_tokens": 30,
+      "token_delta": 0
+    },
+    {
+      "path": "d.go",
+      "kind": "unchanged",
+      "base_sha256": "04",
+      "cur_sha256": "04",
+      "base_tokens": 40,
+      "cur_tokens": 40,
+      "token_delta": 0
+    }
+  ]
+}

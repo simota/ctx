@@ -1,0 +1,36 @@
+{
+  "added": 0,
+  "modified": 0,
+  "removed": 0,
+  "unchanged": 3,
+  "token_delta": 0,
+  "changes": [
+    {
+      "path": "lib/inner/handler.go",
+      "kind": "unchanged",
+      "base_sha256": "cccc777788889999",
+      "cur_sha256": "cccc777788889999",
+      "base_tokens": 40,
+      "cur_tokens": 40,
+      "token_delta": 0
+    },
+    {
+      "path": "lib/util.go",
+      "kind": "unchanged",
+      "base_sha256": "bbbb444455556666",
+      "cur_sha256": "bbbb444455556666",
+      "base_tokens": 90,
+      "cur_tokens": 90,
+      "token_delta": 0
+    },
+    {
+      "path": "main.go",
+      "kind": "unchanged",
+      "base_sha256": "aaaa111122223333",
+      "cur_sha256": "aaaa111122223333",
+      "base_tokens": 120,
+      "cur_tokens": 120,
+      "token_delta": 0
+    }
+  ]
+}

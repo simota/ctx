@@ -1,0 +1,34 @@
+[
+  {
+    "path": "high_entropy.txt",
+    "line": 2,
+    "kind": "generic_secret",
+    "severity": "low",
+    "message": "secret-like pattern detected",
+    "preview": "toke[...]890\""
+  },
+  {
+    "path": "high_entropy.txt",
+    "line": 2,
+    "kind": "high_entropy",
+    "severity": "low",
+    "message": "high-entropy string detected",
+    "preview": "abcd[...]7890"
+  },
+  {
+    "path": "high_entropy.txt",
+    "line": 3,
+    "kind": "generic_secret",
+    "severity": "low",
+    "message": "secret-like pattern detected",
+    "preview": "toke[...]CfV\""
+  },
+  {
+    "path": "high_entropy.txt",
+    "line": 3,
+    "kind": "high_entropy",
+    "severity": "low",
+    "message": "high-entropy string detected",
+    "preview": "ZqWx[...]dCfV"
+  }
+]

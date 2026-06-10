@@ -1,0 +1,132 @@
+[
+  {
+    "Bucket": {
+      "Path": "internal/replay",
+      "Tokens": 8980,
+      "Files": 20,
+      "Symbols": 60,
+      "Weight": 8980
+    },
+    "X": 0,
+    "Y": 0,
+    "W": 13,
+    "H": 20
+  },
+  {
+    "Bucket": {
+      "Path": "internal/relations",
+      "Tokens": 8180,
+      "Files": 20,
+      "Symbols": 60,
+      "Weight": 8180
+    },
+    "X": 13,
+    "Y": 0,
+    "W": 12,
+    "H": 20
+  },
+  {
+    "Bucket": {
+      "Path": "internal/scan",
+      "Tokens": 7380,
+      "Files": 20,
+      "Symbols": 60,
+      "Weight": 7380
+    },
+    "X": 25,
+    "Y": 0,
+    "W": 11,
+    "H": 20
+  },
+  {
+    "Bucket": {
+      "Path": "internal/render",
+      "Tokens": 6580,
+      "Files": 20,
+      "Symbols": 60,
+      "Weight": 6580
+    },
+    "X": 36,
+    "Y": 0,
+    "W": 18,
+    "H": 11
+  },
+  {
+    "Bucket": {
+      "Path": "internal/web",
+      "Tokens": 5780,
+      "Files": 20,
+      "Symbols": 60,
+      "Weight": 5780
+    },
+    "X": 36,
+    "Y": 11,
+    "W": 18,
+    "H": 9
+  },
+  {
+    "Bucket": {
+      "Path": "internal/pack",
+      "Tokens": 4980,
+      "Files": 20,
+      "Symbols": 60,
+      "Weight": 4980
+    },
+    "X": 54,
+    "Y": 0,
+    "W": 14,
+    "H": 11
+  },
+  {
+    "Bucket": {
+      "Path": "internal/symbols",
+      "Tokens": 4180,
+      "Files": 20,
+      "Symbols": 60,
+      "Weight": 4180
+    },
+    "X": 54,
+    "Y": 11,
+    "W": 14,
+    "H": 9
+  },
+  {
+    "Bucket": {
+      "Path": "internal/walk",
+      "Tokens": 3380,
+      "Files": 20,
+      "Symbols": 60,
+      "Weight": 3380
+    },
+    "X": 68,
+    "Y": 0,
+    "W": 12,
+    "H": 8
+  },
+  {
+    "Bucket": {
+      "Path": "internal/heatmap",
+      "Tokens": 2580,
+      "Files": 20,
+      "Symbols": 60,
+      "Weight": 2580
+    },
+    "X": 68,
+    "Y": 8,
+    "W": 6,
+    "H": 12
+  },
+  {
+    "Bucket": {
+      "Path": "internal/cli",
+      "Tokens": 1780,
+      "Files": 20,
+      "Symbols": 60,
+      "Weight": 1780
+    },
+    "X": 74,
+    "Y": 8,
+    "W": 6,
+    "H": 9
+  }
+]

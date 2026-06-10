@@ -1,0 +1,4 @@
+{
+  "body": "\n\u003c!-- ctx:contract v1\n{\n  \"schema_version\": 1,\n  \"created\": \"2026-05-29T00:00:00Z\",\n  \"files\": [\n    {\n      \"path\": \"empty_pack.synthetic.go\",\n      \"line_start\": 1,\n      \"line_end\": 1,\n      \"sha256\": \"a2586f491c814dd940ab35a89e4fc86dd49a12ad3a502921358758b602b0a769\",\n      \"line_hashes\": [\n        {\n          \"line\": 1,\n          \"sha256\": \"a2586f491c814dd940ab35a89e4fc86dd49a12ad3a502921358758b602b0a769\"\n        }\n      ],\n      \"symbols\": [\n        \"Synthetic\"\n      ]\n    }\n  ]\n}\n--\u003e\n",
+  "bytes": 495
+}

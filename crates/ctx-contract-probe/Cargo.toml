@@ -1,0 +1,39 @@
+# ctx-contract-probe — minimal Rust crate whose ONLY purpose is to prove
+# that the host toolchain can cross-compile a Rust staticlib to every
+# target the parity pipeline will eventually need:
+#
+#   - x86_64-apple-darwin   (darwin-amd64)
+#   - aarch64-apple-darwin  (darwin-arm64)
+#   - x86_64-unknown-linux-gnu  (linux-amd64)
+#   - aarch64-unknown-linux-gnu (linux-arm64)
+#
+# If any of these targets fail in CI we know FFI delivery will fail too,
+# WITHOUT having to drag the full ctx-contract crate (and its serde / regex
+# dependency tree) through every cross link.
+#
+# Resolver "2" is the modern default — without it, edition 2021's
+# feature unification behaves like edition 2015 and surprising
+# duplicate-dep errors appear on Linux.
+
+[package]
+name = "ctx-contract-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Cross-compile smoke probe for the ctx-contract Rust port"
+license = "MIT"
+
+[lib]
+# staticlib is the FFI shape the Go side will eventually cgo-link
+# against. cdylib would test dynamic linking too, but every supported
+# target ships the static toolchain by default whereas dynamic linking
+# requires per-target system libs we'd rather not chase here.
+crate-type = ["staticlib"]
+
+[profile.release]
+opt-level = 1
+# Keep the smoke probe build cheap so the cross-compile matrix runs in
+# under a minute even on a cold cache.
+lto = false
+debug = false
+strip = true

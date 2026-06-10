@@ -1,0 +1,29 @@
+{
+  "module_path": "",
+  "imports": {
+    "src/App.vue": [
+      "src/foo.ts"
+    ],
+    "src/main.ts": [
+      "src/bar.js",
+      "src/baz.ts",
+      "src/foo.ts",
+      "src/lazy.js"
+    ]
+  },
+  "importers": {
+    "src/bar.js": [
+      "src/main.ts"
+    ],
+    "src/baz.ts": [
+      "src/main.ts"
+    ],
+    "src/foo.ts": [
+      "src/App.vue",
+      "src/main.ts"
+    ],
+    "src/lazy.js": [
+      "src/main.ts"
+    ]
+  }
+}

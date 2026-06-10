@@ -1,0 +1,14 @@
+[
+  {
+    "path": "internal/cli/root.go",
+    "origin": "main"
+  },
+  {
+    "path": "internal/cli/where.go",
+    "origin": "main"
+  },
+  {
+    "path": "internal/cli/focus.go",
+    "origin": "main"
+  }
+]

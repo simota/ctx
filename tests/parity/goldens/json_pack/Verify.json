@@ -1,0 +1,17 @@
+{
+  "pack_file": "json_pack",
+  "schema_version": 1,
+  "total_files_in_contract": 1,
+  "references_found": 1,
+  "violations": [],
+  "ok": [
+    {
+      "kind": "file",
+      "path": "internal/limit/limit.go",
+      "source_line": 1
+    }
+  ],
+  "stale_files": [],
+  "repack_suggestions": [],
+  "exit_code": 0
+}

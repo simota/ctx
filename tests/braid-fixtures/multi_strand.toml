@@ -1,0 +1,17 @@
+schema_version = 1
+
+[[strand]]
+name = "api"
+source = "where 'handler' --format json"
+share = 0.4
+
+[[strand]]
+name = "recent"
+source = "digest --since 7d --format json"
+share = 0.3
+policy = "prefer-newer"
+
+[[strand]]
+name = "anchor"
+source = "focus RateLimiter --hops 2"
+share = 0.3

@@ -1,0 +1,71 @@
+# ctx.toml — configuration for the ctx CLI/TUI
+# Copy to ctx.toml and customise as needed.
+
+[ignore]
+respect_gitignore = true
+patterns = [
+  "node_modules/**",
+  "dist/**",
+  "coverage/**",
+  "*.lock",
+  ".git/**",
+]
+
+[ai]
+provider = "local"   # "local" | "openai" | "anthropic"
+model    = "none"    # model name when provider != "local"
+tokenizer      = "cl100k"  # encoding: cl100k_base
+default_budget = 50000     # token budget for pack
+
+[summary]
+enabled      = true
+cache        = true
+max_file_size = "200KB"
+
+[security]
+secret_scan = true
+redact      = true
+pii_scan    = false
+strict_offline = false
+enable_entropy = false
+allowlist = [
+  "example_secret_allowlisted_value",
+]
+allowlist_files = ["docs/**", "tests/fixtures/**"]
+
+[display]
+icons   = true
+git     = true
+tokens  = true
+symbols = true
+unit    = "tokens" # "tokens" | "chars" | "pages"
+
+[pack]
+preset = "" # "blog" | "review" | "debug" | "llm"
+
+[hooks]
+pre_pack  = ""
+post_pack = ""
+on_secret = ""
+# run_on_mcp — fire the hooks above when pack is invoked through the MCP
+# server (default false). $CTX_HOOK_GOAL and other hook env vars carry
+# untrusted LLM-supplied data; only enable this after auditing your hook
+# scripts for shell-interpolation safety (do NOT write `echo $CTX_HOOK_GOAL`
+# into a shell-evaluated command — read the stdin JSON instead).
+run_on_mcp = false
+
+[audit]
+enabled = false
+path    = "~/.ctx/audit.log"
+# query_handling controls how CLI arguments are stored in the audit log.
+# raw   — store as-is (default; backward-compatible)
+# hash  — store sha256 hex prefixed with "sha256:"
+# mask  — apply mask_patterns below, replacing matches with "[REDACTED]"
+query_handling = "raw"
+mask_patterns = [
+  # "\\d{10,16}",                                           # card-number-like
+  # "[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}", # email
+]
+
+# Replay snapshots are persisted as JSON manifests via `ctx pack --snapshot ID`.
+# Default location: $XDG_STATE_HOME/ctx/replay/ (per-user) or <root>/.ctx/replay/ with --shared.

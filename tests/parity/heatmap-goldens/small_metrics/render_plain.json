@@ -1,0 +1,6 @@
+Heatmap (by tokens, root=., total=4,310 tokens)
+
+1. internal/cli — 2,790 tokens (3 files, 39 symbols).
+2. internal/walk — 900 tokens (2 files, 12 symbols).
+3. <root> — 480 tokens (1 file, 0 symbols).
+4. cmd/ctx — 140 tokens (1 file, 1 symbol).

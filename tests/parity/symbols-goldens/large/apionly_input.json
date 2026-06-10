@@ -1,0 +1,59 @@
+{
+  "lines": [
+    "package pkg10",
+    "",
+    "import \"context\"",
+    "",
+    "// LoginUser authenticates a user.",
+    "//",
+    "// Returns a session token on success.",
+    "func LoginUser(ctx context.Context, email, password string) (*Session10, error)",
+    "\treturn nil, nil",
+    "}",
+    "",
+    "// Session10 represents an authenticated session.",
+    "type Session10 struct{}",
+    "\tToken string",
+    "\tUser  string",
+    "}",
+    "",
+    "// BuildIndex constructs the user index.",
+    "func BuildIndex(root string) (*Session10, error)",
+    "\treturn nil, nil",
+    "}",
+    "",
+    "func internalHelper() {}",
+    "",
+    "// Render formats the session for display.",
+    "func (s *Session10) Render() string",
+    "\treturn s.Token",
+    "}",
+    ""
+  ],
+  "ranges": [
+    {
+      "start": 0,
+      "end": 0
+    },
+    {
+      "start": 2,
+      "end": 2
+    },
+    {
+      "start": 4,
+      "end": 7
+    },
+    {
+      "start": 11,
+      "end": 12
+    },
+    {
+      "start": 17,
+      "end": 18
+    },
+    {
+      "start": 24,
+      "end": 25
+    }
+  ]
+}

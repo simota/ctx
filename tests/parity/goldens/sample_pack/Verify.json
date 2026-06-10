@@ -1,0 +1,42 @@
+{
+  "pack_file": "sample_pack",
+  "schema_version": 1,
+  "total_files_in_contract": 2,
+  "references_found": 6,
+  "violations": [],
+  "ok": [
+    {
+      "kind": "file",
+      "path": "internal/limit/limit.go",
+      "source_line": 10
+    },
+    {
+      "kind": "file",
+      "path": "internal/limit/limit_test.go",
+      "source_line": 11
+    },
+    {
+      "kind": "file",
+      "path": "internal/limit/limit.go",
+      "source_line": 17
+    },
+    {
+      "kind": "file",
+      "path": "internal/limit/limit_test.go",
+      "source_line": 37
+    },
+    {
+      "kind": "file",
+      "path": "internal/limit/limit.go",
+      "source_line": 58
+    },
+    {
+      "kind": "file",
+      "path": "internal/limit/limit_test.go",
+      "source_line": 65
+    }
+  ],
+  "stale_files": [],
+  "repack_suggestions": [],
+  "exit_code": 0
+}

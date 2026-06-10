@@ -1,0 +1,1202 @@
+[
+  {
+    "path": "internal/cli/sub_a/file_00.go",
+    "is_dir": false,
+    "tokens": 50,
+    "symbols": 1
+  },
+  {
+    "path": "internal/cli/sub_a/file_01.go",
+    "is_dir": false,
+    "tokens": 57,
+    "symbols": 2
+  },
+  {
+    "path": "internal/cli/sub_a/file_02.go",
+    "is_dir": false,
+    "tokens": 64,
+    "symbols": 3
+  },
+  {
+    "path": "internal/cli/sub_a/file_03.go",
+    "is_dir": false,
+    "tokens": 71,
+    "symbols": 4
+  },
+  {
+    "path": "internal/cli/sub_a/file_04.go",
+    "is_dir": false,
+    "tokens": 78,
+    "symbols": 5
+  },
+  {
+    "path": "internal/cli/sub_a/file_05.go",
+    "is_dir": false,
+    "tokens": 85,
+    "symbols": 1
+  },
+  {
+    "path": "internal/cli/sub_a/file_06.go",
+    "is_dir": false,
+    "tokens": 92,
+    "symbols": 2
+  },
+  {
+    "path": "internal/cli/sub_a/file_07.go",
+    "is_dir": false,
+    "tokens": 99,
+    "symbols": 3
+  },
+  {
+    "path": "internal/cli/sub_a/file_08.go",
+    "is_dir": false,
+    "tokens": 106,
+    "symbols": 4
+  },
+  {
+    "path": "internal/cli/sub_a/file_09.go",
+    "is_dir": false,
+    "tokens": 113,
+    "symbols": 5
+  },
+  {
+    "path": "internal/cli/sub_b/file_00.go",
+    "is_dir": false,
+    "tokens": 65,
+    "symbols": 1
+  },
+  {
+    "path": "internal/cli/sub_b/file_01.go",
+    "is_dir": false,
+    "tokens": 72,
+    "symbols": 2
+  },
+  {
+    "path": "internal/cli/sub_b/file_02.go",
+    "is_dir": false,
+    "tokens": 79,
+    "symbols": 3
+  },
+  {
+    "path": "internal/cli/sub_b/file_03.go",
+    "is_dir": false,
+    "tokens": 86,
+    "symbols": 4
+  },
+  {
+    "path": "internal/cli/sub_b/file_04.go",
+    "is_dir": false,
+    "tokens": 93,
+    "symbols": 5
+  },
+  {
+    "path": "internal/cli/sub_b/file_05.go",
+    "is_dir": false,
+    "tokens": 100,
+    "symbols": 1
+  },
+  {
+    "path": "internal/cli/sub_b/file_06.go",
+    "is_dir": false,
+    "tokens": 107,
+    "symbols": 2
+  },
+  {
+    "path": "internal/cli/sub_b/file_07.go",
+    "is_dir": false,
+    "tokens": 114,
+    "symbols": 3
+  },
+  {
+    "path": "internal/cli/sub_b/file_08.go",
+    "is_dir": false,
+    "tokens": 121,
+    "symbols": 4
+  },
+  {
+    "path": "internal/cli/sub_b/file_09.go",
+    "is_dir": false,
+    "tokens": 128,
+    "symbols": 5
+  },
+  {
+    "path": "internal/heatmap/sub_a/file_00.go",
+    "is_dir": false,
+    "tokens": 90,
+    "symbols": 2
+  },
+  {
+    "path": "internal/heatmap/sub_a/file_01.go",
+    "is_dir": false,
+    "tokens": 97,
+    "symbols": 3
+  },
+  {
+    "path": "internal/heatmap/sub_a/file_02.go",
+    "is_dir": false,
+    "tokens": 104,
+    "symbols": 4
+  },
+  {
+    "path": "internal/heatmap/sub_a/file_03.go",
+    "is_dir": false,
+    "tokens": 111,
+    "symbols": 5
+  },
+  {
+    "path": "internal/heatmap/sub_a/file_04.go",
+    "is_dir": false,
+    "tokens": 118,
+    "symbols": 1
+  },
+  {
+    "path": "internal/heatmap/sub_a/file_05.go",
+    "is_dir": false,
+    "tokens": 125,
+    "symbols": 2
+  },
+  {
+    "path": "internal/heatmap/sub_a/file_06.go",
+    "is_dir": false,
+    "tokens": 132,
+    "symbols": 3
+  },
+  {
+    "path": "internal/heatmap/sub_a/file_07.go",
+    "is_dir": false,
+    "tokens": 139,
+    "symbols": 4
+  },
+  {
+    "path": "internal/heatmap/sub_a/file_08.go",
+    "is_dir": false,
+    "tokens": 146,
+    "symbols": 5
+  },
+  {
+    "path": "internal/heatmap/sub_a/file_09.go",
+    "is_dir": false,
+    "tokens": 153,
+    "symbols": 1
+  },
+  {
+    "path": "internal/heatmap/sub_b/file_00.go",
+    "is_dir": false,
+    "tokens": 105,
+    "symbols": 2
+  },
+  {
+    "path": "internal/heatmap/sub_b/file_01.go",
+    "is_dir": false,
+    "tokens": 112,
+    "symbols": 3
+  },
+  {
+    "path": "internal/heatmap/sub_b/file_02.go",
+    "is_dir": false,
+    "tokens": 119,
+    "symbols": 4
+  },
+  {
+    "path": "internal/heatmap/sub_b/file_03.go",
+    "is_dir": false,
+    "tokens": 126,
+    "symbols": 5
+  },
+  {
+    "path": "internal/heatmap/sub_b/file_04.go",
+    "is_dir": false,
+    "tokens": 133,
+    "symbols": 1
+  },
+  {
+    "path": "internal/heatmap/sub_b/file_05.go",
+    "is_dir": false,
+    "tokens": 140,
+    "symbols": 2
+  },
+  {
+    "path": "internal/heatmap/sub_b/file_06.go",
+    "is_dir": false,
+    "tokens": 147,
+    "symbols": 3
+  },
+  {
+    "path": "internal/heatmap/sub_b/file_07.go",
+    "is_dir": false,
+    "tokens": 154,
+    "symbols": 4
+  },
+  {
+    "path": "internal/heatmap/sub_b/file_08.go",
+    "is_dir": false,
+    "tokens": 161,
+    "symbols": 5
+  },
+  {
+    "path": "internal/heatmap/sub_b/file_09.go",
+    "is_dir": false,
+    "tokens": 168,
+    "symbols": 1
+  },
+  {
+    "path": "internal/walk/sub_a/file_00.go",
+    "is_dir": false,
+    "tokens": 130,
+    "symbols": 3
+  },
+  {
+    "path": "internal/walk/sub_a/file_01.go",
+    "is_dir": false,
+    "tokens": 137,
+    "symbols": 4
+  },
+  {
+    "path": "internal/walk/sub_a/file_02.go",
+    "is_dir": false,
+    "tokens": 144,
+    "symbols": 5
+  },
+  {
+    "path": "internal/walk/sub_a/file_03.go",
+    "is_dir": false,
+    "tokens": 151,
+    "symbols": 1
+  },
+  {
+    "path": "internal/walk/sub_a/file_04.go",
+    "is_dir": false,
+    "tokens": 158,
+    "symbols": 2
+  },
+  {
+    "path": "internal/walk/sub_a/file_05.go",
+    "is_dir": false,
+    "tokens": 165,
+    "symbols": 3
+  },
+  {
+    "path": "internal/walk/sub_a/file_06.go",
+    "is_dir": false,
+    "tokens": 172,
+    "symbols": 4
+  },
+  {
+    "path": "internal/walk/sub_a/file_07.go",
+    "is_dir": false,
+    "tokens": 179,
+    "symbols": 5
+  },
+  {
+    "path": "internal/walk/sub_a/file_08.go",
+    "is_dir": false,
+    "tokens": 186,
+    "symbols": 1
+  },
+  {
+    "path": "internal/walk/sub_a/file_09.go",
+    "is_dir": false,
+    "tokens": 193,
+    "symbols": 2
+  },
+  {
+    "path": "internal/walk/sub_b/file_00.go",
+    "is_dir": false,
+    "tokens": 145,
+    "symbols": 3
+  },
+  {
+    "path": "internal/walk/sub_b/file_01.go",
+    "is_dir": false,
+    "tokens": 152,
+    "symbols": 4
+  },
+  {
+    "path": "internal/walk/sub_b/file_02.go",
+    "is_dir": false,
+    "tokens": 159,
+    "symbols": 5
+  },
+  {
+    "path": "internal/walk/sub_b/file_03.go",
+    "is_dir": false,
+    "tokens": 166,
+    "symbols": 1
+  },
+  {
+    "path": "internal/walk/sub_b/file_04.go",
+    "is_dir": false,
+    "tokens": 173,
+    "symbols": 2
+  },
+  {
+    "path": "internal/walk/sub_b/file_05.go",
+    "is_dir": false,
+    "tokens": 180,
+    "symbols": 3
+  },
+  {
+    "path": "internal/walk/sub_b/file_06.go",
+    "is_dir": false,
+    "tokens": 187,
+    "symbols": 4
+  },
+  {
+    "path": "internal/walk/sub_b/file_07.go",
+    "is_dir": false,
+    "tokens": 194,
+    "symbols": 5
+  },
+  {
+    "path": "internal/walk/sub_b/file_08.go",
+    "is_dir": false,
+    "tokens": 201,
+    "symbols": 1
+  },
+  {
+    "path": "internal/walk/sub_b/file_09.go",
+    "is_dir": false,
+    "tokens": 208,
+    "symbols": 2
+  },
+  {
+    "path": "internal/symbols/sub_a/file_00.go",
+    "is_dir": false,
+    "tokens": 170,
+    "symbols": 4
+  },
+  {
+    "path": "internal/symbols/sub_a/file_01.go",
+    "is_dir": false,
+    "tokens": 177,
+    "symbols": 5
+  },
+  {
+    "path": "internal/symbols/sub_a/file_02.go",
+    "is_dir": false,
+    "tokens": 184,
+    "symbols": 1
+  },
+  {
+    "path": "internal/symbols/sub_a/file_03.go",
+    "is_dir": false,
+    "tokens": 191,
+    "symbols": 2
+  },
+  {
+    "path": "internal/symbols/sub_a/file_04.go",
+    "is_dir": false,
+    "tokens": 198,
+    "symbols": 3
+  },
+  {
+    "path": "internal/symbols/sub_a/file_05.go",
+    "is_dir": false,
+    "tokens": 205,
+    "symbols": 4
+  },
+  {
+    "path": "internal/symbols/sub_a/file_06.go",
+    "is_dir": false,
+    "tokens": 212,
+    "symbols": 5
+  },
+  {
+    "path": "internal/symbols/sub_a/file_07.go",
+    "is_dir": false,
+    "tokens": 219,
+    "symbols": 1
+  },
+  {
+    "path": "internal/symbols/sub_a/file_08.go",
+    "is_dir": false,
+    "tokens": 226,
+    "symbols": 2
+  },
+  {
+    "path": "internal/symbols/sub_a/file_09.go",
+    "is_dir": false,
+    "tokens": 233,
+    "symbols": 3
+  },
+  {
+    "path": "internal/symbols/sub_b/file_00.go",
+    "is_dir": false,
+    "tokens": 185,
+    "symbols": 4
+  },
+  {
+    "path": "internal/symbols/sub_b/file_01.go",
+    "is_dir": false,
+    "tokens": 192,
+    "symbols": 5
+  },
+  {
+    "path": "internal/symbols/sub_b/file_02.go",
+    "is_dir": false,
+    "tokens": 199,
+    "symbols": 1
+  },
+  {
+    "path": "internal/symbols/sub_b/file_03.go",
+    "is_dir": false,
+    "tokens": 206,
+    "symbols": 2
+  },
+  {
+    "path": "internal/symbols/sub_b/file_04.go",
+    "is_dir": false,
+    "tokens": 213,
+    "symbols": 3
+  },
+  {
+    "path": "internal/symbols/sub_b/file_05.go",
+    "is_dir": false,
+    "tokens": 220,
+    "symbols": 4
+  },
+  {
+    "path": "internal/symbols/sub_b/file_06.go",
+    "is_dir": false,
+    "tokens": 227,
+    "symbols": 5
+  },
+  {
+    "path": "internal/symbols/sub_b/file_07.go",
+    "is_dir": false,
+    "tokens": 234,
+    "symbols": 1
+  },
+  {
+    "path": "internal/symbols/sub_b/file_08.go",
+    "is_dir": false,
+    "tokens": 241,
+    "symbols": 2
+  },
+  {
+    "path": "internal/symbols/sub_b/file_09.go",
+    "is_dir": false,
+    "tokens": 248,
+    "symbols": 3
+  },
+  {
+    "path": "internal/pack/sub_a/file_00.go",
+    "is_dir": false,
+    "tokens": 210,
+    "symbols": 5
+  },
+  {
+    "path": "internal/pack/sub_a/file_01.go",
+    "is_dir": false,
+    "tokens": 217,
+    "symbols": 1
+  },
+  {
+    "path": "internal/pack/sub_a/file_02.go",
+    "is_dir": false,
+    "tokens": 224,
+    "symbols": 2
+  },
+  {
+    "path": "internal/pack/sub_a/file_03.go",
+    "is_dir": false,
+    "tokens": 231,
+    "symbols": 3
+  },
+  {
+    "path": "internal/pack/sub_a/file_04.go",
+    "is_dir": false,
+    "tokens": 238,
+    "symbols": 4
+  },
+  {
+    "path": "internal/pack/sub_a/file_05.go",
+    "is_dir": false,
+    "tokens": 245,
+    "symbols": 5
+  },
+  {
+    "path": "internal/pack/sub_a/file_06.go",
+    "is_dir": false,
+    "tokens": 252,
+    "symbols": 1
+  },
+  {
+    "path": "internal/pack/sub_a/file_07.go",
+    "is_dir": false,
+    "tokens": 259,
+    "symbols": 2
+  },
+  {
+    "path": "internal/pack/sub_a/file_08.go",
+    "is_dir": false,
+    "tokens": 266,
+    "symbols": 3
+  },
+  {
+    "path": "internal/pack/sub_a/file_09.go",
+    "is_dir": false,
+    "tokens": 273,
+    "symbols": 4
+  },
+  {
+    "path": "internal/pack/sub_b/file_00.go",
+    "is_dir": false,
+    "tokens": 225,
+    "symbols": 5
+  },
+  {
+    "path": "internal/pack/sub_b/file_01.go",
+    "is_dir": false,
+    "tokens": 232,
+    "symbols": 1
+  },
+  {
+    "path": "internal/pack/sub_b/file_02.go",
+    "is_dir": false,
+    "tokens": 239,
+    "symbols": 2
+  },
+  {
+    "path": "internal/pack/sub_b/file_03.go",
+    "is_dir": false,
+    "tokens": 246,
+    "symbols": 3
+  },
+  {
+    "path": "internal/pack/sub_b/file_04.go",
+    "is_dir": false,
+    "tokens": 253,
+    "symbols": 4
+  },
+  {
+    "path": "internal/pack/sub_b/file_05.go",
+    "is_dir": false,
+    "tokens": 260,
+    "symbols": 5
+  },
+  {
+    "path": "internal/pack/sub_b/file_06.go",
+    "is_dir": false,
+    "tokens": 267,
+    "symbols": 1
+  },
+  {
+    "path": "internal/pack/sub_b/file_07.go",
+    "is_dir": false,
+    "tokens": 274,
+    "symbols": 2
+  },
+  {
+    "path": "internal/pack/sub_b/file_08.go",
+    "is_dir": false,
+    "tokens": 281,
+    "symbols": 3
+  },
+  {
+    "path": "internal/pack/sub_b/file_09.go",
+    "is_dir": false,
+    "tokens": 288,
+    "symbols": 4
+  },
+  {
+    "path": "internal/web/sub_a/file_00.go",
+    "is_dir": false,
+    "tokens": 250,
+    "symbols": 1
+  },
+  {
+    "path": "internal/web/sub_a/file_01.go",
+    "is_dir": false,
+    "tokens": 257,
+    "symbols": 2
+  },
+  {
+    "path": "internal/web/sub_a/file_02.go",
+    "is_dir": false,
+    "tokens": 264,
+    "symbols": 3
+  },
+  {
+    "path": "internal/web/sub_a/file_03.go",
+    "is_dir": false,
+    "tokens": 271,
+    "symbols": 4
+  },
+  {
+    "path": "internal/web/sub_a/file_04.go",
+    "is_dir": false,
+    "tokens": 278,
+    "symbols": 5
+  },
+  {
+    "path": "internal/web/sub_a/file_05.go",
+    "is_dir": false,
+    "tokens": 285,
+    "symbols": 1
+  },
+  {
+    "path": "internal/web/sub_a/file_06.go",
+    "is_dir": false,
+    "tokens": 292,
+    "symbols": 2
+  },
+  {
+    "path": "internal/web/sub_a/file_07.go",
+    "is_dir": false,
+    "tokens": 299,
+    "symbols": 3
+  },
+  {
+    "path": "internal/web/sub_a/file_08.go",
+    "is_dir": false,
+    "tokens": 306,
+    "symbols": 4
+  },
+  {
+    "path": "internal/web/sub_a/file_09.go",
+    "is_dir": false,
+    "tokens": 313,
+    "symbols": 5
+  },
+  {
+    "path": "internal/web/sub_b/file_00.go",
+    "is_dir": false,
+    "tokens": 265,
+    "symbols": 1
+  },
+  {
+    "path": "internal/web/sub_b/file_01.go",
+    "is_dir": false,
+    "tokens": 272,
+    "symbols": 2
+  },
+  {
+    "path": "internal/web/sub_b/file_02.go",
+    "is_dir": false,
+    "tokens": 279,
+    "symbols": 3
+  },
+  {
+    "path": "internal/web/sub_b/file_03.go",
+    "is_dir": false,
+    "tokens": 286,
+    "symbols": 4
+  },
+  {
+    "path": "internal/web/sub_b/file_04.go",
+    "is_dir": false,
+    "tokens": 293,
+    "symbols": 5
+  },
+  {
+    "path": "internal/web/sub_b/file_05.go",
+    "is_dir": false,
+    "tokens": 300,
+    "symbols": 1
+  },
+  {
+    "path": "internal/web/sub_b/file_06.go",
+    "is_dir": false,
+    "tokens": 307,
+    "symbols": 2
+  },
+  {
+    "path": "internal/web/sub_b/file_07.go",
+    "is_dir": false,
+    "tokens": 314,
+    "symbols": 3
+  },
+  {
+    "path": "internal/web/sub_b/file_08.go",
+    "is_dir": false,
+    "tokens": 321,
+    "symbols": 4
+  },
+  {
+    "path": "internal/web/sub_b/file_09.go",
+    "is_dir": false,
+    "tokens": 328,
+    "symbols": 5
+  },
+  {
+    "path": "internal/render/sub_a/file_00.go",
+    "is_dir": false,
+    "tokens": 290,
+    "symbols": 2
+  },
+  {
+    "path": "internal/render/sub_a/file_01.go",
+    "is_dir": false,
+    "tokens": 297,
+    "symbols": 3
+  },
+  {
+    "path": "internal/render/sub_a/file_02.go",
+    "is_dir": false,
+    "tokens": 304,
+    "symbols": 4
+  },
+  {
+    "path": "internal/render/sub_a/file_03.go",
+    "is_dir": false,
+    "tokens": 311,
+    "symbols": 5
+  },
+  {
+    "path": "internal/render/sub_a/file_04.go",
+    "is_dir": false,
+    "tokens": 318,
+    "symbols": 1
+  },
+  {
+    "path": "internal/render/sub_a/file_05.go",
+    "is_dir": false,
+    "tokens": 325,
+    "symbols": 2
+  },
+  {
+    "path": "internal/render/sub_a/file_06.go",
+    "is_dir": false,
+    "tokens": 332,
+    "symbols": 3
+  },
+  {
+    "path": "internal/render/sub_a/file_07.go",
+    "is_dir": false,
+    "tokens": 339,
+    "symbols": 4
+  },
+  {
+    "path": "internal/render/sub_a/file_08.go",
+    "is_dir": false,
+    "tokens": 346,
+    "symbols": 5
+  },
+  {
+    "path": "internal/render/sub_a/file_09.go",
+    "is_dir": false,
+    "tokens": 353,
+    "symbols": 1
+  },
+  {
+    "path": "internal/render/sub_b/file_00.go",
+    "is_dir": false,
+    "tokens": 305,
+    "symbols": 2
+  },
+  {
+    "path": "internal/render/sub_b/file_01.go",
+    "is_dir": false,
+    "tokens": 312,
+    "symbols": 3
+  },
+  {
+    "path": "internal/render/sub_b/file_02.go",
+    "is_dir": false,
+    "tokens": 319,
+    "symbols": 4
+  },
+  {
+    "path": "internal/render/sub_b/file_03.go",
+    "is_dir": false,
+    "tokens": 326,
+    "symbols": 5
+  },
+  {
+    "path": "internal/render/sub_b/file_04.go",
+    "is_dir": false,
+    "tokens": 333,
+    "symbols": 1
+  },
+  {
+    "path": "internal/render/sub_b/file_05.go",
+    "is_dir": false,
+    "tokens": 340,
+    "symbols": 2
+  },
+  {
+    "path": "internal/render/sub_b/file_06.go",
+    "is_dir": false,
+    "tokens": 347,
+    "symbols": 3
+  },
+  {
+    "path": "internal/render/sub_b/file_07.go",
+    "is_dir": false,
+    "tokens": 354,
+    "symbols": 4
+  },
+  {
+    "path": "internal/render/sub_b/file_08.go",
+    "is_dir": false,
+    "tokens": 361,
+    "symbols": 5
+  },
+  {
+    "path": "internal/render/sub_b/file_09.go",
+    "is_dir": false,
+    "tokens": 368,
+    "symbols": 1
+  },
+  {
+    "path": "internal/scan/sub_a/file_00.go",
+    "is_dir": false,
+    "tokens": 330,
+    "symbols": 3
+  },
+  {
+    "path": "internal/scan/sub_a/file_01.go",
+    "is_dir": false,
+    "tokens": 337,
+    "symbols": 4
+  },
+  {
+    "path": "internal/scan/sub_a/file_02.go",
+    "is_dir": false,
+    "tokens": 344,
+    "symbols": 5
+  },
+  {
+    "path": "internal/scan/sub_a/file_03.go",
+    "is_dir": false,
+    "tokens": 351,
+    "symbols": 1
+  },
+  {
+    "path": "internal/scan/sub_a/file_04.go",
+    "is_dir": false,
+    "tokens": 358,
+    "symbols": 2
+  },
+  {
+    "path": "internal/scan/sub_a/file_05.go",
+    "is_dir": false,
+    "tokens": 365,
+    "symbols": 3
+  },
+  {
+    "path": "internal/scan/sub_a/file_06.go",
+    "is_dir": false,
+    "tokens": 372,
+    "symbols": 4
+  },
+  {
+    "path": "internal/scan/sub_a/file_07.go",
+    "is_dir": false,
+    "tokens": 379,
+    "symbols": 5
+  },
+  {
+    "path": "internal/scan/sub_a/file_08.go",
+    "is_dir": false,
+    "tokens": 386,
+    "symbols": 1
+  },
+  {
+    "path": "internal/scan/sub_a/file_09.go",
+    "is_dir": false,
+    "tokens": 393,
+    "symbols": 2
+  },
+  {
+    "path": "internal/scan/sub_b/file_00.go",
+    "is_dir": false,
+    "tokens": 345,
+    "symbols": 3
+  },
+  {
+    "path": "internal/scan/sub_b/file_01.go",
+    "is_dir": false,
+    "tokens": 352,
+    "symbols": 4
+  },
+  {
+    "path": "internal/scan/sub_b/file_02.go",
+    "is_dir": false,
+    "tokens": 359,
+    "symbols": 5
+  },
+  {
+    "path": "internal/scan/sub_b/file_03.go",
+    "is_dir": false,
+    "tokens": 366,
+    "symbols": 1
+  },
+  {
+    "path": "internal/scan/sub_b/file_04.go",
+    "is_dir": false,
+    "tokens": 373,
+    "symbols": 2
+  },
+  {
+    "path": "internal/scan/sub_b/file_05.go",
+    "is_dir": false,
+    "tokens": 380,
+    "symbols": 3
+  },
+  {
+    "path": "internal/scan/sub_b/file_06.go",
+    "is_dir": false,
+    "tokens": 387,
+    "symbols": 4
+  },
+  {
+    "path": "internal/scan/sub_b/file_07.go",
+    "is_dir": false,
+    "tokens": 394,
+    "symbols": 5
+  },
+  {
+    "path": "internal/scan/sub_b/file_08.go",
+    "is_dir": false,
+    "tokens": 401,
+    "symbols": 1
+  },
+  {
+    "path": "internal/scan/sub_b/file_09.go",
+    "is_dir": false,
+    "tokens": 408,
+    "symbols": 2
+  },
+  {
+    "path": "internal/relations/sub_a/file_00.go",
+    "is_dir": false,
+    "tokens": 370,
+    "symbols": 4
+  },
+  {
+    "path": "internal/relations/sub_a/file_01.go",
+    "is_dir": false,
+    "tokens": 377,
+    "symbols": 5
+  },
+  {
+    "path": "internal/relations/sub_a/file_02.go",
+    "is_dir": false,
+    "tokens": 384,
+    "symbols": 1
+  },
+  {
+    "path": "internal/relations/sub_a/file_03.go",
+    "is_dir": false,
+    "tokens": 391,
+    "symbols": 2
+  },
+  {
+    "path": "internal/relations/sub_a/file_04.go",
+    "is_dir": false,
+    "tokens": 398,
+    "symbols": 3
+  },
+  {
+    "path": "internal/relations/sub_a/file_05.go",
+    "is_dir": false,
+    "tokens": 405,
+    "symbols": 4
+  },
+  {
+    "path": "internal/relations/sub_a/file_06.go",
+    "is_dir": false,
+    "tokens": 412,
+    "symbols": 5
+  },
+  {
+    "path": "internal/relations/sub_a/file_07.go",
+    "is_dir": false,
+    "tokens": 419,
+    "symbols": 1
+  },
+  {
+    "path": "internal/relations/sub_a/file_08.go",
+    "is_dir": false,
+    "tokens": 426,
+    "symbols": 2
+  },
+  {
+    "path": "internal/relations/sub_a/file_09.go",
+    "is_dir": false,
+    "tokens": 433,
+    "symbols": 3
+  },
+  {
+    "path": "internal/relations/sub_b/file_00.go",
+    "is_dir": false,
+    "tokens": 385,
+    "symbols": 4
+  },
+  {
+    "path": "internal/relations/sub_b/file_01.go",
+    "is_dir": false,
+    "tokens": 392,
+    "symbols": 5
+  },
+  {
+    "path": "internal/relations/sub_b/file_02.go",
+    "is_dir": false,
+    "tokens": 399,
+    "symbols": 1
+  },
+  {
+    "path": "internal/relations/sub_b/file_03.go",
+    "is_dir": false,
+    "tokens": 406,
+    "symbols": 2
+  },
+  {
+    "path": "internal/relations/sub_b/file_04.go",
+    "is_dir": false,
+    "tokens": 413,
+    "symbols": 3
+  },
+  {
+    "path": "internal/relations/sub_b/file_05.go",
+    "is_dir": false,
+    "tokens": 420,
+    "symbols": 4
+  },
+  {
+    "path": "internal/relations/sub_b/file_06.go",
+    "is_dir": false,
+    "tokens": 427,
+    "symbols": 5
+  },
+  {
+    "path": "internal/relations/sub_b/file_07.go",
+    "is_dir": false,
+    "tokens": 434,
+    "symbols": 1
+  },
+  {
+    "path": "internal/relations/sub_b/file_08.go",
+    "is_dir": false,
+    "tokens": 441,
+    "symbols": 2
+  },
+  {
+    "path": "internal/relations/sub_b/file_09.go",
+    "is_dir": false,
+    "tokens": 448,
+    "symbols": 3
+  },
+  {
+    "path": "internal/replay/sub_a/file_00.go",
+    "is_dir": false,
+    "tokens": 410,
+    "symbols": 5
+  },
+  {
+    "path": "internal/replay/sub_a/file_01.go",
+    "is_dir": false,
+    "tokens": 417,
+    "symbols": 1
+  },
+  {
+    "path": "internal/replay/sub_a/file_02.go",
+    "is_dir": false,
+    "tokens": 424,
+    "symbols": 2
+  },
+  {
+    "path": "internal/replay/sub_a/file_03.go",
+    "is_dir": false,
+    "tokens": 431,
+    "symbols": 3
+  },
+  {
+    "path": "internal/replay/sub_a/file_04.go",
+    "is_dir": false,
+    "tokens": 438,
+    "symbols": 4
+  },
+  {
+    "path": "internal/replay/sub_a/file_05.go",
+    "is_dir": false,
+    "tokens": 445,
+    "symbols": 5
+  },
+  {
+    "path": "internal/replay/sub_a/file_06.go",
+    "is_dir": false,
+    "tokens": 452,
+    "symbols": 1
+  },
+  {
+    "path": "internal/replay/sub_a/file_07.go",
+    "is_dir": false,
+    "tokens": 459,
+    "symbols": 2
+  },
+  {
+    "path": "internal/replay/sub_a/file_08.go",
+    "is_dir": false,
+    "tokens": 466,
+    "symbols": 3
+  },
+  {
+    "path": "internal/replay/sub_a/file_09.go",
+    "is_dir": false,
+    "tokens": 473,
+    "symbols": 4
+  },
+  {
+    "path": "internal/replay/sub_b/file_00.go",
+    "is_dir": false,
+    "tokens": 425,
+    "symbols": 5
+  },
+  {
+    "path": "internal/replay/sub_b/file_01.go",
+    "is_dir": false,
+    "tokens": 432,
+    "symbols": 1
+  },
+  {
+    "path": "internal/replay/sub_b/file_02.go",
+    "is_dir": false,
+    "tokens": 439,
+    "symbols": 2
+  },
+  {
+    "path": "internal/replay/sub_b/file_03.go",
+    "is_dir": false,
+    "tokens": 446,
+    "symbols": 3
+  },
+  {
+    "path": "internal/replay/sub_b/file_04.go",
+    "is_dir": false,
+    "tokens": 453,
+    "symbols": 4
+  },
+  {
+    "path": "internal/replay/sub_b/file_05.go",
+    "is_dir": false,
+    "tokens": 460,
+    "symbols": 5
+  },
+  {
+    "path": "internal/replay/sub_b/file_06.go",
+    "is_dir": false,
+    "tokens": 467,
+    "symbols": 1
+  },
+  {
+    "path": "internal/replay/sub_b/file_07.go",
+    "is_dir": false,
+    "tokens": 474,
+    "symbols": 2
+  },
+  {
+    "path": "internal/replay/sub_b/file_08.go",
+    "is_dir": false,
+    "tokens": 481,
+    "symbols": 3
+  },
+  {
+    "path": "internal/replay/sub_b/file_09.go",
+    "is_dir": false,
+    "tokens": 488,
+    "symbols": 4
+  }
+]

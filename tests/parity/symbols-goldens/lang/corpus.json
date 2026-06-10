@@ -1,0 +1,237 @@
+[
+  {
+    "Path": "go/generics.go",
+    "Symbols": [
+      {
+        "Name": "Number",
+        "Kind": "type",
+        "Line": 7
+      },
+      {
+        "Name": "Box",
+        "Kind": "type",
+        "Line": 12
+      },
+      {
+        "Name": "Sum",
+        "Kind": "function",
+        "Line": 17
+      },
+      {
+        "Name": "Get",
+        "Kind": "method",
+        "Line": 22
+      },
+      {
+        "Name": "Set",
+        "Kind": "method",
+        "Line": 27
+      },
+      {
+        "Name": "helper",
+        "Kind": "function",
+        "Line": 31
+      },
+      {
+        "Name": "Pair",
+        "Kind": "type",
+        "Line": 37
+      },
+      {
+        "Name": "Triple",
+        "Kind": "type",
+        "Line": 40
+      }
+    ]
+  },
+  {
+    "Path": "js/app.js",
+    "Symbols": [
+      {
+        "Name": "topLevel",
+        "Kind": "function",
+        "Line": 5
+      },
+      {
+        "Name": "innerHelper",
+        "Kind": "function",
+        "Line": 6
+      },
+      {
+        "Name": "defaultExport",
+        "Kind": "function",
+        "Line": 14
+      },
+      {
+        "Name": "Widget",
+        "Kind": "class",
+        "Line": 18
+      },
+      {
+        "Name": "InternalWidget",
+        "Kind": "class",
+        "Line": 30
+      }
+    ]
+  },
+  {
+    "Path": "jsx/component.jsx",
+    "Symbols": [
+      {
+        "Name": "Button",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "handleClick",
+        "Kind": "function",
+        "Line": 5
+      },
+      {
+        "Name": "Panel",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "PrivatePanel",
+        "Kind": "function",
+        "Line": 17
+      }
+    ]
+  },
+  {
+    "Path": "py/nested.py",
+    "Symbols": [
+      {
+        "Name": "top_level",
+        "Kind": "function",
+        "Line": 5
+      },
+      {
+        "Name": "inner",
+        "Kind": "function",
+        "Line": 6
+      },
+      {
+        "Name": "Service",
+        "Kind": "class",
+        "Line": 12
+      },
+      {
+        "Name": "__init__",
+        "Kind": "function",
+        "Line": 13
+      },
+      {
+        "Name": "label",
+        "Kind": "function",
+        "Line": 17
+      },
+      {
+        "Name": "fetch",
+        "Kind": "function",
+        "Line": 20
+      },
+      {
+        "Name": "Inner",
+        "Kind": "class",
+        "Line": 23
+      },
+      {
+        "Name": "helper",
+        "Kind": "function",
+        "Line": 24
+      },
+      {
+        "Name": "standalone",
+        "Kind": "function",
+        "Line": 32
+      }
+    ]
+  },
+  {
+    "Path": "ts/generics.ts",
+    "Symbols": [
+      {
+        "Name": "Repository",
+        "Kind": "interface",
+        "Line": 5
+      },
+      {
+        "Name": "Result",
+        "Kind": "type",
+        "Line": 10
+      },
+      {
+        "Name": "identity",
+        "Kind": "function",
+        "Line": 14
+      },
+      {
+        "Name": "clamp",
+        "Kind": "function",
+        "Line": 15
+      },
+      {
+        "Name": "UserRepository",
+        "Kind": "class",
+        "Line": 21
+      },
+      {
+        "Name": "Internal",
+        "Kind": "interface",
+        "Line": 28
+      },
+      {
+        "Name": "Alias",
+        "Kind": "type",
+        "Line": 32
+      },
+      {
+        "Name": "helper",
+        "Kind": "function",
+        "Line": 34
+      }
+    ]
+  },
+  {
+    "Path": "tsx/view.tsx",
+    "Symbols": [
+      {
+        "Name": "ViewProps",
+        "Kind": "interface",
+        "Line": 4
+      },
+      {
+        "Name": "ViewMode",
+        "Kind": "type",
+        "Line": 9
+      },
+      {
+        "Name": "View",
+        "Kind": "function",
+        "Line": 11
+      },
+      {
+        "Name": "renderItem",
+        "Kind": "function",
+        "Line": 12
+      },
+      {
+        "Name": "Container",
+        "Kind": "class",
+        "Line": 18
+      },
+      {
+        "Name": "InternalState",
+        "Kind": "interface",
+        "Line": 25
+      },
+      {
+        "Name": "Handler",
+        "Kind": "type",
+        "Line": 29
+      }
+    ]
+  }
+]

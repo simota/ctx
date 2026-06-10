@@ -1,0 +1,46 @@
+[
+  [
+    {
+      "Path": "auth/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "auth/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    }
+  ],
+  [
+    {
+      "Path": "auth/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "auth/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    }
+  ],
+  [],
+  [
+    {
+      "Path": "auth/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "service/service.py",
+      "Line": 15,
+      "Kind": "function",
+      "SymbolName": "Render"
+    }
+  ],
+  []
+]

@@ -1,0 +1,22 @@
+[
+  {
+    "Path": "internal/pack/pack.go",
+    "Reason": "anchor-origin",
+    "Tokens": 0
+  },
+  {
+    "Path": "internal/pack/helper.go",
+    "Reason": "same-dir",
+    "Tokens": 0
+  },
+  {
+    "Path": "internal/pack/pack_test.go",
+    "Reason": "same-dir",
+    "Tokens": 0
+  },
+  {
+    "Path": "internal/render/render.go",
+    "Reason": "name-match",
+    "Tokens": 0
+  }
+]

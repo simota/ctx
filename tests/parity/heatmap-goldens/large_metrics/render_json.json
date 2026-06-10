@@ -1,0 +1,149 @@
+{
+  "root": ".",
+  "by": "tokens",
+  "total": 53800,
+  "total_tokens": 53800,
+  "budget": null,
+  "buckets": [
+    {
+      "path": "internal/replay",
+      "tokens": 8980,
+      "files": 20,
+      "symbols": 60,
+      "weight": 8980,
+      "rect": {
+        "h": 20,
+        "w": 13,
+        "x": 0,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/relations",
+      "tokens": 8180,
+      "files": 20,
+      "symbols": 60,
+      "weight": 8180,
+      "rect": {
+        "h": 20,
+        "w": 12,
+        "x": 13,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/scan",
+      "tokens": 7380,
+      "files": 20,
+      "symbols": 60,
+      "weight": 7380,
+      "rect": {
+        "h": 20,
+        "w": 11,
+        "x": 25,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/render",
+      "tokens": 6580,
+      "files": 20,
+      "symbols": 60,
+      "weight": 6580,
+      "rect": {
+        "h": 11,
+        "w": 18,
+        "x": 36,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/web",
+      "tokens": 5780,
+      "files": 20,
+      "symbols": 60,
+      "weight": 5780,
+      "rect": {
+        "h": 9,
+        "w": 18,
+        "x": 36,
+        "y": 11
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/pack",
+      "tokens": 4980,
+      "files": 20,
+      "symbols": 60,
+      "weight": 4980,
+      "rect": {
+        "h": 11,
+        "w": 14,
+        "x": 54,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/symbols",
+      "tokens": 4180,
+      "files": 20,
+      "symbols": 60,
+      "weight": 4180,
+      "rect": {
+        "h": 9,
+        "w": 14,
+        "x": 54,
+        "y": 11
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/walk",
+      "tokens": 3380,
+      "files": 20,
+      "symbols": 60,
+      "weight": 3380,
+      "rect": {
+        "h": 8,
+        "w": 12,
+        "x": 68,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/heatmap",
+      "tokens": 2580,
+      "files": 20,
+      "symbols": 60,
+      "weight": 2580,
+      "rect": {
+        "h": 12,
+        "w": 6,
+        "x": 68,
+        "y": 8
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/cli",
+      "tokens": 1780,
+      "files": 20,
+      "symbols": 60,
+      "weight": 1780,
+      "rect": {
+        "h": 9,
+        "w": 6,
+        "x": 74,
+        "y": 8
+      },
+      "in_budget": false
+    }
+  ]
+}

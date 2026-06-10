@@ -1,0 +1,10 @@
+[package]
+name = "ctx-git"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Native Rust git helpers for ctx web parity"
+license = "MIT"
+
+[dependencies]
+miniz_oxide = "0.8"

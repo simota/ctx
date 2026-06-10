@@ -1,0 +1,14 @@
+language = "C"
+include_guard = "CTX_SYMBOLS_H"
+header = "/* ctx-symbols — Phase 4 Tier 2 #5 symbols pure-compute port FFI surface. AUTO-GENERATED. */"
+autogen_warning = "/* Do not edit — regenerate via cargo build. */"
+no_includes = false
+sys_includes = ["stddef.h", "stdint.h"]
+style = "type"
+cpp_compat = true
+
+[export]
+prefix = ""
+
+[parse]
+parse_deps = false

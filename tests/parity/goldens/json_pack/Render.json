@@ -1,0 +1,5 @@
+{
+  "json": "{\n  \"pack_file\": \"json_pack\",\n  \"schema_version\": 1,\n  \"total_files_in_contract\": 1,\n  \"references_found\": 1,\n  \"violations\": [],\n  \"ok\": [\n    {\n      \"kind\": \"file\",\n      \"path\": \"internal/limit/limit.go\",\n      \"source_line\": 1\n    }\n  ],\n  \"stale_files\": [],\n  \"repack_suggestions\": [],\n  \"exit_code\": 0\n}\n",
+  "markdown": "# CTX-CONTRACT-VERIFY: pack=json_pack schema=1 files=1\n\n## Violations (0)\n\n(none — every reference matched the contract)\n\n## OK (1)\n- `internal/limit/limit.go` (file ref, line 1)\n\n## Exit\n0 — no violations detected\n",
+  "plain": "pack=json_pack schema=1 files=1 refs=1 violations=0 ok=1 exit=0\nO\tfile\t`internal/limit/limit.go` (file ref, line 1)\tline=1\n"
+}

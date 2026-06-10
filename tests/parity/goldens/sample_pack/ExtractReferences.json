@@ -1,0 +1,50 @@
+[
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "internal/limit/limit.go",
+    "source_line": 10,
+    "symbol": ""
+  },
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "internal/limit/limit_test.go",
+    "source_line": 11,
+    "symbol": ""
+  },
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "internal/limit/limit.go",
+    "source_line": 17,
+    "symbol": ""
+  },
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "internal/limit/limit_test.go",
+    "source_line": 37,
+    "symbol": ""
+  },
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "internal/limit/limit.go",
+    "source_line": 58,
+    "symbol": ""
+  },
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "internal/limit/limit_test.go",
+    "source_line": 65,
+    "symbol": ""
+  }
+]

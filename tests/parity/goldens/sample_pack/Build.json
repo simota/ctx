@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "created": "2026-05-29T00:00:00Z",
+  "files": [
+    {
+      "path": "internal/limit/limit.go",
+      "line_start": 1,
+      "line_end": 1,
+      "sha256": "6d2ed31acad4c3a6c29141f22f1ac9267dffe8673a5497cd209ab82b7f7a9506",
+      "line_hashes": [
+        {
+          "line": 1,
+          "sha256": "6d2ed31acad4c3a6c29141f22f1ac9267dffe8673a5497cd209ab82b7f7a9506"
+        }
+      ],
+      "symbols": [
+        "Allow",
+        "Limiter",
+        "NewLimiter"
+      ]
+    },
+    {
+      "path": "internal/limit/limit_test.go",
+      "line_start": 1,
+      "line_end": 1,
+      "sha256": "84062529a82f3ebed7af7fd713791e01f93e3dc8144f5a8d5b9549fe8bef30ea",
+      "line_hashes": [
+        {
+          "line": 1,
+          "sha256": "84062529a82f3ebed7af7fd713791e01f93e3dc8144f5a8d5b9549fe8bef30ea"
+        }
+      ],
+      "symbols": [
+        "TestLimiter"
+      ]
+    }
+  ]
+}

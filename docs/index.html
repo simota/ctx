@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="ja" dir="ltr" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ctx — LLM Context Curator | 渡す前に、何を省くかを決める Rust CLI</title>
+  <meta name="description" content="ctx は LLM Context Curator — リポジトリから AI に渡す束を選り分け、何を省いたかまで記録する Rust 製 CLI/TUI/MCP server。トークン数・Git 状態・シンボルでコードベースを可視化し、ゴール起点で curation できる。Claude Code・Cursor から MCP tool として呼び出せる。">
+  <meta name="author" content="simota">
+  <meta name="generator" content="Artisan / Claude Code">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#0e0c0a" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f5ead3" media="(prefers-color-scheme: light)">
+
+  <!-- Canonical & hreflang -->
+  <link rel="canonical" href="https://simota.github.io/ctx/">
+  <link rel="alternate" hreflang="ja" href="https://simota.github.io/ctx/">
+  <link rel="alternate" hreflang="x-default" href="https://simota.github.io/ctx/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="ctx">
+  <meta property="og:title" content="ctx — LLM Context Curator | 渡す前に、何を省くかを決める Rust CLI">
+  <meta property="og:description" content="ctx は LLM Context Curator — リポジトリから AI に渡す束を選り分け、何を省いたかまで記録する Rust 製 CLI/TUI/MCP server。トークン数・Git 状態・シンボルでコードベースを可視化し、ゴール起点で curation できる。Claude Code・Cursor から MCP tool として呼び出せる。">
+  <meta property="og:url" content="https://simota.github.io/ctx/">
+  <!-- #TODO(agent): og.svg を 1200x630 PNG に書き出して og.png として配置すると Twitter/FB プレビュー対応 -->
+  <meta property="og:image" content="https://simota.github.io/ctx/og.svg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="ctx — LLM に渡す文脈を、選り分ける。">
+  <meta property="og:locale" content="ja_JP">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@simota">
+  <meta name="twitter:creator" content="@simota">
+  <meta name="twitter:title" content="ctx — LLM Context Curator | 渡す前に、何を省くかを決める Rust CLI">
+  <meta name="twitter:description" content="ctx は LLM Context Curator — リポジトリから AI に渡す束を選り分け、何を省いたかまで記録する Rust 製 CLI/TUI/MCP server。">
+  <meta name="twitter:image" content="https://simota.github.io/ctx/og.svg">
+  <meta name="twitter:image:alt" content="ctx — LLM に渡す文脈を、選り分ける。">
+
+  <!-- Apple touch icon fallback -->
+  <link rel="apple-touch-icon" href="favicon.svg?v=2">  <!-- #TODO(agent): PNG 180x180 を生成して apple-touch-icon.png として配置すると iOS Safari ホーム画面で高品質 -->
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=2">
+
+  <!-- Google Fonts preconnect -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- B-1: Google Fonts async load — eliminates render-blocking -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Noto+Sans+JP:wght@400;500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Noto+Sans+JP:wght@400;500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap"></noscript>
+
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="script.js"></script>
+</head>
+<body>
+  <!-- Skip navigation -->
+  <a class="skip-link" href="#main-content">メインコンテンツにスキップ</a>
+
+  <!-- ── Site header ──────────────────────────────────────────────── -->
+  <header class="site-header" role="banner">
+    <div class="header-inner">
+      <a href="#" class="site-logo" aria-label="ctx トップへ">
+        <span class="accent">ctx</span>
+      </a>
+      <nav class="header-nav" aria-label="サイトナビゲーション">
+        <div class="nav-links" role="list">
+          <a href="#how" role="listitem">使い方</a>
+          <a href="#features" role="listitem">機能</a>
+          <!-- Funnel A-2: Enterprise nav link 追加 -->
+          <a href="#enterprise" role="listitem">Enterprise</a>
+          <a href="#faq" role="listitem">FAQ</a>
+        </div>
+        <button id="theme-toggle" aria-label="ライトモードに切り替え" aria-pressed="false">
+          <span class="theme-icon" aria-hidden="true">☀</span>
+          テーマ
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content" tabindex="-1">
+
+    <!-- ── §1 Hero ──────────────────────────────────────────────────── -->
+    <section class="hero" aria-labelledby="hero-heading" id="top"
+             data-event="section_entered" data-section="hero">
+      <!-- hanko seal — Hero section top-right (Vision: 朱印 1 個のみ) -->
+      <div class="hanko-wrap" aria-hidden="true">
+        <img src="hanko.svg?v=2" alt="" width="64" height="64" loading="eager">
+      </div>
+
+      <div class="hero-inner">
+        <!-- Top: text -->
+        <div class="hero-text">
+          <p class="caption hero-cap">CLI / TUI / MCP — Rust toolchain</p>
+
+          <!-- P1-7: Hero h1 を Funnel B-1 に従い変更 -->
+          <h1 id="hero-heading">LLM に渡す文脈を、選り分ける。</h1>
+
+          <p class="hero-sub">
+            ctx はトークン数・Git 状態・シンボルでコードベースを可視化し、
+            <strong>ゴールに照らして要るものを選り分け、省いたものも記録する</strong> Rust CLI です。
+            <span class="hero-sub-en">Curate the context you hand to AI — decide what to leave out, and keep a record of it.</span>
+          </p>
+
+          <div class="hero-cta">
+            <a href="https://github.com/simota/ctx#インストール"
+               class="btn-primary"
+               aria-label="ctx をインストールする — Rust toolchain が必要"
+               data-event="cta_primary_clicked"
+               data-position="hero">
+              インストールする — Rust
+            </a>
+            <a href="https://github.com/simota/ctx"
+               class="btn-ghost"
+               rel="noopener noreferrer"
+               target="_blank"
+               aria-label="GitHub でリポジトリを見る"
+               data-event="cta_secondary_clicked"
+               data-position="hero">
+              GitHub で見る ★
+            </a>
+          </div>
+        </div>
+
+        <!-- Below: terminal frame (full-width demo) -->
+        <div class="hero-terminal" aria-label="ctx コマンドの出力例" role="figure">
+          <div class="term-frame">
+            <div class="term-bar" aria-hidden="true">
+              <span class="term-dot"></span>
+              <span class="term-dot"></span>
+              <span class="term-dot"></span>
+              <span class="term-title">zsh — ctx --tokens --git --symbols .</span>
+            </div>
+            <div class="term-body">
+              <pre aria-label="ctx --tokens --git --symbols . の出力">
+<span class="t-dim">$</span> <span class="t-flag">ctx</span> <span class="t-flag">--tokens</span> <span class="t-flag">--git</span> <span class="t-flag">--symbols</span> <span class="t-path">.</span>
+
+<span class="t-path">./</span>
+<span class="t-dim">├─</span> <span class="t-path">crates/</span>
+<span class="t-dim">│  ├─</span> <span class="t-path">ctx-cli/</span>
+<span class="t-dim">│  │  └─</span> <span class="t-sym">main.rs</span>       <span class="t-dim">entry</span>  <span class="t-dim">3.1k</span>  <span class="t-dim">118L</span>  <span class="t-num">tokens:812</span>   <span class="t-sym">symbols:main</span>
+<span class="t-dim">│  ├─</span> <span class="t-path">ctx-pack/</span>
+<span class="t-dim">│  │  └─</span> <span class="t-sym">lib.rs</span>        <span class="t-dim">core</span>   <span class="t-dim">18k</span>   <span class="t-dim">612L</span> <span class="t-git">git:M</span>  <span class="t-num">tokens:4.9k</span>  <span class="t-sym">symbols:pack,score,…</span>
+<span class="t-dim">│  └─</span> <span class="t-path">ctx-tui/</span>                                      <span class="t-dim">9.2k</span>  <span class="t-num">tokens:2.4k</span>
+<span class="t-dim">└─</span> <span class="t-path">web/</span>                                          <span class="t-dim">6.7k</span>  <span class="t-num">tokens:1.8k</span>
+
+<span class="t-dim">Context Budget:</span> <span class="t-num">50,000</span> tokens
+<div class="term-progress" aria-live="polite" aria-label="バジェット使用率: 35,420 / 50,000 tokens">
+  [<span class="term-progress-track"><span class="term-progress-fill t-bar" data-fill="71%" role="progressbar" aria-valuenow="35420" aria-valuemin="0" aria-valuemax="50000"></span></span>] <span class="t-num">35,420</span><span class="t-dim"> / 50,000 tokens</span>
+</div>
+<span class="t-ok">✓</span> <span class="t-dim">24 files included</span>
+<span class="s-skipped">Skipped</span> <span class="t-dim">(8 files)</span>
+<span class="t-dim">  └─</span> <span class="s-path">crates/ctx-web/dist/assets/index.js</span>  <span class="s-skipped-reason">too large</span>  <span class="t-dim">·</span>  <span class="s-path">target/**</span>  <span class="s-skipped-reason">generated</span>  <span class="t-dim">·</span>  <span class="t-dim">+6</span>
+</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── §2.5 Trust signal bar (P2) ──────────────────────────────── -->
+    <div class="trust-bar" role="list" aria-label="ctx の特徴">
+      <span role="listitem"><span aria-hidden="true">🏠</span> ローカルファースト</span>
+      <span role="listitem"><span aria-hidden="true">⚖️</span> MIT (予定)</span>
+      <span role="listitem"><span aria-hidden="true">✈️</span> --strict-offline</span>
+      <span role="listitem"><span aria-hidden="true">🔍</span> Secret 検出内蔵</span>
+    </div>
+
+    <!-- ── TL;DR block (A-2: GEO summary exposure) ───────────────────── -->
+    <div class="tldr-block" role="note" aria-label="ctx とは — 要約">
+      <p><strong>ctx (LLM Context Curator)</strong> は、AI コーディングツール (Claude Code / Cursor) に渡すソースファイルを、ゴールに照らして選り分け、省いたものも記録する Rust CLI / TUI / MCP server です。トークン予算管理・goal-aware スコアリング・Secret 検出・監査ログを内蔵。通常ビルドは Rust toolchain のみ、外部送信ゼロ。</p>
+    </div>
+
+    <!-- ── §2 Pain ───────────────────────────────────────────────────── -->
+    <section class="pain" aria-labelledby="pain-heading" id="pain"
+             data-event="section_entered" data-section="pain">
+      <div class="container">
+        <div class="section-header" style="text-align:center;">
+          <p class="caption">The problem</p>
+          <h2 id="pain-heading">届いていない AI への問いかけ。</h2>
+        </div>
+
+        <div class="pain-lines" role="list">
+          <div class="pain-line" role="listitem">
+            <h3>コンテキストウィンドウは、気づいたら溢れている</h3>
+            <p>
+              ファイルを貼るたびに「何トークン使ったか」がわからない。
+              気づいたらウィンドウが埋まり、古いコンテキストが押し出される。
+              LLM の「注意」がどこに向いているか把握できない状態で会話が続く。
+            </p>
+          </div>
+          <div class="pain-line" role="listitem">
+            <h3>全部貼る、は問題を先送りにしているだけだ</h3>
+            <p>
+              関係しそうなファイルを片端から貼る。lock ファイル、生成物、
+              巨大 JSON も一緒に流れ込む。LLM は大量の低品質コンテキストに
+              引きずられ、回答精度が下がる。省く判断を後回しにした代償は大きい。
+            </p>
+          </div>
+          <div class="pain-line" role="listitem">
+            <h3>「先週 AI に何を渡したか」が残らない</h3>
+            <p>
+              「あのとき LLM に何を渡したか」が残らない。
+              デバッグの文脈を再構築するたびにゼロからやり直し。
+              チームメンバーに共有しようとしても、状態が揃わない。
+            </p>
+          </div>
+        </div>
+
+        <p class="pain-core">
+          何を省いたかが残る道具が、なかった。
+        </p>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- ── §3 Solution ──────────────────────────────────────────────── -->
+    <section class="solution" aria-labelledby="solution-heading" id="solution"
+             data-event="section_entered" data-section="solution">
+      <div class="container">
+        <div class="section-header">
+          <p class="caption">The solution</p>
+          <h2 id="solution-heading">ctx は、LLM Context Curation のための道具だ。</h2>
+        </div>
+
+        <p class="solution-tagline">
+          ctx はコードベースを一覧し、自然語のゴールから要るファイルを選り分け、
+          入らなかったものを <code>Skipped</code> 理由付きで残します。
+          LLM に手渡す前に、curator の手つきを 1 段挟むための道具です。
+        </p>
+
+        <div class="cmp-table-wrap" tabindex="0" role="region" aria-label="ctx と他ツールの機能比較、左右にスクロールできます">
+          <table class="cmp-table">
+            <thead>
+              <tr>
+                <th scope="col">観点</th>
+                <th scope="col">tree / eza</th>
+                <th scope="col">repomix</th>
+                <th scope="col">ripgrep</th>
+                <th scope="col"><strong>ctx</strong></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>ファイル構造の俯瞰</td>
+                <td class="em">✓</td>
+                <td>△</td>
+                <td>✗</td>
+                <td class="acc">✓</td>
+              </tr>
+              <tr>
+                <td>トークン数の可視化</td>
+                <td>✗</td>
+                <td>△</td>
+                <td>✗</td>
+                <td class="acc">✓ 全ファイル一覧</td>
+              </tr>
+              <tr>
+                <td>シンボル抽出 (tree-sitter)</td>
+                <td>✗</td>
+                <td>✓</td>
+                <td>✗</td>
+                <td class="acc">✓ Rust/Go/TS/JS/Python</td>
+              </tr>
+              <tr>
+                <td>コンテキスト予算管理</td>
+                <td>✗</td>
+                <td>△</td>
+                <td>✗</td>
+                <td class="acc">✓ --budget でバー表示</td>
+              </tr>
+              <tr>
+                <td>goal-aware ファイル選定</td>
+                <td>✗</td>
+                <td>△</td>
+                <td>✗</td>
+                <td class="acc">✓ 4 シグナル合成スコア</td>
+              </tr>
+              <tr>
+                <td>MCP server</td>
+                <td>✗</td>
+                <td>✗</td>
+                <td>✗</td>
+                <td class="acc">✓ 8 tools / stdio</td>
+              </tr>
+              <tr>
+                <td>Skipped 理由の記録</td>
+                <td>✗</td>
+                <td>✗</td>
+                <td>✗</td>
+                <td class="acc">✓ --explain / audit JSONL</td>
+              </tr>
+              <tr>
+                <td>air-gap / 監査ログ</td>
+                <td>✗</td>
+                <td>✗</td>
+                <td>✗</td>
+                <td class="acc">✓ --strict-offline / audit JSONL</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="cmp-table-hint" aria-hidden="true">← 横スクロールで全列を表示 →</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- ── §4 How It Works ──────────────────────────────────────────── -->
+    <section class="how" aria-labelledby="how-heading" id="how"
+             data-event="section_entered" data-section="how">
+      <div class="container">
+        <div class="section-header">
+          <p class="caption">How it works</p>
+          <h2 id="how-heading">3 ステップで選り分ける。</h2>
+        </div>
+
+        <div class="steps" role="list">
+          <!-- Step 1 -->
+          <div class="step" role="listitem">
+            <p class="step-num">Step 01 — 俯瞰する</p>
+            <h3>リポジトリを一覧する</h3>
+            <p>
+              <code>--tokens</code> <code>--git</code> <code>--symbols</code> を付けると、
+              ファイル横にトークン数・Git 状態・シンボル名が並ぶ。
+              「どこが重くて、何が変わっているか」がひと目でわかる。
+            </p>
+            <div class="code-block" aria-label="ctx --tokens --git --symbols . の例">
+              <pre><span class="t-dim">$</span> <span class="t-flag">ctx</span> <span class="t-flag">--tokens</span> <span class="t-flag">--git</span> <span class="t-flag">--symbols</span> <span class="t-path">.</span>
+
+<span class="t-path">crates/ctx-cli/src/main.rs</span>   <span class="t-git">git:M</span>  <span class="t-num">tokens:812</span>   <span class="t-sym">symbols:main</span>
+<span class="t-path">crates/ctx-pack/src/lib.rs</span>          <span class="t-num">tokens:4.9k</span>  <span class="t-sym">symbols:pack,score</span></pre>
+            </div>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="step" role="listitem">
+            <p class="step-num">Step 02 — 見切る</p>
+            <h3>トークン予算内で何が入るか見る</h3>
+            <p>
+              <code>--budget 50000</code> でコンテキストウィンドウに
+              収まるファイルを自動選定。
+              進捗バーで残量をリアルタイム把握。
+              収まらなかったものは理由付きで Skipped に回る。
+            </p>
+            <div class="code-block" aria-label="ctx --budget 50000 . の例">
+              <pre><span class="t-dim">$</span> <span class="t-flag">ctx</span> <span class="t-flag">--budget</span> <span class="t-num">50000</span> <span class="t-path">.</span>
+
+Context Budget: <span class="t-num">50,000</span> tokens
+[<span class="t-bar">████████████████</span><span class="t-dim">░░░░</span>] <span class="t-num">35,420</span> / <span class="t-num">50,000</span>
+
+Included (<span class="t-num">24</span> files)
+<span class="t-dim">└─</span> <span class="t-path">crates/ctx-pack/**</span>   <span class="t-num">8,400</span> tokens</pre>
+            </div>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="step" role="listitem">
+            <p class="step-num">Step 03 — 手渡す</p>
+            <h3>--explain で、省いた理由まで見せる</h3>
+            <p>
+              自然語のゴールを与えると、basename / path / symbol / content の
+              4 シグナルでスコアリングし、関連度の高いファイルだけを選り分ける。
+              <code>--explain</code> で「なぜ含め、なぜ省いたか」が残る。
+            </p>
+            <div class="code-block" aria-label="ctx pack --explain コマンドの例">
+              <pre><span class="t-dim">$</span> <span class="t-flag">ctx pack</span> \
+    <span class="t-flag">--goal</span> <span class="t-sym">"ログイン認証のバグを調べたい"</span> \
+    <span class="t-flag">--budget</span> <span class="t-num">30000</span> \
+    <span class="t-flag">--explain</span> \
+    <span class="t-flag">--out</span> <span class="t-path">context.md</span> <span class="t-path">.</span>
+
+<span class="t-ok">High</span>   <span class="t-path">crates/ctx-cli/src/main.rs</span>   <span class="t-dim">score 28</span>
+<span class="t-dim">Medium</span> <span class="t-path">crates/ctx-pack/src/lib.rs</span>   <span class="t-dim">score 14</span>
+<span class="s-skipped">Skipped</span> <span class="s-path">node_modules/</span>  <span class="s-skipped-reason">outside goal scope</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- ── §5 Features ──────────────────────────────────────────────── -->
+    <section class="features" aria-labelledby="features-heading" id="features"
+             data-event="section_entered" data-section="features">
+      <div class="container">
+        <div class="section-header">
+          <p class="caption">Features</p>
+          <h2 id="features-heading">省く判断を、道具が支える。</h2>
+        </div>
+
+        <div class="features-grid" role="list">
+          <!-- feature-card--entry: ctx where -->
+          <div class="feature-card feature-card--entry" role="listitem">
+            <p class="feature-eyebrow">最初に試すならここから</p>
+            <h3>
+              <span class="index-tab" aria-hidden="true">w</span>
+              ctx where — ゴール起点の選定
+            </h3>
+            <p>
+              basename / path / symbol / content の 4 シグナル合成スコアで
+              関連ファイルをランキング。ゼロヒット時は Levenshtein 距離で
+              typo 候補を提示。<code>--all</code> で AND セマンティクス、
+              <code>--regex</code> で Rust regex フィルタも組み合わせ可能。
+            </p>
+            <div class="code-block">
+              <pre><span class="t-flag">ctx where</span> <span class="t-sym">"ログイン処理"</span>
+<span class="t-flag">ctx where</span> <span class="t-sym">"AuthMiddleware"</span> <span class="t-flag">--format</span> json</pre>
+            </div>
+          </div>
+
+          <!-- ctx pack -->
+          <div class="feature-card" role="listitem">
+            <h3>
+              <span class="index-tab" aria-hidden="true">p</span>
+              ctx pack — 選り分けてパック
+            </h3>
+            <p>
+              自然語ゴールに対して High / Medium / Skipped に振り分け。
+              <code>--diff</code> で PR 差分のみ、<code>--changed</code> で
+              作業中の変更のみを対象に。<code>--watch</code> で
+              ファイル保存ごとに自動再生成。
+            </p>
+            <div class="code-block">
+              <pre><span class="t-flag">ctx pack</span> <span class="t-flag">--goal</span> <span class="t-sym">"認証バグ"</span> <span class="t-flag">--budget</span> <span class="t-num">30000</span>
+<span class="t-flag">ctx pack</span> <span class="t-flag">--diff</span> main..HEAD <span class="t-flag">--api-only</span>
+<span class="t-flag">ctx pack</span> <span class="t-flag">--watch</span> <span class="t-flag">--out</span> <span class="t-path">~/.context.md</span></pre>
+            </div>
+          </div>
+
+          <!-- MCP server -->
+          <div class="feature-card" role="listitem">
+            <h3>
+              <span class="index-tab" aria-hidden="true">m</span>
+              MCP server — 毎朝の儀式を 1 行に
+            </h3>
+            <p>
+              <code>ctx mcp serve</code> で JSON-RPC 2.0 stdio server が立ち上がる。
+              <code>ctx_pack</code> / <code>ctx_where</code> / <code>ctx_budget</code> /
+              <code>ctx_symbols</code> / <code>ctx_skim</code> / <code>ctx_digest</code> /
+              <code>ctx_focus</code> / <code>ctx_tree</code> の 8 tool を Claude Code / Cursor
+              から tool call で呼び出せる。
+            </p>
+            <div class="code-block" aria-label="MCP server 設定例">
+              <pre>{
+  <span class="t-json-key">"mcpServers"</span>: {
+    <span class="t-json-key">"ctx"</span>: {
+      <span class="t-json-key">"command"</span>: <span class="t-json-val">"ctx"</span>,
+      <span class="t-json-key">"args"</span>: [<span class="t-json-val">"mcp"</span>, <span class="t-json-val">"serve"</span>]
+    }
+  }
+}</pre>
+            </div>
+          </div>
+
+          <!-- ctx replay -->
+          <div class="feature-card" role="listitem">
+            <h3>
+              <span class="index-tab" aria-hidden="true">r</span>
+              ctx replay — 選定を読み返す
+            </h3>
+            <p>
+              <code>--snapshot ID</code> でその時点のパック選定を manifest として保存。
+              翌日 <code>--since-snapshot ID</code> を使えば差分のみを pack。
+              <code>ctx replay diff</code> で「AI に渡した文脈の進化」を可視化できる。
+            </p>
+            <div class="code-block">
+              <pre><span class="t-flag">ctx pack</span> <span class="t-flag">--snapshot</span> baseline <span class="t-flag">--budget</span> <span class="t-num">30000</span>
+<span class="t-comment"># 翌日: 差分のみ渡す</span>
+<span class="t-flag">ctx pack</span> <span class="t-flag">--since-snapshot</span> baseline</pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mid-page Primary CTA (Funnel B-5) -->
+        <div class="mid-cta">
+          <p class="mid-cta-eyebrow">まずは 1 ファイル省くところから</p>
+          <p>Rust toolchain でビルドでき、外部送信ゼロ。<code>ctx pack --explain</code> で省いた理由まで記録できます。</p>
+          <div>
+            <a href="https://github.com/simota/ctx#インストール"
+               class="btn-primary"
+               aria-label="ctx をインストールする"
+               data-event="cta_primary_clicked"
+               data-position="mid">
+              インストールする — Rust
+            </a>
+            <!-- Sora 救済 link (初めて ctx を使う first-timers) -->
+            <a href="https://github.com/simota/ctx#5-分で動かす"
+               class="sora-link"
+               rel="noopener noreferrer"
+               target="_blank">
+              初めて ctx を使う / first-timers — start here →
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- ── §6 Enterprise ────────────────────────────────────────────── -->
+    <section class="enterprise" aria-labelledby="enterprise-heading" id="enterprise"
+             data-event="section_entered" data-section="enterprise">
+      <div class="container">
+        <div class="section-header">
+          <p class="caption">Enterprise &amp; Teams</p>
+          <h2 id="enterprise-heading">金融・医療・インフラ現場でも、省ける安心を。</h2>
+          <p>
+            ctx はすべてローカルファースト。AI 呼び出しは将来も opt-in のみ。
+            <code>--strict-offline</code> で外部通信を完全に遮断できる。
+          </p>
+        </div>
+
+        <div class="enterprise-grid">
+          <!-- Left: config example -->
+          <div>
+            <p class="caption mt-32" style="margin-block-end: var(--sp-8);">ctx.toml — 設定例</p>
+            <div class="code-block" aria-label="ctx.toml の設定例">
+              <pre><span class="t-toml-sec">[security]</span>
+<span class="t-toml-key">strict_offline</span>  = <span class="t-toml-val">true</span>
+<span class="t-toml-key">secret_scan</span>     = <span class="t-toml-val">true</span>
+<span class="t-toml-key">enable_entropy</span>  = <span class="t-toml-val">false</span>
+<span class="t-toml-key">allowlist_files</span> = [<span class="t-toml-str">"tests/fixtures/**"</span>]
+
+<span class="t-toml-sec">[hooks]</span>
+<span class="t-toml-key">pre_pack</span>  = <span class="t-toml-str">"./scripts/dlp-scan.sh"</span>
+<span class="t-toml-key">on_secret</span> = <span class="t-toml-str">"./scripts/security-alert.sh"</span>
+
+<span class="t-toml-sec">[audit]</span>
+<span class="t-toml-key">enabled</span>          = <span class="t-toml-val">true</span>
+<span class="t-toml-key">path</span>             = <span class="t-toml-str">"/var/log/ctx-audit.jsonl"</span>
+<span class="t-toml-key">query_handling</span>   = <span class="t-toml-str">"mask"</span>
+
+<span class="t-toml-sec">[where.synonyms]</span>
+<span class="t-toml-key">session</span> = [<span class="t-toml-str">"cookie"</span>, <span class="t-toml-str">"jwt"</span>, <span class="t-toml-str">"oauth"</span>]
+<span class="t-toml-key">auth</span>    = [<span class="t-toml-str">"authentication"</span>, <span class="t-toml-str">"login"</span>]</pre>
+            </div>
+          </div>
+
+          <!-- Right: feature list -->
+          <div>
+            <div class="enterprise-feature">
+              <h3>監査ログ — 操作の全量を選り分け、記録する</h3>
+              <p>
+                すべての操作が JSONL 形式で記録される。各行に前行の SHA-256 を
+                <code>prev_hash</code> として埋め込む hash chain 方式で改ざん検知が可能。
+                <code>ctx audit verify</code> で整合性を一発確認。
+                <code>query_handling = "mask"</code> で検索クエリも正規表現でマスクできる。
+              </p>
+            </div>
+
+            <div class="enterprise-feature">
+              <h3>Secret 検出 — 渡す前に、漏れを見切る</h3>
+              <p>
+                AWS / GCP / Azure / GitHub / Slack / JWT / 秘密鍵などのパターンを
+                pack 前に自動スキャン。検出時は <code>on_secret</code> hook が発火し、
+                pack を中断してアラートを送れる。<code>allowlist_files</code> で
+                false positive を抑制。
+              </p>
+            </div>
+
+            <div class="enterprise-feature">
+              <h3>Strict offline — 外部に手渡さない保証</h3>
+              <p>
+                <code>strict_offline = true</code> または環境変数
+                <code>CTX_STRICT_OFFLINE=1</code> で完全オフライン動作。
+                <code>ctx doctor</code> がすべてのコンポーネントの
+                ローカル性を証跡として提示する。
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- ── §7 Use Cases ─────────────────────────────────────────────── -->
+    <section class="usecases" aria-labelledby="usecases-heading" id="usecases"
+             data-event="section_entered" data-section="usecases">
+      <div class="container">
+        <div class="section-header">
+          <p class="caption">Use cases</p>
+          <h2 id="usecases-heading">何を省くかで、仕事の質が変わる。</h2>
+        </div>
+
+        <div class="uc-grid" role="list">
+          <div class="uc-card" role="listitem">
+            <p class="caption">PR レビュー</p>
+            <h3>差分だけを、API シグネチャだけを渡す</h3>
+            <p>
+              <code>--diff main..HEAD --api-only</code> で、main からの差分について
+              公開 API の Before/After のみを side-by-side で生成。
+              実装詳細は省かれ、レビューに集中できる。
+            </p>
+            <div class="code-block">
+              <pre><span class="t-flag">ctx pack</span> <span class="t-flag">--diff</span> main..HEAD \
+  <span class="t-flag">--api-only</span> <span class="t-flag">--out</span> <span class="t-path">review.mdx</span></pre>
+            </div>
+          </div>
+
+          <div class="uc-card" role="listitem">
+            <p class="caption">バグ調査</p>
+            <h3>ゴールに関連するファイルだけを AI に渡す</h3>
+            <p>
+              goal 関連度で基幹ファイルを High に、関連 helper を Medium に、
+              無関係ファイルは <code>outside goal scope</code> として省く。
+              <code>--explain</code> で「なぜ含めたか」が見えるので AI への信頼度が上がる。
+            </p>
+            <div class="code-block">
+              <pre><span class="t-flag">ctx pack</span> \
+  <span class="t-flag">--goal</span> <span class="t-sym">"セッションが消える"</span> \
+  <span class="t-flag">--budget</span> <span class="t-num">40000</span> <span class="t-flag">--explain</span></pre>
+            </div>
+          </div>
+
+          <!-- Plea #3 新規: OSS Onboarding -->
+          <div class="uc-card" role="listitem">
+            <p class="caption">OSS オンボーディング</p>
+            <h3>最初に読むべきファイルを選り分ける</h3>
+            <p>
+              entry/role、git churn、symbol density、basename references の
+              合算スコアで読む順序を決定。<code>--persona ai</code> で
+              新参 LLM session 用の圧縮形式に切り替え可能。
+              初日に「どこから読めばいいか」で迷わない。
+            </p>
+            <div class="code-block">
+              <pre><span class="t-flag">ctx onboarding</span> <span class="t-flag">--persona</span> ai
+<span class="t-flag">ctx onboarding</span> <span class="t-flag">--limit</span> <span class="t-num">20</span></pre>
+            </div>
+          </div>
+
+          <div class="uc-card" role="listitem">
+            <p class="caption">週次 Digest</p>
+            <h3>この 1 週間で何が変わったかを 1 ページに</h3>
+            <p>
+              <code>ctx digest</code> は git churn、トークン単位の増減、
+              シンボル単位の増減を要約する。月曜朝に LLM へ貼るだけで
+              前週の差分を把握できる。
+            </p>
+            <div class="code-block">
+              <pre><span class="t-flag">ctx digest</span> <span class="t-flag">--since</span> <span class="t-num">7d</span> \
+  <span class="t-flag">--out</span> <span class="t-path">monday-brief.md</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- ── §8 FAQ ────────────────────────────────────────────────────── -->
+    <section class="faq" aria-labelledby="faq-heading" id="faq"
+             data-event="section_entered" data-section="faq">
+      <div class="container">
+        <div class="section-header" style="text-align:center;">
+          <p class="caption">FAQ</p>
+          <h2 id="faq-heading">よくある質問</h2>
+        </div>
+
+        <div class="faq-list">
+          <!-- Q1 新規 (P1-8): なぜ Curator か — open for GEO TL;DR exposure -->
+          <details open data-event="faq_open" data-faq-id="curator">
+            <summary>なぜ "Curator" なのか? — packer / packager と何が違う?</summary>
+            <p>
+              "pack" / "package" は <strong>全部入れる前提</strong> の梱包動作です。
+              ctx の主動詞は <strong>curate</strong> — 渡さないものを決める動作 — に置きます。
+              <code>ctx pack --explain</code> の出力に必ず Skipped 理由が並ぶのはこのためで、
+              curator が「展示しない理由」まで残すのと同じ精神です。
+              <code>ctx</code> を「repomix の代替」ではなく
+              <strong>LLM Context Curator</strong> カテゴリの第一実装と位置づけます。
+            </p>
+          </details>
+
+          <!-- Q2 refactor: repomix との違い -->
+          <details data-event="faq_open" data-faq-id="repomix">
+            <summary>repomix とどう違うの?</summary>
+            <p>
+              repomix はリポジトリ全体を 1 つのファイルに連結する「梱包機」です。
+              ctx は「何を渡すか」を選り分けるための「curator + 梱包機」です。
+              goal-aware なスコアリング、トークン予算管理、MCP server、
+              監査ログ、secret 検出、replay snapshot など、
+              repomix にはない機能群がコア価値です。
+              「とりあえず全部連結」ではなく「LLM に何を渡すか選り分けたい」
+              というニーズに応えます。
+            </p>
+          </details>
+
+          <!-- Q3-Q6 維持 -->
+          <details data-event="faq_open" data-faq-id="ripgrep">
+            <summary>ripgrep や ast-grep の代替?</summary>
+            <p>
+              いいえ。<code>ctx where</code> は「特定の文字列を最高速で grep する」
+              道具ではありません。<strong>自然語のゴールから LLM に渡すべきファイルを
+              関連度でランキングする</strong>ことに特化しています。
+            </p>
+            <p>
+              特定の文字列を最高速で grep したい → <code>rg</code>。
+              構文木ベースのパターン検索 → <code>ast-grep</code> または LSP / rust-analyzer。
+              自然語ゴールから関連ファイル群を取り出して LLM に渡したい →
+              <code>ctx where</code> + <code>ctx pack</code>。
+              それぞれ土俵が異なります。
+            </p>
+          </details>
+
+          <details data-event="faq_open" data-faq-id="cgo">
+            <summary>CI で動かせるか心配</summary>
+            <p>
+              通常の CLI ビルドとテストは Rust toolchain で動作します。
+              GitHub Actions では <code>dtolnay/rust-toolchain</code> などで
+              stable Rust を用意してください。
+              フロントエンドを再ビルドする場合だけ Node.js / pnpm が必要です。
+            </p>
+          </details>
+
+          <details data-event="faq_open" data-faq-id="airgap">
+            <summary>air-gap 環境 (インターネット非接続) で使える?</summary>
+            <p>
+              はい。ctx はすべてローカルファーストで設計されています。
+              <code>strict_offline = true</code> または環境変数
+              <code>CTX_STRICT_OFFLINE=1</code> を設定すると外部通信を完全に遮断します。
+              Google Fonts などは LP (この Web サイト) のみで使用しており、
+              CLI ツール本体は外部通信を一切行いません。
+            </p>
+          </details>
+
+          <details data-event="faq_open" data-faq-id="license">
+            <summary>ライセンスは? — 現在未選定 (MIT 確定予定)</summary>
+            <p>
+              現在ライセンスは未選定ですが MIT を推奨しています。
+              詳細は
+              <a href="https://github.com/simota/ctx" rel="noopener noreferrer" target="_blank">
+                GitHub リポジトリ
+              </a>
+              を確認してください。商用利用可否はライセンス確定後に明記します。
+            </p>
+          </details>
+
+          <!-- Q7 新規: analytics consent -->
+          <details data-event="faq_open" data-faq-id="analytics">
+            <summary>この LP はアクセス解析を使っていますか?</summary>
+            <p>
+              現時点ではアクセス解析ツール (PostHog / GA4 等) は未配線です。
+              将来導入する場合は Privacy Policy ページを設け、
+              ここに明記します。CLI ツール本体はいかなる telemetry も送信しません。
+            </p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- ── §9 Final CTA ──────────────────────────────────────────────── -->
+    <section class="final-cta" aria-labelledby="final-cta-heading" id="install"
+             data-event="section_entered" data-section="final-cta">
+      <div class="container">
+        <p class="caption">Get started</p>
+        <h2 id="final-cta-heading">今日、1 ファイル省くところから始める。</h2>
+        <p>
+          Rust toolchain があれば、外部サービスへの登録不要で今すぐ使い始められます。
+          AI 呼び出しは将来も opt-in のみ。<code>--strict-offline</code> で完全オフライン動作。
+        </p>
+
+        <div class="install-block" aria-label="インストールコマンド">
+          <pre><span class="t-dim">$</span> <span class="t-flag">git clone</span> https://github.com/simota/ctx
+<span class="t-dim">$</span> <span class="t-flag">cd</span> ctx
+<span class="t-dim">$</span> <span class="t-flag">make build</span>
+<span class="t-dim">$</span> <span class="t-flag">./bin/ctx</span> --help
+<span class="t-comment"># ユーザー環境へ入れる場合: make install</span></pre>
+        </div>
+
+        <div class="cta-row">
+          <a href="https://github.com/simota/ctx#インストール"
+             class="btn-primary"
+             aria-label="ctx をインストールする — Rust toolchain が必要"
+             data-event="cta_primary_clicked"
+             data-position="final">
+            インストールする — Rust
+          </a>
+          <a href="https://github.com/simota/ctx"
+             class="btn-ghost"
+             rel="noopener noreferrer"
+             target="_blank"
+             aria-label="GitHub でリポジトリを見る"
+             data-event="cta_secondary_clicked"
+             data-position="final">
+            GitHub で見る ★
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── Footer ─────────────────────────────────────────────────────── -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      <a href="https://github.com/simota/ctx" rel="noopener noreferrer" target="_blank">ctx</a>
+      — MIT (予定) ·
+      <a href="https://github.com/simota/ctx/issues" rel="noopener noreferrer" target="_blank">Issues</a>
+    </p>
+  </footer>
+
+  <!-- ── Structured Data (JSON-LD) ───────────────────────────────────── -->
+
+  <!-- SoftwareApplication (BRAND.md 9b-12 に従い refactored) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "@id": "https://simota.github.io/ctx/#software",
+    "name": "ctx",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": ["macOS", "Linux", "Windows"],
+    "description": "ctx is an LLM Context Curator — a Rust CLI/TUI/MCP server that visualizes codebase token counts, Git state, and symbols, then curates a minimum, goal-relevant set of source files to hand to an LLM, recording what was deliberately skipped. Goal-aware file ranking, token budget management, secret detection, audit log, and 8 MCP tools for Claude Code and Cursor.",
+    "url": "https://simota.github.io/ctx/",
+    "downloadUrl": "https://github.com/simota/ctx",
+    "codeRepository": "https://github.com/simota/ctx",
+    "programmingLanguage": "Rust",
+    "softwareRequirements": "Rust toolchain",
+    "datePublished": "2026-05-16",
+    "dateModified": "2026-05-16",
+    "author": {
+      "@type": "Person",
+      "@id": "https://github.com/simota",
+      "name": "simota",
+      "url": "https://github.com/simota",
+      "sameAs": ["https://github.com/simota"]
+    },
+    "about": {
+      "@type": "Thing",
+      "@id": "https://simota.github.io/ctx/#llm-context-curation",
+      "name": "LLM Context Curation",
+      "description": "Selecting, ordering, and budgeting the minimum set of source files an LLM should see for a given goal — and recording what was deliberately left out.",
+      "url": "https://simota.github.io/ctx/"
+    },
+    "keywords": [
+      "LLM Context Curation",
+      "context curator",
+      "LLM コンテキスト 選り分け",
+      "LLM context tool",
+      "repomix alternative",
+      "AI コーディング コンテキスト",
+      "Claude Code MCP server",
+      "ctx CLI",
+      "context window management",
+      "Rust CLI",
+      "MCP server",
+      "AI coding"
+    ],
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
+  }
+  </script>
+
+  <!-- Organization -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": "https://github.com/simota",
+    "name": "simota",
+    "url": "https://github.com/simota",
+    "logo": "https://simota.github.io/ctx/hanko.svg"
+  }
+  </script>
+
+  <!-- BreadcrumbList -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "ctx — LLM Context Curator",
+        "item": "https://simota.github.io/ctx/"
+      }
+    ]
+  }
+  </script>
+
+  <!-- FAQPage (GEO: AI 引用最適化 — 7 問: Q1 Curator + Q2-6 refactored + Q7 analytics) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "なぜ \"Curator\" なのか? — packer / packager と何が違う?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "\"pack\" / \"package\" は全部入れる前提の梱包動作です。ctx の主動詞は curate — 渡さないものを決める動作 — に置きます。ctx pack --explain の出力に必ず Skipped 理由が並ぶのはこのためで、curator が「展示しない理由」まで残すのと同じ精神です。ctx を「repomix の代替」ではなく LLM Context Curator カテゴリの第一実装と位置づけます。"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "repomix とどう違うの?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "repomix はリポジトリ全体を 1 つのファイルに連結する「梱包機」です。ctx は「何を渡すか」を選り分けるための「curator + 梱包機」です。goal-aware なスコアリング、トークン予算管理、MCP server、監査ログ、secret 検出、replay snapshot など、repomix にはない機能群がコア価値です。「とりあえず全部連結」ではなく「LLM に何を渡すか選り分けたい」というニーズに応えます。"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "ripgrep や ast-grep の代替?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "いいえ。ctx where は「特定の文字列を最高速で grep する」道具ではありません。自然語のゴールから LLM に渡すべきファイルを関連度でランキングすることに特化しています。特定の文字列を最高速で grep したい場合は rg、構文木ベースのパターン検索は ast-grep または LSP / rust-analyzer、自然語ゴールから関連ファイル群を取り出して LLM に渡したい場合は ctx where + ctx pack を使い分けてください。それぞれ土俵が異なります。"
+        }
+      },
+      {
+        "@type": "Question",
+          "name": "CI で動かせるか心配",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "通常の CLI ビルドとテストは Rust toolchain で動作します。GitHub Actions では dtolnay/rust-toolchain などで stable Rust を用意してください。フロントエンドを再ビルドする場合だけ Node.js / pnpm が必要です。"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "air-gap 環境 (インターネット非接続) で使える?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "はい。ctx はすべてローカルファーストで設計されています。strict_offline = true または環境変数 CTX_STRICT_OFFLINE=1 を設定すると外部通信を完全に遮断します。Google Fonts などは LP (この Web サイト) のみで使用しており、CLI ツール本体は外部通信を一切行いません。"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "ライセンスは? — 現在未選定 (MIT 確定予定)",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "現在ライセンスは未選定ですが MIT を推奨しています。詳細は GitHub リポジトリ (https://github.com/simota/ctx) を確認してください。商用利用可否はライセンス確定後に明記します。"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "この LP はアクセス解析を使っていますか?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "現時点ではアクセス解析ツール (PostHog / GA4 等) は未配線です。将来導入する場合は Privacy Policy ページを設け、ここに明記します。CLI ツール本体はいかなる telemetry も送信しません。"
+        }
+      }
+    ]
+  }
+  </script>
+
+</body>
+</html>

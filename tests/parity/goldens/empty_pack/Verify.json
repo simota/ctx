@@ -1,0 +1,11 @@
+{
+  "pack_file": "empty_pack",
+  "schema_version": 1,
+  "total_files_in_contract": 0,
+  "references_found": 0,
+  "violations": [],
+  "ok": [],
+  "stale_files": [],
+  "repack_suggestions": [],
+  "exit_code": 0
+}

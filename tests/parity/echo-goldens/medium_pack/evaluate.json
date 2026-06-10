@@ -1,0 +1,144 @@
+{
+  "pack_file": "medium_pack",
+  "goal": "rate limit burst handler",
+  "chunks_total": 593,
+  "chunks_covered": 273,
+  "coverage_score": 0.0967866675159058,
+  "spread_index": 0.5713120801460023,
+  "top": [
+    {
+      "rank": 1,
+      "path": "middleware/handler.go",
+      "line_start": 12,
+      "line_end": 14,
+      "score": 8.056389454003035,
+      "matches": {
+        "handler": 4,
+        "limit": 3,
+        "rate": 3
+      }
+    },
+    {
+      "rank": 2,
+      "path": "middleware/handler.go",
+      "line_start": 12,
+      "line_end": 14,
+      "score": 8.056389454003034,
+      "matches": {
+        "handler": 4,
+        "limit": 3,
+        "rate": 3
+      }
+    },
+    {
+      "rank": 3,
+      "path": "middleware/handler.go",
+      "line_start": 12,
+      "line_end": 14,
+      "score": 8.056389454003034,
+      "matches": {
+        "handler": 4,
+        "limit": 3,
+        "rate": 3
+      }
+    },
+    {
+      "rank": 4,
+      "path": "middleware/handler.go",
+      "line_start": 12,
+      "line_end": 14,
+      "score": 8.056389454003034,
+      "matches": {
+        "handler": 4,
+        "limit": 3,
+        "rate": 3
+      }
+    },
+    {
+      "rank": 5,
+      "path": "middleware/handler.go",
+      "line_start": 12,
+      "line_end": 14,
+      "score": 8.056389454003034,
+      "matches": {
+        "handler": 4,
+        "limit": 3,
+        "rate": 3
+      }
+    },
+    {
+      "rank": 6,
+      "path": "middleware/handler.go",
+      "line_start": 12,
+      "line_end": 14,
+      "score": 8.056389454003034,
+      "matches": {
+        "handler": 4,
+        "limit": 3,
+        "rate": 3
+      }
+    },
+    {
+      "rank": 7,
+      "path": "middleware/handler.go",
+      "line_start": 12,
+      "line_end": 14,
+      "score": 8.056389454003034,
+      "matches": {
+        "handler": 4,
+        "limit": 3,
+        "rate": 3
+      }
+    },
+    {
+      "rank": 8,
+      "path": "middleware/handler.go",
+      "line_start": 12,
+      "line_end": 14,
+      "score": 8.056389454003034,
+      "matches": {
+        "handler": 4,
+        "limit": 3,
+        "rate": 3
+      }
+    },
+    {
+      "rank": 9,
+      "path": "middleware/handler.go",
+      "line_start": 12,
+      "line_end": 14,
+      "score": 8.056389454003034,
+      "matches": {
+        "handler": 4,
+        "limit": 3,
+        "rate": 3
+      }
+    },
+    {
+      "rank": 10,
+      "path": "middleware/handler.go",
+      "line_start": 12,
+      "line_end": 14,
+      "score": 8.056389454003034,
+      "matches": {
+        "handler": 4,
+        "limit": 3,
+        "rate": 3
+      }
+    }
+  ],
+  "goal_tokens": [
+    "burst",
+    "handler",
+    "limit",
+    "rate"
+  ],
+  "threshold": 0,
+  "exit_code": 0,
+  "concentration": {
+    "files": [
+      "middleware/handler.go"
+    ],
+    "file_count": 1
+  }
+}

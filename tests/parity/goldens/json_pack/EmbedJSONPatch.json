@@ -1,0 +1,33 @@
+{
+  "input_pack_bytes": 372,
+  "patched_pack": {
+    "contract": {
+      "created": "2026-05-29T00:00:00Z",
+      "files": [
+        {
+          "line_end": 1,
+          "line_hashes": [
+            {
+              "line": 1,
+              "sha256": "6d2ed31acad4c3a6c29141f22f1ac9267dffe8673a5497cd209ab82b7f7a9506"
+            }
+          ],
+          "line_start": 1,
+          "path": "internal/limit/limit.go",
+          "sha256": "6d2ed31acad4c3a6c29141f22f1ac9267dffe8673a5497cd209ab82b7f7a9506",
+          "symbols": [
+            "Allow"
+          ]
+        }
+      ],
+      "schema_version": 1
+    },
+    "files": [
+      {
+        "content": "package limit\n\nfunc Allow() bool { return true }\n",
+        "path": "internal/limit/limit.go"
+      }
+    ],
+    "goal": "json pack parity"
+  }
+}

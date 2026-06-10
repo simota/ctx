@@ -1,0 +1,1006 @@
+[
+  [
+    {
+      "Path": "auth/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "auth/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg1/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg10/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg11/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg12/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg13/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg14/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg15/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg16/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg17/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg18/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg19/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg2/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg20/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg21/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg22/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg23/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg24/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg25/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg26/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg27/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg28/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg29/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg3/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg30/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg31/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg32/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg33/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg34/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg35/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg36/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg37/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg38/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg39/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg4/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg40/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg5/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg6/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg7/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg8/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg9/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts1/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts10/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts11/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts12/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts13/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts14/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts15/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts16/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts17/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts18/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts19/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts2/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts20/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts3/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts4/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts5/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts6/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts7/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts8/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts9/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    }
+  ],
+  [
+    {
+      "Path": "auth/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "auth/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg1/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg10/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg11/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg12/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg13/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg14/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg15/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg16/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg17/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg18/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg19/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg2/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg20/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg21/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg22/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg23/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg24/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg25/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg26/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg27/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg28/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg29/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg3/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg30/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg31/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg32/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg33/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg34/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg35/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg36/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg37/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg38/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg39/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg4/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg40/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg5/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg6/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg7/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg8/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "pkg9/auth.go",
+      "Line": 19,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts1/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts10/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts11/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts12/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts13/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts14/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts15/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts16/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts17/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts18/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts19/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts2/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts20/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts3/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts4/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts5/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts6/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts7/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts8/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    },
+    {
+      "Path": "ts9/auth.ts",
+      "Line": 16,
+      "Kind": "function",
+      "SymbolName": "BuildIndex"
+    }
+  ],
+  [],
+  [
+    {
+      "Path": "auth/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg1/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg10/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg11/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg12/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg13/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg14/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg15/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg16/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg17/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg18/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg19/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg2/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg20/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg21/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg22/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg23/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg24/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg25/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg26/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg27/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg28/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg29/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg3/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg30/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg31/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg32/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg33/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg34/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg35/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg36/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg37/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg38/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg39/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg4/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg40/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg5/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg6/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg7/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg8/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "pkg9/auth.go",
+      "Line": 26,
+      "Kind": "method",
+      "SymbolName": "Render"
+    },
+    {
+      "Path": "service/service.py",
+      "Line": 15,
+      "Kind": "function",
+      "SymbolName": "Render"
+    }
+  ],
+  []
+]

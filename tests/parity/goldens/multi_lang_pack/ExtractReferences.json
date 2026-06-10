@@ -1,0 +1,74 @@
+[
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "src/auth/token.ts",
+    "source_line": 10,
+    "symbol": ""
+  },
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "src/auth/token.py",
+    "source_line": 11,
+    "symbol": ""
+  },
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "README.md",
+    "source_line": 12,
+    "symbol": ""
+  },
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "src/auth/token.ts",
+    "source_line": 18,
+    "symbol": ""
+  },
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "src/auth/token.py",
+    "source_line": 31,
+    "symbol": ""
+  },
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "README.md",
+    "source_line": 46,
+    "symbol": ""
+  },
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "README.md",
+    "source_line": 59,
+    "symbol": ""
+  },
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "src/auth/token.py",
+    "source_line": 65,
+    "symbol": ""
+  },
+  {
+    "kind": "file",
+    "line_end": 0,
+    "line_start": 0,
+    "path": "src/auth/token.ts",
+    "source_line": 72,
+    "symbol": ""
+  }
+]

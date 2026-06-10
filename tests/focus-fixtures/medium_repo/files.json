@@ -1,0 +1,544 @@
+[
+  {
+    "path": ".",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "cmd",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "cmd/main.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "main",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package main",
+      "func main() { /* maybe Pack */ }"
+    ]
+  },
+  {
+    "path": "cmd/version.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "version",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package main",
+      "func version() {}"
+    ]
+  },
+  {
+    "path": "internal",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/cli",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/cli/focus.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Focus",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package cli",
+      "func Focus() {}"
+    ]
+  },
+  {
+    "path": "internal/cli/root.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Run",
+        "kind": "function",
+        "line": 4
+      }
+    ],
+    "lines": [
+      "package cli",
+      "",
+      "// invokes Pack inside Run",
+      "func Run() {}"
+    ]
+  },
+  {
+    "path": "internal/cli/tree.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Tree",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package cli",
+      "func Tree() {}"
+    ]
+  },
+  {
+    "path": "internal/cli/where.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Where",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package cli",
+      "func Where() {}"
+    ]
+  },
+  {
+    "path": "internal/config",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/config/config.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Load",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package config",
+      "func Load() {}"
+    ]
+  },
+  {
+    "path": "internal/config/defaults.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Defaults",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package config",
+      "func Defaults() {}"
+    ]
+  },
+  {
+    "path": "internal/config/yaml.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "YAML",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package config",
+      "func YAML() {}"
+    ]
+  },
+  {
+    "path": "internal/pack",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/pack/formatter.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Format",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pack",
+      "",
+      "func Format() string { return \"\" }"
+    ]
+  },
+  {
+    "path": "internal/pack/helper.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "helper",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package pack",
+      "",
+      "func helper() {}"
+    ]
+  },
+  {
+    "path": "internal/pack/pack.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Pack",
+        "kind": "function",
+        "line": 4
+      },
+      {
+        "name": "Options",
+        "kind": "type",
+        "line": 7
+      }
+    ],
+    "lines": [
+      "package pack",
+      "",
+      "// Pack assembles files.",
+      "func Pack(files []string) error { return nil }",
+      "",
+      "// Options holds pack options.",
+      "type Options struct { Budget int }"
+    ]
+  },
+  {
+    "path": "internal/pack/pack_test.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "TestPack",
+        "kind": "function",
+        "line": 5
+      }
+    ],
+    "lines": [
+      "package pack",
+      "",
+      "import \"testing\"",
+      "",
+      "func TestPack(t *testing.T) { _ = Pack(nil) }"
+    ]
+  },
+  {
+    "path": "internal/render",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/render/markdown.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Markdown",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package render",
+      "func Markdown() string { return \"\" }"
+    ]
+  },
+  {
+    "path": "internal/render/render.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "RenderPack",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package render",
+      "",
+      "func RenderPack(b int) { /* Pack output */ }"
+    ]
+  },
+  {
+    "path": "internal/render/render_test.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "TestRender",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package render",
+      "import \"testing\"",
+      "func TestRender(t *testing.T) {}"
+    ]
+  },
+  {
+    "path": "internal/render/xml.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "XML",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package render",
+      "func XML() string { return \"\" }"
+    ]
+  },
+  {
+    "path": "internal/symbols",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/symbols/extractor.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Extract",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package symbols",
+      "func Extract() {}"
+    ]
+  },
+  {
+    "path": "internal/symbols/golang.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Golang",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package symbols",
+      "func Golang() {}"
+    ]
+  },
+  {
+    "path": "internal/symbols/typescript.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "TypeScript",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package symbols",
+      "func TypeScript() {}"
+    ]
+  },
+  {
+    "path": "internal/tokens",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/tokens/counter.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Count",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package tokens",
+      "func Count() int { return 0 }"
+    ]
+  },
+  {
+    "path": "internal/tokens/estimate.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Estimate",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package tokens",
+      "func Estimate() int { return 0 }"
+    ]
+  },
+  {
+    "path": "internal/util",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/util/paths.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "CleanPath",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package util",
+      "func CleanPath(p string) string { return p }"
+    ]
+  },
+  {
+    "path": "internal/util/strings.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "TrimLines",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package util",
+      "func TrimLines(s string) string { return s }"
+    ]
+  },
+  {
+    "path": "internal/util/strings_test.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "TestTrimLines",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package util",
+      "import \"testing\"",
+      "func TestTrimLines(t *testing.T){}"
+    ]
+  },
+  {
+    "path": "internal/walk",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/walk/ignore.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Ignore",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package walk",
+      "func Ignore() {}"
+    ]
+  },
+  {
+    "path": "internal/walk/tree.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Tree",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package walk",
+      "func Tree() {}"
+    ]
+  },
+  {
+    "path": "internal/walk/walk.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Walk",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package walk",
+      "func Walk() {}"
+    ]
+  },
+  {
+    "path": "internal/where",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/where/score.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Score",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package where",
+      "func Score() {}"
+    ]
+  },
+  {
+    "path": "internal/where/where.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Search",
+        "kind": "function",
+        "line": 2
+      }
+    ],
+    "lines": [
+      "package where",
+      "func Search() {}"
+    ]
+  }
+]

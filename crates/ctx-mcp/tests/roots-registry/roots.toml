@@ -1,0 +1,7 @@
+[[roots]]
+name = "alpha"
+path = "/tmp/ctx-mcp-parity-alpha"
+
+[[roots]]
+name = "beta"
+path = "/tmp/ctx-mcp-parity-beta"

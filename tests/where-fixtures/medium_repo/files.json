@@ -1,0 +1,296 @@
+[
+  {
+    "path": ".",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "README.md",
+    "is_dir": false,
+    "symbols": null,
+    "lines": [
+      "# medium_repo",
+      "",
+      "Synthetic fixture for the Phase 3 where parity tests. Contains an auth",
+      "module with Session handling that exercises the splitname and symbol",
+      "match paths."
+    ]
+  },
+  {
+    "path": "api",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "api/handler.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "SessionHandler",
+        "kind": "type",
+        "line": 5
+      },
+      {
+        "name": "Handle",
+        "kind": "method",
+        "line": 7
+      },
+      {
+        "name": "RegisterRoutes",
+        "kind": "function",
+        "line": 12
+      }
+    ],
+    "lines": [
+      "package api",
+      "",
+      "import \"fmt\"",
+      "",
+      "type SessionHandler struct{}",
+      "",
+      "func (h *SessionHandler) Handle() error {",
+      "\tfmt.Println(\"session handler\")",
+      "\treturn nil",
+      "}",
+      "",
+      "func RegisterRoutes() {",
+      "\t_ = \u0026SessionHandler{}",
+      "}"
+    ]
+  },
+  {
+    "path": "auth",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "auth/session.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Session",
+        "kind": "type",
+        "line": 6
+      },
+      {
+        "name": "SaveSession",
+        "kind": "function",
+        "line": 12
+      },
+      {
+        "name": "LoadSession",
+        "kind": "function",
+        "line": 20
+      }
+    ],
+    "lines": [
+      "package auth",
+      "",
+      "import \"strings\"",
+      "",
+      "// Session represents an authenticated user session.",
+      "type Session struct {",
+      "\tUserID string",
+      "\tToken  string",
+      "}",
+      "",
+      "// SaveSession persists a session to backing storage.",
+      "func SaveSession(s *Session) error {",
+      "\tif strings.TrimSpace(s.Token) == \"\" {",
+      "\t\treturn nil",
+      "\t}",
+      "\treturn nil",
+      "}",
+      "",
+      "// LoadSession retrieves a session by ID.",
+      "func LoadSession(id string) (*Session, error) {",
+      "\treturn \u0026Session{UserID: id}, nil",
+      "}"
+    ]
+  },
+  {
+    "path": "auth/user.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "User",
+        "kind": "type",
+        "line": 3
+      },
+      {
+        "name": "GetUserByID",
+        "kind": "function",
+        "line": 8
+      },
+      {
+        "name": "GetUserByEmail",
+        "kind": "function",
+        "line": 9
+      }
+    ],
+    "lines": [
+      "package auth",
+      "",
+      "type User struct {",
+      "\tID    string",
+      "\tEmail string",
+      "}",
+      "",
+      "func GetUserByID(id string) *User { return \u0026User{ID: id} }",
+      "func GetUserByEmail(email string) *User { return \u0026User{Email: email} }"
+    ]
+  },
+  {
+    "path": "cmd",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "cmd/main.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "main",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package main",
+      "",
+      "func main() {}"
+    ]
+  },
+  {
+    "path": "db",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "db/conn.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Conn",
+        "kind": "type",
+        "line": 3
+      },
+      {
+        "name": "Connect",
+        "kind": "function",
+        "line": 5
+      },
+      {
+        "name": "Close",
+        "kind": "method",
+        "line": 6
+      }
+    ],
+    "lines": [
+      "package db",
+      "",
+      "type Conn struct{}",
+      "",
+      "func Connect(dsn string) (*Conn, error) { return \u0026Conn{}, nil }",
+      "func (c *Conn) Close() error { return nil }"
+    ]
+  },
+  {
+    "path": "internal",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/relations",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/relations/graph.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Graph",
+        "kind": "type",
+        "line": 3
+      },
+      {
+        "name": "Build",
+        "kind": "function",
+        "line": 5
+      }
+    ],
+    "lines": [
+      "package relations",
+      "",
+      "type Graph struct{}",
+      "",
+      "func Build() *Graph { return \u0026Graph{} }"
+    ]
+  },
+  {
+    "path": "internal/scanner",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/scanner/scan.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Scanner",
+        "kind": "type",
+        "line": 3
+      },
+      {
+        "name": "Scan",
+        "kind": "method",
+        "line": 5
+      }
+    ],
+    "lines": [
+      "package scanner",
+      "",
+      "type Scanner struct{}",
+      "",
+      "func (s *Scanner) Scan() error { return nil }"
+    ]
+  },
+  {
+    "path": "internal/walker",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/walker/walk.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Walker",
+        "kind": "type",
+        "line": 3
+      },
+      {
+        "name": "New",
+        "kind": "function",
+        "line": 5
+      }
+    ],
+    "lines": [
+      "package walker",
+      "",
+      "type Walker struct{}",
+      "",
+      "func New() *Walker { return \u0026Walker{} }"
+    ]
+  }
+]

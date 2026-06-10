@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="ctx — AI に渡すコンテキストを、設計する。">
+  <title>ctx — AI に渡すコンテキストを、設計する。</title>
+
+  <!-- Background: dark panel -->
+  <rect width="1200" height="630" fill="#080705"/>
+
+  <!-- Subtle grid lines -->
+  <line x1="0" y1="315" x2="1200" y2="315" stroke="#1a1714" stroke-width="1"/>
+  <line x1="600" y1="0" x2="600" y2="630" stroke="#1a1714" stroke-width="1"/>
+
+  <!-- Left accent bar -->
+  <rect x="80" y="100" width="3" height="430" fill="#e07a3a" opacity="0.6"/>
+
+  <!-- Main headline (Japanese): washi cream -->
+  <text x="120" y="200"
+        font-family="'Noto Serif JP', 'Hiragino Mincho ProN', Georgia, serif"
+        font-size="56" font-weight="700" fill="#f5ead3"
+        dominant-baseline="middle">AI に渡すコンテキストを、</text>
+  <text x="120" y="290"
+        font-family="'Noto Serif JP', 'Hiragino Mincho ProN', Georgia, serif"
+        font-size="56" font-weight="700" fill="#f5ead3"
+        dominant-baseline="middle">設計する。</text>
+
+  <!-- English tagline -->
+  <text x="120" y="390"
+        font-family="'Inter', 'Helvetica Neue', Arial, sans-serif"
+        font-size="28" font-weight="400" fill="#8a7f74"
+        dominant-baseline="middle">ctx — the tree command for the AI era</text>
+
+  <!-- Sub-tags -->
+  <text x="120" y="460"
+        font-family="'JetBrains Mono', 'Fira Code', monospace"
+        font-size="20" font-weight="400" fill="#e07a3a"
+        dominant-baseline="middle">CLI / TUI / MCP · Rust · MIT</text>
+
+  <!-- URL -->
+  <text x="120" y="540"
+        font-family="'Inter', 'Helvetica Neue', Arial, sans-serif"
+        font-size="18" font-weight="400" fill="#4a4540"
+        dominant-baseline="middle">simota.github.io/ctx</text>
+
+  <!-- Right: hanko seal (朱印 ctx) -->
+  <!-- Outer frame -->
+  <rect x="950" y="150" width="180" height="180" rx="12" ry="12"
+        fill="none" stroke="#e07a3a" stroke-width="6"/>
+  <!-- Inner frame -->
+  <rect x="966" y="166" width="148" height="148" rx="4" ry="4"
+        fill="none" stroke="#e07a3a" stroke-width="2"/>
+  <!-- c glyph -->
+  <text x="1040" y="215"
+        font-family="'Noto Serif JP', 'Iowan Old Style', Georgia, serif"
+        font-size="44" font-weight="700" fill="#e07a3a"
+        text-anchor="middle" dominant-baseline="middle">c</text>
+  <!-- t glyph -->
+  <text x="1040" y="263"
+        font-family="'Noto Serif JP', 'Iowan Old Style', Georgia, serif"
+        font-size="44" font-weight="700" fill="#e07a3a"
+        text-anchor="middle" dominant-baseline="middle">t</text>
+  <!-- x glyph -->
+  <text x="1040" y="311"
+        font-family="'Noto Serif JP', 'Iowan Old Style', Georgia, serif"
+        font-size="44" font-weight="700" fill="#e07a3a"
+        text-anchor="middle" dominant-baseline="middle">x</text>
+</svg>

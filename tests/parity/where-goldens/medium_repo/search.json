@@ -1,0 +1,229 @@
+[
+  {
+    "path": "auth/session.go",
+    "score": 87,
+    "score_breakdown": {
+      "basename": 12,
+      "symbol": 30,
+      "splitname": 24,
+      "content": 21
+    },
+    "reason": "symbol match: Session, SaveSession, LoadSession; splitname match: session, save; content match: session, save; basename match: session",
+    "matches": [
+      {
+        "line": 6,
+        "column": 6,
+        "type": "symbol",
+        "text": "type Session struct {",
+        "before": [
+          "// Session represents an authenticated user session."
+        ],
+        "after": [
+          "\tUserID string"
+        ]
+      },
+      {
+        "line": 12,
+        "column": 6,
+        "type": "symbol",
+        "text": "func SaveSession(s *Session) error {",
+        "before": [
+          "// SaveSession persists a session to backing storage."
+        ],
+        "after": [
+          "\tif strings.TrimSpace(s.Token) == \"\" {"
+        ]
+      },
+      {
+        "line": 20,
+        "column": 6,
+        "type": "symbol",
+        "text": "func LoadSession(id string) (*Session, error) {",
+        "before": [
+          "// LoadSession retrieves a session by ID."
+        ],
+        "after": [
+          "\treturn \u0026Session{UserID: id}, nil"
+        ]
+      },
+      {
+        "line": 5,
+        "column": 4,
+        "type": "content",
+        "text": "// Session represents an authenticated user session.",
+        "before": [
+          ""
+        ],
+        "after": [
+          "type Session struct {"
+        ]
+      },
+      {
+        "line": 6,
+        "column": 6,
+        "type": "content",
+        "text": "type Session struct {",
+        "before": [
+          "// Session represents an authenticated user session."
+        ],
+        "after": [
+          "\tUserID string"
+        ]
+      },
+      {
+        "line": 11,
+        "column": 4,
+        "type": "content",
+        "text": "// SaveSession persists a session to backing storage.",
+        "before": [
+          ""
+        ],
+        "after": [
+          "func SaveSession(s *Session) error {"
+        ]
+      },
+      {
+        "line": 12,
+        "column": 6,
+        "type": "content",
+        "text": "func SaveSession(s *Session) error {",
+        "before": [
+          "// SaveSession persists a session to backing storage."
+        ],
+        "after": [
+          "\tif strings.TrimSpace(s.Token) == \"\" {"
+        ]
+      },
+      {
+        "line": 19,
+        "column": 8,
+        "type": "content",
+        "text": "// LoadSession retrieves a session by ID.",
+        "before": [
+          ""
+        ],
+        "after": [
+          "func LoadSession(id string) (*Session, error) {"
+        ]
+      },
+      {
+        "line": 20,
+        "column": 10,
+        "type": "content",
+        "text": "func LoadSession(id string) (*Session, error) {",
+        "before": [
+          "// LoadSession retrieves a session by ID."
+        ],
+        "after": [
+          "\treturn \u0026Session{UserID: id}, nil"
+        ]
+      },
+      {
+        "line": 21,
+        "column": 10,
+        "type": "content",
+        "text": "return \u0026Session{UserID: id}, nil",
+        "before": [
+          "func LoadSession(id string) (*Session, error) {"
+        ],
+        "after": [
+          "}"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "api/handler.go",
+    "score": 28,
+    "score_breakdown": {
+      "symbol": 10,
+      "splitname": 6,
+      "content": 12
+    },
+    "reason": "symbol match: SessionHandler; splitname match: session; content match: session",
+    "matches": [
+      {
+        "line": 5,
+        "column": 6,
+        "type": "symbol",
+        "text": "type SessionHandler struct{}",
+        "before": [
+          ""
+        ],
+        "after": [
+          ""
+        ]
+      },
+      {
+        "line": 5,
+        "column": 6,
+        "type": "content",
+        "text": "type SessionHandler struct{}",
+        "before": [
+          ""
+        ],
+        "after": [
+          ""
+        ]
+      },
+      {
+        "line": 7,
+        "column": 10,
+        "type": "content",
+        "text": "func (h *SessionHandler) Handle() error {",
+        "before": [
+          ""
+        ],
+        "after": [
+          "\tfmt.Println(\"session handler\")"
+        ]
+      },
+      {
+        "line": 8,
+        "column": 15,
+        "type": "content",
+        "text": "fmt.Println(\"session handler\")",
+        "before": [
+          "func (h *SessionHandler) Handle() error {"
+        ],
+        "after": [
+          "\treturn nil"
+        ]
+      },
+      {
+        "line": 13,
+        "column": 7,
+        "type": "content",
+        "text": "_ = \u0026SessionHandler{}",
+        "before": [
+          "func RegisterRoutes() {"
+        ],
+        "after": [
+          "}"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "README.md",
+    "score": 3,
+    "score_breakdown": {
+      "content": 3
+    },
+    "reason": "content match: session",
+    "matches": [
+      {
+        "line": 4,
+        "column": 13,
+        "type": "content",
+        "text": "module with Session handling that exercises the splitname and symbol",
+        "before": [
+          "Synthetic fixture for the Phase 3 where parity tests. Contains an auth"
+        ],
+        "after": [
+          "match paths."
+        ]
+      }
+    ]
+  }
+]

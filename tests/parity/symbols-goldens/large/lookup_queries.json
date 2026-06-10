@@ -1,0 +1,19 @@
+[
+  {
+    "name": "BuildIndex"
+  },
+  {
+    "from": "internal/pack/diff.go",
+    "name": "BuildIndex"
+  },
+  {
+    "kind": "type",
+    "name": "Symbol"
+  },
+  {
+    "name": "Render"
+  },
+  {
+    "name": "NonExistent"
+  }
+]

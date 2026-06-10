@@ -1,0 +1,14 @@
+[package]
+name = "ctx-tokens"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Token counting with cl100k_base BPE — Rust port of internal/tokens"
+license = "MIT"
+
+[lib]
+name = "ctx_tokens"
+path = "src/lib.rs"
+
+[dependencies]
+tiktoken-rs = "0.11"

@@ -1,0 +1,132 @@
+[
+  {
+    "Bucket": {
+      "Path": "tests",
+      "Tokens": 3880,
+      "Files": 5,
+      "Symbols": 25,
+      "Weight": 3880
+    },
+    "X": 0,
+    "Y": 0,
+    "W": 13,
+    "H": 20
+  },
+  {
+    "Bucket": {
+      "Path": "docs",
+      "Tokens": 3530,
+      "Files": 5,
+      "Symbols": 20,
+      "Weight": 3530
+    },
+    "X": 13,
+    "Y": 0,
+    "W": 12,
+    "H": 20
+  },
+  {
+    "Bucket": {
+      "Path": "cmd/where",
+      "Tokens": 3180,
+      "Files": 5,
+      "Symbols": 15,
+      "Weight": 3180
+    },
+    "X": 25,
+    "Y": 0,
+    "W": 11,
+    "H": 20
+  },
+  {
+    "Bucket": {
+      "Path": "cmd/ctx",
+      "Tokens": 2830,
+      "Files": 5,
+      "Symbols": 17,
+      "Weight": 2830
+    },
+    "X": 36,
+    "Y": 0,
+    "W": 18,
+    "H": 11
+  },
+  {
+    "Bucket": {
+      "Path": "internal/web",
+      "Tokens": 2480,
+      "Files": 5,
+      "Symbols": 19,
+      "Weight": 2480
+    },
+    "X": 36,
+    "Y": 11,
+    "W": 18,
+    "H": 9
+  },
+  {
+    "Bucket": {
+      "Path": "internal/pack",
+      "Tokens": 2130,
+      "Files": 5,
+      "Symbols": 21,
+      "Weight": 2130
+    },
+    "X": 54,
+    "Y": 0,
+    "W": 14,
+    "H": 11
+  },
+  {
+    "Bucket": {
+      "Path": "internal/symbols",
+      "Tokens": 1780,
+      "Files": 5,
+      "Symbols": 23,
+      "Weight": 1780
+    },
+    "X": 54,
+    "Y": 11,
+    "W": 14,
+    "H": 9
+  },
+  {
+    "Bucket": {
+      "Path": "internal/walk",
+      "Tokens": 1430,
+      "Files": 5,
+      "Symbols": 25,
+      "Weight": 1430
+    },
+    "X": 68,
+    "Y": 0,
+    "W": 12,
+    "H": 8
+  },
+  {
+    "Bucket": {
+      "Path": "internal/heatmap",
+      "Tokens": 1080,
+      "Files": 5,
+      "Symbols": 20,
+      "Weight": 1080
+    },
+    "X": 68,
+    "Y": 8,
+    "W": 6,
+    "H": 12
+  },
+  {
+    "Bucket": {
+      "Path": "internal/cli",
+      "Tokens": 730,
+      "Files": 5,
+      "Symbols": 15,
+      "Weight": 730
+    },
+    "X": 74,
+    "Y": 8,
+    "W": 6,
+    "H": 8
+  }
+]

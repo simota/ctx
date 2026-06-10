@@ -1,0 +1,92 @@
+[
+  {
+    "Path": "auth/auth.go",
+    "Symbols": [
+      {
+        "Name": "LoginUser",
+        "Kind": "function",
+        "Line": 8
+      },
+      {
+        "Name": "Session",
+        "Kind": "type",
+        "Line": 13
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 19
+      },
+      {
+        "Name": "internalHelper",
+        "Kind": "function",
+        "Line": 23
+      },
+      {
+        "Name": "Render",
+        "Kind": "method",
+        "Line": 26
+      }
+    ]
+  },
+  {
+    "Path": "auth/auth.ts",
+    "Symbols": [
+      {
+        "Name": "getSession",
+        "Kind": "function",
+        "Line": 4
+      },
+      {
+        "Name": "Session",
+        "Kind": "interface",
+        "Line": 6
+      },
+      {
+        "Name": "Symbol",
+        "Kind": "class",
+        "Line": 11
+      },
+      {
+        "Name": "BuildIndex",
+        "Kind": "function",
+        "Line": 16
+      },
+      {
+        "Name": "privateImpl",
+        "Kind": "function",
+        "Line": 18
+      }
+    ]
+  },
+  {
+    "Path": "service/service.py",
+    "Symbols": [
+      {
+        "Name": "build_session",
+        "Kind": "function",
+        "Line": 5
+      },
+      {
+        "Name": "Symbol",
+        "Kind": "class",
+        "Line": 10
+      },
+      {
+        "Name": "__init__",
+        "Kind": "function",
+        "Line": 11
+      },
+      {
+        "Name": "Render",
+        "Kind": "function",
+        "Line": 15
+      },
+      {
+        "Name": "_private_impl",
+        "Kind": "function",
+        "Line": 19
+      }
+    ]
+  }
+]

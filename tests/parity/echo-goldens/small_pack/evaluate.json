@@ -1,0 +1,114 @@
+{
+  "pack_file": "small_pack",
+  "goal": "rate limit burst handler",
+  "chunks_total": 12,
+  "chunks_covered": 8,
+  "coverage_score": 1,
+  "spread_index": 0.7159090909090908,
+  "top": [
+    {
+      "rank": 1,
+      "path": "middleware/limit.go",
+      "line_start": 4,
+      "line_end": 8,
+      "score": 3.7198141146882953,
+      "matches": {
+        "burst": 2,
+        "limit": 1,
+        "rate": 2
+      }
+    },
+    {
+      "rank": 2,
+      "path": "middleware/limit_test.go",
+      "line_start": 14,
+      "line_end": 20,
+      "score": 3.511865882500899,
+      "matches": {
+        "burst": 4,
+        "handler": 3
+      }
+    },
+    {
+      "rank": 3,
+      "path": "middleware/limit.go",
+      "line_start": 10,
+      "line_end": 12,
+      "score": 3.21711267838414,
+      "matches": {
+        "burst": 3,
+        "rate": 3
+      }
+    },
+    {
+      "rank": 4,
+      "path": "middleware/limit.go",
+      "line_start": 19,
+      "line_end": 23,
+      "score": 3.1638770323930214,
+      "matches": {
+        "burst": 4,
+        "handler": 2
+      }
+    },
+    {
+      "rank": 5,
+      "path": "middleware/limit_test.go",
+      "line_start": 6,
+      "line_end": 12,
+      "score": 1.9364345409242334,
+      "matches": {
+        "burst": 3,
+        "limit": 1
+      }
+    },
+    {
+      "rank": 6,
+      "path": "middleware/limit.go",
+      "line_start": 14,
+      "line_end": 17,
+      "score": 1.8463359381528504,
+      "matches": {
+        "burst": 1,
+        "limit": 1
+      }
+    },
+    {
+      "rank": 7,
+      "path": "High relevance",
+      "line_start": 1,
+      "line_end": 3,
+      "score": 1.3344301392267452,
+      "matches": {
+        "limit": 2
+      }
+    },
+    {
+      "rank": 8,
+      "path": "docs/intro.md",
+      "line_start": 1,
+      "line_end": 5,
+      "score": 0.8689976085868666,
+      "matches": {
+        "rate": 1
+      }
+    }
+  ],
+  "goal_tokens": [
+    "burst",
+    "handler",
+    "limit",
+    "rate"
+  ],
+  "threshold": 0,
+  "exit_code": 0,
+  "concentration": {
+    "files": [
+      "middleware/limit.go",
+      "middleware/limit_test.go",
+      "High relevance",
+      "docs/intro.md"
+    ],
+    "file_count": 4
+  }
+}

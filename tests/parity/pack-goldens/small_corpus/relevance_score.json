@@ -1,0 +1,168 @@
+{
+  "goal": "ログイン認証 docs",
+  "budget": 30000,
+  "files": [
+    {
+      "path": "src/auth/login.ts",
+      "abs_path": "",
+      "is_dir": false,
+      "tokens": 100,
+      "role": "core",
+      "metadata": {
+        "size": 100,
+        "tokens_est": 100,
+        "role": "core",
+        "symbols": [
+          {
+            "name": "validateLoginSession",
+            "kind": "function",
+            "line": 1
+          }
+        ]
+      }
+    },
+    {
+      "path": "cmd/ctx/main.go",
+      "abs_path": "",
+      "is_dir": false,
+      "tokens": 200,
+      "role": "entry",
+      "metadata": {
+        "size": 200,
+        "tokens_est": 200,
+        "role": "entry",
+        "symbols": []
+      }
+    },
+    {
+      "path": "internal/render/tree.go",
+      "abs_path": "",
+      "is_dir": false,
+      "tokens": 80,
+      "role": "unknown",
+      "metadata": {
+        "size": 80,
+        "tokens_est": 80,
+        "role": "unknown",
+        "symbols": []
+      }
+    },
+    {
+      "path": "internal/pack/pack_test.go",
+      "abs_path": "",
+      "is_dir": false,
+      "tokens": 50,
+      "role": "test",
+      "metadata": {
+        "size": 50,
+        "tokens_est": 50,
+        "role": "test",
+        "symbols": []
+      }
+    },
+    {
+      "path": "dist/app.js",
+      "abs_path": "",
+      "is_dir": false,
+      "tokens": 1024,
+      "role": "core",
+      "metadata": {
+        "size": 1024,
+        "tokens_est": 1024,
+        "role": "core",
+        "symbols": []
+      }
+    },
+    {
+      "path": "README.md",
+      "abs_path": "",
+      "is_dir": false,
+      "tokens": 10,
+      "role": "doc",
+      "metadata": {
+        "size": 10,
+        "tokens_est": 10,
+        "role": "doc",
+        "symbols": []
+      }
+    }
+  ],
+  "token_counts": [
+    100,
+    200,
+    80,
+    50,
+    1024,
+    10
+  ],
+  "results": [
+    {
+      "score": 33,
+      "tier": "High",
+      "reason": "score 33: basename \"login\" + symbol \"validateLoginSession\" + path \"auth\" + role core +2",
+      "signals": [
+        "basename \"login\"",
+        "symbol \"validateLoginSession\"",
+        "path \"auth\"",
+        "role core +2"
+      ],
+      "breakdown": {
+        "basename": 10,
+        "path": 5,
+        "symbol": 16,
+        "role": 2
+      }
+    },
+    {
+      "score": 3,
+      "tier": "Medium",
+      "reason": "score 3: role entry +3",
+      "signals": [
+        "role entry +3"
+      ],
+      "breakdown": {
+        "role": 3
+      }
+    },
+    {
+      "score": 0,
+      "tier": "",
+      "reason": "outside goal scope",
+      "signals": [],
+      "breakdown": {}
+    },
+    {
+      "score": -1,
+      "tier": "",
+      "reason": "low relevance",
+      "signals": [
+        "role test -1"
+      ],
+      "breakdown": {
+        "role": -1
+      }
+    },
+    {
+      "score": 2,
+      "tier": "",
+      "reason": "generated",
+      "signals": [
+        "role core +2"
+      ],
+      "breakdown": {
+        "role": 2
+      }
+    },
+    {
+      "score": 3,
+      "tier": "Medium",
+      "reason": "score 3: role doc +3",
+      "signals": [
+        "role doc +3"
+      ],
+      "breakdown": {
+        "role": 3
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "module_path": "",
+  "imports": {
+    "src/com/example/B.java": [
+      "src/com/example/A.java",
+      "src/com/example/util/Helper.java"
+    ],
+    "src/com/example/Main.kt": [
+      "src/com/example/A.java",
+      "src/com/example/util/Helper.java"
+    ]
+  },
+  "importers": {
+    "src/com/example/A.java": [
+      "src/com/example/B.java",
+      "src/com/example/Main.kt"
+    ],
+    "src/com/example/util/Helper.java": [
+      "src/com/example/B.java",
+      "src/com/example/Main.kt"
+    ]
+  }
+}

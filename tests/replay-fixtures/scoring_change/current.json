@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "score-current",
+  "created_at": "2026-05-25T12:00:00Z",
+  "ctx_version": "dev",
+  "goal": "scoring snapshot",
+  "budget": 2000,
+  "used": 420,
+  "root": "/repo",
+  "preset": "default",
+  "format": "markdown",
+  "entries": [
+    {"path": "a.go", "sha256": "01", "tokens": 55, "relevance": "High", "score": 90, "reason": "a"},
+    {"path": "b.go", "sha256": "02", "tokens": 70, "relevance": "Medium", "score": 75, "reason": "b"},
+    {"path": "c.go", "sha256": "03", "tokens": 30, "relevance": "Medium", "score": 31, "reason": "c"},
+    {"path": "d.go", "sha256": "04", "tokens": 40, "relevance": "", "score": 5, "reason": "d"}
+  ]
+}

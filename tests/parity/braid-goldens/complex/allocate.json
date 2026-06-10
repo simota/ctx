@@ -1,0 +1,29 @@
+{
+  "allocations": [
+    {
+      "Name": "broad-where",
+      "Share": 0.3703703703703704,
+      "Budget": 11852,
+      "Policy": "merge"
+    },
+    {
+      "Name": "deep-focus",
+      "Share": 0.29629629629629634,
+      "Budget": 9481,
+      "Policy": "prefer-newer"
+    },
+    {
+      "Name": "hot-changes",
+      "Share": 0.22222222222222224,
+      "Budget": 7111,
+      "Policy": "exclude-overlap"
+    },
+    {
+      "Name": "tail-where",
+      "Share": 0.11111111111111112,
+      "Budget": 3556,
+      "Policy": "merge"
+    }
+  ],
+  "warning": "warning: braid strand shares total 1.350 \u003e 1.0; normalising to 1.0\n"
+}

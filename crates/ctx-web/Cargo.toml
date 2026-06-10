@@ -1,0 +1,31 @@
+[package]
+name = "ctx-web"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Rust port of internal/web — axum HTTP server for `ctx browse` (Wave 2 foundation)"
+license = "MIT"
+
+[lib]
+name = "ctx_web"
+path = "src/lib.rs"
+
+[dependencies]
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "macros", "signal", "sync", "time"] }
+tower = "0.4"
+rust-embed = "8"
+mime_guess = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+ctx-testinsights = { path = "../ctx-testinsights" }
+ctx-tokens = { path = "../ctx-tokens" }
+ctx-symbols = { path = "../ctx-symbols" }
+ctx-where = { path = "../ctx-where" }
+ctx-relations = { path = "../ctx-relations" }
+ctx-replay = { path = "../ctx-replay" }
+ctx-contract = { path = "../ctx-contract" }
+ctx-git = { path = "../ctx-git" }
+sha2 = "0.10"
+hex = "0.4"
+toml = "0.8"

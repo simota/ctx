@@ -1,0 +1,56 @@
+[package]
+name = "ctx-replay"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Rust port of internal/replay/ — pack snapshot manifest store and diff engine"
+license = "MIT"
+
+[features]
+default = []
+# Opt-in feature exposing testing helpers used by parity tests.
+testing = []
+# Opt-in heap-profiling instrumentation (used by benches/memory.rs).
+dhat = ["dep:dhat"]
+
+[lib]
+name = "ctx_replay"
+path = "src/lib.rs"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "raw_value"] }
+sha2 = "0.10"
+once_cell = "1"
+libc = "0.2"
+dhat = { version = "0.3", optional = true }
+
+[build-dependencies]
+cbindgen = "0.27"
+
+[dev-dependencies]
+pretty_assertions = "1"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[test]]
+name = "parity"
+path = "tests/parity.rs"
+required-features = ["testing"]
+
+[[test]]
+name = "regression"
+path = "tests/regression.rs"
+
+[[bench]]
+name = "replay"
+harness = false
+
+[[bench]]
+name = "sticky_handle"
+harness = false
+
+[[bench]]
+name = "memory"
+harness = false
+required-features = ["dhat"]

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "id": "snap-beta",
+  "created_at": "2026-01-02T10:00:00Z",
+  "ctx_version": "test",
+  "goal": "parity test snapshot beta",
+  "budget": 2000,
+  "used": 500,
+  "root": ".",
+  "format": "markdown",
+  "entries": [
+    {
+      "path": "hello.txt",
+      "sha256": "b94f6f125c79e3a5ffaa826f584c10d52ada669e6762051b826b55776d05a8a",
+      "tokens": 4,
+      "relevance": "core",
+      "score": 10
+    },
+    {
+      "path": "notes.md",
+      "sha256": "abc123",
+      "tokens": 20,
+      "relevance": "context",
+      "score": 5
+    }
+  ]
+}

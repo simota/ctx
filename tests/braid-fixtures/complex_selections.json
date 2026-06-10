@@ -1,0 +1,48 @@
+[
+  {
+    "Name": "broad-where",
+    "Policy": "merge",
+    "Paths": [
+      "internal/router/router.go",
+      "internal/router/handler.go",
+      "internal/cli/where.go",
+      "internal/cli/focus.go",
+      "internal/walk/walk.go",
+      "internal/pack/pack.go",
+      "internal/heatmap/heatmap.go",
+      "internal/digest/digest.go",
+      "internal/symbols/extract.go",
+      "internal/where/search.go"
+    ]
+  },
+  {
+    "Name": "deep-focus",
+    "Policy": "prefer-newer",
+    "Paths": [
+      "internal/payment/processor.go",
+      "internal/payment/validator.go",
+      "internal/router/router.go",
+      "internal/payment/retry.go",
+      "internal/payment/idempotency.go"
+    ]
+  },
+  {
+    "Name": "hot-changes",
+    "Policy": "exclude-overlap",
+    "Paths": [
+      "internal/router/router.go",
+      "internal/payment/processor.go",
+      "internal/cli/braid.go",
+      "internal/heatmap/squarify.go",
+      "internal/walk/walk.go"
+    ]
+  },
+  {
+    "Name": "tail-where",
+    "Policy": "merge",
+    "Paths": [
+      "internal/metrics/collect.go",
+      "internal/metrics/prometheus.go"
+    ]
+  }
+]

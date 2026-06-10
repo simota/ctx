@@ -1,0 +1,11 @@
+{
+  "SchemaVersion": 1,
+  "Strands": [
+    {
+      "Name": "main",
+      "Source": "where 'handler'",
+      "Share": 1,
+      "Policy": "merge"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+[package]
+name = "ctx-contract"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Rust port of internal/contract/ — pack-as-contract manifests"
+license = "MIT"
+
+[features]
+default = []
+# Opt-in feature that lets downstream crates pull in the
+# parity_fixture_builder module without running `cargo test`. Phase 4
+# integration tests enable this when they want to drive the helper as
+# a library.
+testing = []
+
+[lib]
+name = "ctx_contract"
+path = "src/lib.rs"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+hex = "0.4"
+regex = "1"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
+once_cell = "1"
+libc = "0.2"
+
+[build-dependencies]
+cbindgen = "0.27"
+
+[dev-dependencies]
+pretty_assertions = "1"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[test]]
+name = "parity"
+path = "tests/parity.rs"
+required-features = ["testing"]
+
+[[bench]]
+name = "contract"
+harness = false

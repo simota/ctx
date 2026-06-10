@@ -1,0 +1,88 @@
+===== FRAME 0 =====
+ctx tokens: 585 / 50000
+└─ ▾ [x] ./
+│  ├─ ▸ [x] cmd/
+│  ├─ ▸ [x] internal/
+│  └─   [x] README.md  45 tokens
+↑↓: nav  Space: toggle  Enter: open  p: pack  q: quit
+===== FRAME 1 =====
+ctx tokens: 585 / 50000
+└─ ▾ [x] ./
+│  ├─ ▸ [x] cmd/
+│  ├─ ▸ [x] internal/
+│  └─   [x] README.md  45 tokens
+↑↓: nav  Space: toggle  Enter: open  p: pack  q: quit
+===== FRAME 2 =====
+ctx tokens: 585 / 50000
+└─ ▾ [x] ./
+│  ├─ ▾ [x] cmd/
+│  │  └─   [x] main.go  120 tokens
+│  ├─ ▸ [x] internal/
+│  └─   [x] README.md  45 tokens
+↑↓: nav  Space: toggle  Enter: open  p: pack  q: quit
+===== FRAME 3 =====
+ctx tokens: 585 / 50000
+└─ ▾ [x] ./
+│  ├─ ▾ [x] cmd/
+│  │  └─   [x] main.go  120 tokens
+│  ├─ ▸ [x] internal/
+│  └─   [x] README.md  45 tokens
+↑↓: nav  Space: toggle  Enter: open  p: pack  q: quit
+===== FRAME 4 =====
+ctx tokens: 585 / 50000
+└─ ▾ [x] ./
+│  ├─ ▾ [x] cmd/
+│  │  └─   [x] main.go  120 tokens
+│  ├─ ▸ [x] internal/
+│  └─   [x] README.md  45 tokens
+↑↓: nav  Space: toggle  Enter: open  p: pack  q: quit
+===== FRAME 5 =====
+ctx tokens: 585 / 50000
+└─ ▾ [x] ./
+│  ├─ ▾ [x] cmd/
+│  │  └─   [x] main.go  120 tokens
+│  ├─ ▾ [x] internal/
+│  │  ├─   [x] app.go  340 tokens
+│  │  └─   [x] util.go  80 tokens
+│  └─   [x] README.md  45 tokens
+↑↓: nav  Space: toggle  Enter: open  p: pack  q: quit
+===== FRAME 6 =====
+ctx tokens: 585 / 50000
+└─ ▾ [x] ./
+│  ├─ ▾ [x] cmd/
+│  │  └─   [x] main.go  120 tokens
+│  ├─ ▾ [x] internal/
+│  │  ├─   [x] app.go  340 tokens
+│  │  └─   [x] util.go  80 tokens
+│  └─   [x] README.md  45 tokens
+↑↓: nav  Space: toggle  Enter: open  p: pack  q: quit
+===== FRAME 7 =====
+ctx tokens: 585 / 50000
+└─ ▾ [x] ./
+│  ├─ ▾ [x] cmd/
+│  │  └─   [x] main.go  120 tokens
+│  ├─ ▾ [x] internal/
+│  │  ├─   [x] app.go  340 tokens
+│  │  └─   [x] util.go  80 tokens
+│  └─   [x] README.md  45 tokens
+↑↓: nav  Space: toggle  Enter: open  p: pack  q: quit
+===== FRAME 8 =====
+ctx tokens: 585 / 50000
+└─ ▾ [x] ./
+│  ├─ ▾ [x] cmd/
+│  │  └─   [x] main.go  120 tokens
+│  ├─ ▾ [x] internal/
+│  │  ├─   [x] app.go  340 tokens
+│  │  └─   [x] util.go  80 tokens
+│  └─   [x] README.md  45 tokens
+↑↓: nav  Space: toggle  Enter: open  p: pack  q: quit
+===== FRAME 9 =====
+ctx tokens: 585 / 50000
+└─ ▾ [x] ./
+│  ├─ ▾ [x] cmd/
+│  │  └─   [x] main.go  120 tokens
+│  ├─ ▾ [x] internal/
+│  │  ├─   [x] app.go  340 tokens
+│  │  └─   [x] util.go  80 tokens
+│  └─   [x] README.md  45 tokens
+↑↓: nav  Space: toggle  Enter: open  p: pack  q: quit

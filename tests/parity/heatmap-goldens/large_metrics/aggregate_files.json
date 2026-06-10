@@ -1,0 +1,72 @@
+[
+  {
+    "Path": "internal/cli",
+    "Tokens": 1780,
+    "Files": 20,
+    "Symbols": 60,
+    "Weight": 20
+  },
+  {
+    "Path": "internal/heatmap",
+    "Tokens": 2580,
+    "Files": 20,
+    "Symbols": 60,
+    "Weight": 20
+  },
+  {
+    "Path": "internal/pack",
+    "Tokens": 4980,
+    "Files": 20,
+    "Symbols": 60,
+    "Weight": 20
+  },
+  {
+    "Path": "internal/relations",
+    "Tokens": 8180,
+    "Files": 20,
+    "Symbols": 60,
+    "Weight": 20
+  },
+  {
+    "Path": "internal/render",
+    "Tokens": 6580,
+    "Files": 20,
+    "Symbols": 60,
+    "Weight": 20
+  },
+  {
+    "Path": "internal/replay",
+    "Tokens": 8980,
+    "Files": 20,
+    "Symbols": 60,
+    "Weight": 20
+  },
+  {
+    "Path": "internal/scan",
+    "Tokens": 7380,
+    "Files": 20,
+    "Symbols": 60,
+    "Weight": 20
+  },
+  {
+    "Path": "internal/symbols",
+    "Tokens": 4180,
+    "Files": 20,
+    "Symbols": 60,
+    "Weight": 20
+  },
+  {
+    "Path": "internal/walk",
+    "Tokens": 3380,
+    "Files": 20,
+    "Symbols": 60,
+    "Weight": 20
+  },
+  {
+    "Path": "internal/web",
+    "Tokens": 5780,
+    "Files": 20,
+    "Symbols": 60,
+    "Weight": 20
+  }
+]

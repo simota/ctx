@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "base-2026-05-29-aaa",
+  "created_at": "2026-05-29T10:00:00Z",
+  "ctx_version": "dev",
+  "goal": "review pack",
+  "budget": 1000,
+  "used": 250,
+  "root": "/repo",
+  "preset": "default",
+  "format": "markdown",
+  "out_sha256": "deadbeefcafebabe",
+  "entries": [
+    {"path": "main.go", "sha256": "aaaa111122223333", "tokens": 120, "relevance": "High", "score": 95, "reason": "entrypoint"},
+    {"path": "lib/util.go", "sha256": "bbbb444455556666", "tokens": 90, "relevance": "Medium", "score": 60, "reason": "shared util"},
+    {"path": "lib/inner/handler.go", "sha256": "cccc777788889999", "tokens": 40, "relevance": "Medium", "score": 40, "reason": "handler"}
+  ],
+  "skipped": [
+    {"path": "vendor/big.json", "reason": "ignored"}
+  ]
+}

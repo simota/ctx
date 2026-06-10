@@ -1,0 +1,54 @@
+[
+  {
+    "Bucket": {
+      "Path": "internal/cli",
+      "Tokens": 2790,
+      "Files": 3,
+      "Symbols": 39,
+      "Weight": 2790
+    },
+    "X": 0,
+    "Y": 0,
+    "W": 52,
+    "H": 20
+  },
+  {
+    "Bucket": {
+      "Path": "internal/walk",
+      "Tokens": 900,
+      "Files": 2,
+      "Symbols": 12,
+      "Weight": 900
+    },
+    "X": 52,
+    "Y": 0,
+    "W": 17,
+    "H": 20
+  },
+  {
+    "Bucket": {
+      "Path": ".",
+      "Tokens": 480,
+      "Files": 1,
+      "Symbols": 0,
+      "Weight": 480
+    },
+    "X": 69,
+    "Y": 0,
+    "W": 11,
+    "H": 16
+  },
+  {
+    "Bucket": {
+      "Path": "cmd/ctx",
+      "Tokens": 140,
+      "Files": 1,
+      "Symbols": 1,
+      "Weight": 140
+    },
+    "X": 69,
+    "Y": 16,
+    "W": 11,
+    "H": 4
+  }
+]

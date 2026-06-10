@@ -1,0 +1,102 @@
+[
+  {
+    "path": ".",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/cmd",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/cmd/main.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Run",
+        "kind": "function",
+        "line": 3
+      }
+    ],
+    "lines": [
+      "package cmd",
+      "",
+      "func Run() {}"
+    ]
+  },
+  {
+    "path": "internal/pack",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/pack/relevance.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "Relevance",
+        "kind": "type",
+        "line": 6
+      },
+      {
+        "name": "ScoreRelevance",
+        "kind": "function",
+        "line": 11
+      }
+    ],
+    "lines": [
+      "package pack",
+      "",
+      "import \"strings\"",
+      "",
+      "// Relevance ranks files based on multiple heuristics.",
+      "type Relevance struct {",
+      "\tScore int",
+      "}",
+      "",
+      "// ScoreRelevance computes a score for the given path.",
+      "func ScoreRelevance(path string) Relevance {",
+      "\tr := Relevance{}",
+      "\tif strings.Contains(path, \"pack\") {",
+      "\t\tr.Score = 10",
+      "\t}",
+      "\treturn r",
+      "}"
+    ]
+  },
+  {
+    "path": "internal/util",
+    "is_dir": true,
+    "symbols": null,
+    "lines": null
+  },
+  {
+    "path": "internal/util/strings.go",
+    "is_dir": false,
+    "symbols": [
+      {
+        "name": "SplitName",
+        "kind": "function",
+        "line": 4
+      }
+    ],
+    "lines": [
+      "package util",
+      "",
+      "// SplitName breaks an identifier into parts.",
+      "func SplitName(s string) []string {",
+      "\treturn nil",
+      "}"
+    ]
+  }
+]

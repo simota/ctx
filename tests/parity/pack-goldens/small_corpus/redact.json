@@ -1,0 +1,16 @@
+{
+  "data_base64": "c2FmZSBsaW5lClNFQ1JFVD1hYmNkZWYKaGFybWxlc3MKVE9LRU49eHl6Cg==",
+  "warnings": [
+    {
+      "path": "",
+      "line": 2,
+      "kind": "env"
+    },
+    {
+      "path": "",
+      "line": 4,
+      "kind": "token"
+    }
+  ],
+  "redacted_base64": "c2FmZSBsaW5lCltSRURBQ1RFRCDigJQga2luZD1lbnZdCmhhcm1sZXNzCltSRURBQ1RFRCDigJQga2luZD10b2tlbl0K"
+}

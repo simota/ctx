@@ -1,0 +1,31 @@
+{
+  "a": "score-base",
+  "b": "score-current",
+  "summary": {
+    "added": 0,
+    "removed": 0,
+    "promoted": 0,
+    "demoted": 0,
+    "score_changed": 1,
+    "token_delta": 0
+  },
+  "changes": {
+    "added": null,
+    "removed": null,
+    "promoted": null,
+    "demoted": null,
+    "score_changed": [
+      {
+        "path": "b.go",
+        "category": "score_changed",
+        "base_score": 50,
+        "cur_score": 75,
+        "base_tier": "Medium",
+        "cur_tier": "Medium",
+        "base_tokens": 70,
+        "cur_tokens": 70,
+        "reason_change": "+50%"
+      }
+    ]
+  }
+}

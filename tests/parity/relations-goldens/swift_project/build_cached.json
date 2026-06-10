@@ -1,0 +1,17 @@
+{
+  "module_path": "",
+  "imports": {
+    "Sources/B/B.swift": [
+      "Sources/A/A.swift",
+      "Sources/A/A2.swift"
+    ]
+  },
+  "importers": {
+    "Sources/A/A.swift": [
+      "Sources/B/B.swift"
+    ],
+    "Sources/A/A2.swift": [
+      "Sources/B/B.swift"
+    ]
+  }
+}

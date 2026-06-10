@@ -1,0 +1,6 @@
+OPENAI_API_KEY=example_secret_1234567890abcdefghijklmnop
+STRIPE_SECRET_KEY=example_secret_1234567890abcdefghij
+DATABASE_PASSWORD=p@ssword12345
+NORMAL_CONFIG=just-a-value
+COMMENT_LINE=# nothing sensitive here
+ACCESS_TOKEN=example_secret_AbcdEfGh-IjKlMnO_PqRsTuVwXyZ

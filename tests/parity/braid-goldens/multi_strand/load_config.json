@@ -1,0 +1,23 @@
+{
+  "SchemaVersion": 1,
+  "Strands": [
+    {
+      "Name": "api",
+      "Source": "where 'handler' --format json",
+      "Share": 0.4,
+      "Policy": "merge"
+    },
+    {
+      "Name": "recent",
+      "Source": "digest --since 7d --format json",
+      "Share": 0.3,
+      "Policy": "prefer-newer"
+    },
+    {
+      "Name": "anchor",
+      "Source": "focus RateLimiter --hops 2",
+      "Share": 0.3,
+      "Policy": "merge"
+    }
+  ]
+}

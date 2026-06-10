@@ -1,0 +1,111 @@
+{
+  "added": 2,
+  "modified": 2,
+  "removed": 1,
+  "unchanged": 7,
+  "token_delta": 240,
+  "changes": [
+    {
+      "path": "cmd/ctx/main.go",
+      "kind": "unchanged",
+      "base_sha256": "ae00",
+      "cur_sha256": "ae00",
+      "base_tokens": 200,
+      "cur_tokens": 200,
+      "token_delta": 0
+    },
+    {
+      "path": "docs/README.md",
+      "kind": "unchanged",
+      "base_sha256": "ae08",
+      "cur_sha256": "ae08",
+      "base_tokens": 60,
+      "cur_tokens": 60,
+      "token_delta": 0
+    },
+    {
+      "path": "internal/cli/browse.go",
+      "kind": "unchanged",
+      "base_sha256": "ae07",
+      "cur_sha256": "ae07",
+      "base_tokens": 150,
+      "cur_tokens": 150,
+      "token_delta": 0
+    },
+    {
+      "path": "internal/relations/relations.go",
+      "kind": "unchanged",
+      "base_sha256": "ae03",
+      "cur_sha256": "ae03",
+      "base_tokens": 410,
+      "cur_tokens": 410,
+      "token_delta": 0
+    },
+    {
+      "path": "internal/render/markdown.go",
+      "kind": "removed",
+      "base_sha256": "ae05",
+      "base_tokens": 140,
+      "token_delta": -140
+    },
+    {
+      "path": "internal/replay/diff.go",
+      "kind": "modified",
+      "base_sha256": "ae04",
+      "cur_sha256": "be04",
+      "base_tokens": 320,
+      "cur_tokens": 360,
+      "token_delta": 40
+    },
+    {
+      "path": "internal/replay/manifest.go",
+      "kind": "added",
+      "cur_sha256": "be11",
+      "cur_tokens": 130,
+      "token_delta": 130
+    },
+    {
+      "path": "internal/replay/store.go",
+      "kind": "added",
+      "cur_sha256": "be10",
+      "cur_tokens": 180,
+      "token_delta": 180
+    },
+    {
+      "path": "internal/scan/scan.go",
+      "kind": "unchanged",
+      "base_sha256": "ae02",
+      "cur_sha256": "ae02",
+      "base_tokens": 280,
+      "cur_tokens": 280,
+      "token_delta": 0
+    },
+    {
+      "path": "internal/symbols/extractor.go",
+      "kind": "unchanged",
+      "base_sha256": "ae09",
+      "cur_sha256": "ae09",
+      "base_tokens": 220,
+      "cur_tokens": 220,
+      "token_delta": 0
+    },
+    {
+      "path": "internal/walk/walk.go",
+      "kind": "modified",
+      "base_sha256": "ae01",
+      "cur_sha256": "be01",
+      "base_tokens": 350,
+      "cur_tokens": 380,
+      "token_delta": 30
+    },
+    {
+      "path": "internal/where/where.go",
+      "kind": "unchanged",
+      "base_sha256": "ae06",
+      "cur_sha256": "ae06",
+      "base_tokens": 510,
+      "cur_tokens": 510,
+      "token_delta": 0
+    }
+  ]
+}

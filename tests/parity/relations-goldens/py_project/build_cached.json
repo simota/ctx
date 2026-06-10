@@ -1,0 +1,21 @@
+{
+  "module_path": "",
+  "imports": {
+    "main.py": [
+      "pkg/__init__.py",
+      "pkg/mod.py"
+    ],
+    "pkg/__init__.py": [
+      "pkg/mod.py"
+    ]
+  },
+  "importers": {
+    "pkg/__init__.py": [
+      "main.py"
+    ],
+    "pkg/mod.py": [
+      "main.py",
+      "pkg/__init__.py"
+    ]
+  }
+}

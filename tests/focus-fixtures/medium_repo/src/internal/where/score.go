@@ -1,0 +1,2 @@
+package where
+func Score() {}

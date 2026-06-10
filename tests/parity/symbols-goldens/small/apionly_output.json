@@ -1,0 +1,3 @@
+{
+  "rendered": "package auth\n\nimport \"context\"\n\n// LoginUser authenticates a user.\n//\n// Returns a session token on success.\nfunc LoginUser(ctx context.Context, email, password string) (*Session, error)\n\n// Session represents an authenticated session.\ntype Session struct{}\n\n// BuildIndex constructs the user index.\nfunc BuildIndex(root string) (*Session, error)\n\n// Render formats the session for display.\nfunc (s *Session) Render() string\n"
+}

@@ -1,0 +1,30 @@
+[
+  {
+    "Path": "internal/cli",
+    "Tokens": 2790,
+    "Files": 3,
+    "Symbols": 39,
+    "Weight": 2790
+  },
+  {
+    "Path": "internal/walk",
+    "Tokens": 900,
+    "Files": 2,
+    "Symbols": 12,
+    "Weight": 900
+  },
+  {
+    "Path": ".",
+    "Tokens": 480,
+    "Files": 1,
+    "Symbols": 0,
+    "Weight": 480
+  },
+  {
+    "Path": "cmd/ctx",
+    "Tokens": 140,
+    "Files": 1,
+    "Symbols": 1,
+    "Weight": 140
+  }
+]

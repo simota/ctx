@@ -1,0 +1,7 @@
+[
+  {
+    "Name": "main",
+    "Policy": "merge",
+    "Paths": ["internal/cli/root.go", "internal/cli/where.go", "internal/cli/focus.go"]
+  }
+]

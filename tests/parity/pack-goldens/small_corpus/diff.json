@@ -1,0 +1,28 @@
+{
+  "diffs": [
+    {
+      "path": "internal/pack/relevance.go",
+      "before_content": "package pack\n",
+      "after_content": "package pack\n// updated\n",
+      "before_commit": "abc1234",
+      "after_commit": "def5678",
+      "patch": "--- a/internal/pack/relevance.go\n+++ b/internal/pack/relevance.go\n@@ -1,1 +1,2 @@\n+// updated\n package pack\n",
+      "added": false,
+      "deleted": false,
+      "binary": false
+    },
+    {
+      "path": "doc.md",
+      "before_content": "hello\n",
+      "after_content": "hello world\n",
+      "before_commit": "old",
+      "after_commit": "new",
+      "patch": "--- a/doc.md\n+++ b/doc.md\n@@ -1,1 +1,1 @@\n-hello\n+hello world\n",
+      "added": false,
+      "deleted": false,
+      "binary": false
+    }
+  ],
+  "layout": "sequential",
+  "rendered": "### internal/pack/relevance.go\n\n**Before** (commit abc1234):\n```go\npackage pack\n```\n\n**After** (commit def5678):\n```go\npackage pack\n// updated\n```\n\n### doc.md\n\n**Before** (commit old):\n```markdown\nhello\n```\n\n**After** (commit new):\n```markdown\nhello world\n```\n\n"
+}

@@ -1,0 +1,5 @@
+{
+  "json": "{\n  \"pack_file\": \"empty_pack\",\n  \"schema_version\": 1,\n  \"total_files_in_contract\": 0,\n  \"references_found\": 0,\n  \"violations\": [],\n  \"ok\": [],\n  \"stale_files\": [],\n  \"repack_suggestions\": [],\n  \"exit_code\": 0\n}\n",
+  "markdown": "# CTX-CONTRACT-VERIFY: pack=empty_pack schema=1 files=0\n\n## Violations (0)\n\n(none — every reference matched the contract)\n\n## OK (0)\n(no verifiable references found)\n\n## Exit\n0 — no violations detected\n",
+  "plain": "pack=empty_pack schema=1 files=0 refs=0 violations=0 ok=0 exit=0\n"
+}

@@ -1,0 +1,29 @@
+{
+  "SchemaVersion": 1,
+  "Strands": [
+    {
+      "Name": "broad-where",
+      "Source": "where 'router' --regex 'router|Router|Handler' --limit 50",
+      "Share": 0.5,
+      "Policy": "merge"
+    },
+    {
+      "Name": "deep-focus",
+      "Source": "focus PaymentProcessor --hops 3",
+      "Share": 0.4,
+      "Policy": "prefer-newer"
+    },
+    {
+      "Name": "hot-changes",
+      "Source": "digest --since 14d --top 30",
+      "Share": 0.3,
+      "Policy": "exclude-overlap"
+    },
+    {
+      "Name": "tail-where",
+      "Source": "where 'metrics'",
+      "Share": 0.15,
+      "Policy": "merge"
+    }
+  ]
+}

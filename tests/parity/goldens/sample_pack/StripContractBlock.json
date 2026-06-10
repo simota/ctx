@@ -1,0 +1,4 @@
+{
+  "stripped_body": "# Context Pack\n\n**Goal**: rate limit burst\n**Generated**: 2026-05-20T10:00:00Z\n**Budget**: 800 / 50000 tokens\n\n## Included files (2 files, 800 tokens)\n\n### High relevance\n- internal/limit/limit.go (500 tokens)\n- internal/limit/limit_test.go (300 tokens)\n\n---\n\n## File contents\n\n### internal/limit/limit.go\n\n```go\npackage limit\n\n// Limiter enforces rate limit with burst tolerance.\ntype Limiter struct {\n\trate  int\n\tburst int\n}\n\nfunc NewLimiter(rate, burst int) *Limiter {\n\treturn \u0026Limiter{rate: rate, burst: burst}\n}\n\nfunc (l *Limiter) Allow() bool {\n\treturn true\n}\n```\n\n### internal/limit/limit_test.go\n\n```go\npackage limit\n\nimport \"testing\"\n\nfunc TestLimiter(t *testing.T) {\n\tl := NewLimiter(10, 5)\n\tif !l.Allow() {\n\t\tt.Fatal(\"limit failed\")\n\t}\n}\n```",
+  "stripped_bytes": 752
+}

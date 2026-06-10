@@ -1,0 +1,17 @@
+{
+  "module_path": "",
+  "imports": {
+    "src/App.php": [
+      "src/Bar.php",
+      "src/Foo.php"
+    ]
+  },
+  "importers": {
+    "src/Bar.php": [
+      "src/App.php"
+    ],
+    "src/Foo.php": [
+      "src/App.php"
+    ]
+  }
+}

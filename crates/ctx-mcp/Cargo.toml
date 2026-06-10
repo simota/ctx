@@ -1,0 +1,22 @@
+[package]
+name = "ctx-mcp"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Rust MCP stdio server foundation for ctx"
+license = "MIT"
+
+[lib]
+name = "ctx_mcp"
+path = "src/lib.rs"
+
+[dependencies]
+base64 = "0.22"
+ctx-symbols = { path = "../ctx-symbols" }
+ctx-focus = { path = "../ctx-focus" }
+ctx-pack = { path = "../ctx-pack" }
+ctx-tokens = { path = "../ctx-tokens" }
+ctx-where = { path = "../ctx-where" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value"] }
+toml = "0.8"

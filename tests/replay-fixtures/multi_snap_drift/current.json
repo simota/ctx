@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "drift-current",
+  "created_at": "2026-05-29T17:00:00Z",
+  "ctx_version": "dev",
+  "goal": "drift comparison",
+  "budget": 4000,
+  "used": 2050,
+  "root": "/repo",
+  "preset": "deep",
+  "format": "markdown",
+  "out_sha256": "drift-cur-sha",
+  "entries": [
+    {"path": "cmd/ctx/main.go", "sha256": "ae00", "tokens": 200, "relevance": "High", "score": 100, "reason": "entrypoint"},
+    {"path": "internal/walk/walk.go", "sha256": "be01", "tokens": 380, "relevance": "High", "score": 92, "reason": "walker"},
+    {"path": "internal/scan/scan.go", "sha256": "ae02", "tokens": 280, "relevance": "High", "score": 88, "reason": "scanner"},
+    {"path": "internal/relations/relations.go", "sha256": "ae03", "tokens": 410, "relevance": "High", "score": 95, "reason": "graph"},
+    {"path": "internal/replay/diff.go", "sha256": "be04", "tokens": 360, "relevance": "Medium", "score": 88, "reason": "diff"},
+    {"path": "internal/where/where.go", "sha256": "ae06", "tokens": 510, "relevance": "High", "score": 90, "reason": "search"},
+    {"path": "internal/cli/browse.go", "sha256": "ae07", "tokens": 150, "relevance": "Medium", "score": 45, "reason": "cli"},
+    {"path": "docs/README.md", "sha256": "ae08", "tokens": 60, "relevance": "", "score": 10, "reason": "readme"},
+    {"path": "internal/symbols/extractor.go", "sha256": "ae09", "tokens": 220, "relevance": "", "score": 20, "reason": "symbols"},
+    {"path": "internal/replay/store.go", "sha256": "be10", "tokens": 180, "relevance": "Medium", "score": 55, "reason": "store"},
+    {"path": "internal/replay/manifest.go", "sha256": "be11", "tokens": 130, "relevance": "Medium", "score": 50, "reason": "manifest"}
+  ],
+  "skipped": [
+    {"path": "node_modules/large.json", "reason": "ignored"}
+  ]
+}

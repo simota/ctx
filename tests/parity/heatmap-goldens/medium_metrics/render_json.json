@@ -1,0 +1,149 @@
+{
+  "root": ".",
+  "by": "tokens",
+  "total": 23050,
+  "total_tokens": 23050,
+  "budget": null,
+  "buckets": [
+    {
+      "path": "tests",
+      "tokens": 3880,
+      "files": 5,
+      "symbols": 25,
+      "weight": 3880,
+      "rect": {
+        "h": 20,
+        "w": 13,
+        "x": 0,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": "docs",
+      "tokens": 3530,
+      "files": 5,
+      "symbols": 20,
+      "weight": 3530,
+      "rect": {
+        "h": 20,
+        "w": 12,
+        "x": 13,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": "cmd/where",
+      "tokens": 3180,
+      "files": 5,
+      "symbols": 15,
+      "weight": 3180,
+      "rect": {
+        "h": 20,
+        "w": 11,
+        "x": 25,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": "cmd/ctx",
+      "tokens": 2830,
+      "files": 5,
+      "symbols": 17,
+      "weight": 2830,
+      "rect": {
+        "h": 11,
+        "w": 18,
+        "x": 36,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/web",
+      "tokens": 2480,
+      "files": 5,
+      "symbols": 19,
+      "weight": 2480,
+      "rect": {
+        "h": 9,
+        "w": 18,
+        "x": 36,
+        "y": 11
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/pack",
+      "tokens": 2130,
+      "files": 5,
+      "symbols": 21,
+      "weight": 2130,
+      "rect": {
+        "h": 11,
+        "w": 14,
+        "x": 54,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/symbols",
+      "tokens": 1780,
+      "files": 5,
+      "symbols": 23,
+      "weight": 1780,
+      "rect": {
+        "h": 9,
+        "w": 14,
+        "x": 54,
+        "y": 11
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/walk",
+      "tokens": 1430,
+      "files": 5,
+      "symbols": 25,
+      "weight": 1430,
+      "rect": {
+        "h": 8,
+        "w": 12,
+        "x": 68,
+        "y": 0
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/heatmap",
+      "tokens": 1080,
+      "files": 5,
+      "symbols": 20,
+      "weight": 1080,
+      "rect": {
+        "h": 12,
+        "w": 6,
+        "x": 68,
+        "y": 8
+      },
+      "in_budget": false
+    },
+    {
+      "path": "internal/cli",
+      "tokens": 730,
+      "files": 5,
+      "symbols": 15,
+      "weight": 730,
+      "rect": {
+        "h": 8,
+        "w": 6,
+        "x": 74,
+        "y": 8
+      },
+      "in_budget": false
+    }
+  ]
+}

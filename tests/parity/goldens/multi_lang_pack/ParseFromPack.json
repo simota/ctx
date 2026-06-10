@@ -1,0 +1,35 @@
+{
+  "contract": {
+    "schema_version": 1,
+    "created": "2026-05-29T00:00:00Z",
+    "files": [
+      {
+        "path": "README.md",
+        "line_start": 1,
+        "line_end": 2,
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "path": "src/auth/token.py",
+        "line_start": 1,
+        "line_end": 10,
+        "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "symbols": [
+          "TokenStore",
+          "sign_token"
+        ]
+      },
+      {
+        "path": "src/auth/token.ts",
+        "line_start": 1,
+        "line_end": 8,
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "symbols": [
+          "TokenStore",
+          "signToken"
+        ]
+      }
+    ]
+  },
+  "ok": true
+}

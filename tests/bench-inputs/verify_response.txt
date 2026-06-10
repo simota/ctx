@@ -1,0 +1,70 @@
+look at internal/contract/file_000.go for the call site.
+Use `Verify` and `Build` to wire it.
+internal/pack/file_001.ts:L10-L40 contains the logic.
+Use `Build` and `ToJSONField` to wire it.
++++ b/internal/limit/file_002.py
+Use `ExtractReferences` and `Format` to wire it.
+look at cmd/ctx/file_003.rs for the call site.
+Use `ParseFromPack` and `Verify` to wire it.
+web/src/pages/file_004.md:L10-L40 contains the logic.
+Use `ExtractReferences` and `rangeContained` to wire it.
++++ b/internal/contract/file_005.go
+Use `rangeContained` and `Embed` to wire it.
+look at internal/pack/file_006.ts for the call site.
+Use `lookupPath` and `ExtractReferences` to wire it.
+internal/limit/file_007.py:L10-L40 contains the logic.
+Use `Format` and `lookupPath` to wire it.
++++ b/cmd/ctx/file_008.rs
+Use `ExtractReferences` and `StripContractBlock` to wire it.
+look at web/src/pages/file_009.md for the call site.
+Use `lookupPath` and `ParseFromPack` to wire it.
+internal/contract/file_010.go:L10-L40 contains the logic.
+Use `ToJSONField` and `Build` to wire it.
++++ b/internal/pack/file_011.ts
+Use `ParseFromPack` and `ToJSONField` to wire it.
+look at internal/limit/file_012.py for the call site.
+Use `lookupPath` and `Format` to wire it.
+cmd/ctx/file_013.rs:L10-L40 contains the logic.
+Use `StripContractBlock` and `Verify` to wire it.
++++ b/web/src/pages/file_014.md
+Use `Verify` and `rangeContained` to wire it.
+look at internal/contract/file_015.go for the call site.
+Use `StripContractBlock` and `Embed` to wire it.
+internal/pack/file_016.ts:L10-L40 contains the logic.
+Use `Embed` and `ExtractReferences` to wire it.
++++ b/internal/limit/file_017.py
+Use `Format` and `lookupPath` to wire it.
+look at cmd/ctx/file_018.rs for the call site.
+Use `Format` and `StripContractBlock` to wire it.
+web/src/pages/file_019.md:L10-L40 contains the logic.
+Use `Embed` and `ParseFromPack` to wire it.
++++ b/internal/contract/file_020.go
+Use `rangeContained` and `Build` to wire it.
+look at internal/pack/file_021.ts for the call site.
+Use `ParseFromPack` and `ToJSONField` to wire it.
+internal/limit/file_022.py:L10-L40 contains the logic.
+Use `Build` and `Format` to wire it.
++++ b/cmd/ctx/file_023.rs
+Use `ToJSONField` and `Verify` to wire it.
+look at web/src/pages/file_024.md for the call site.
+Use `StripContractBlock` and `rangeContained` to wire it.
+internal/contract/file_025.go:L10-L40 contains the logic.
+Use `ToJSONField` and `Embed` to wire it.
++++ b/internal/pack/file_026.ts
+Use `StripContractBlock` and `ExtractReferences` to wire it.
+look at internal/limit/file_027.py for the call site.
+Use `ToJSONField` and `lookupPath` to wire it.
+cmd/ctx/file_028.rs:L10-L40 contains the logic.
+Use `ExtractReferences` and `StripContractBlock` to wire it.
++++ b/web/src/pages/file_029.md
+Use `ExtractReferences` and `ParseFromPack` to wire it.
+see imaginary/phantom_00.go
+see imaginary/phantom_01.go
+see imaginary/phantom_02.go
+see imaginary/phantom_03.go
+see imaginary/phantom_04.go
+call `Ghost0` first
+call `Ghost1` first
+call `Ghost2` first
+call `Ghost3` first
+call `Ghost4` first

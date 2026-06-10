@@ -1,0 +1,21 @@
+{
+  "module_path": "example.com/m",
+  "imports": {
+    "main.go": [
+      "lib/a.go",
+      "lib/b.go",
+      "lib/sub/c.go"
+    ]
+  },
+  "importers": {
+    "lib/a.go": [
+      "main.go"
+    ],
+    "lib/b.go": [
+      "main.go"
+    ],
+    "lib/sub/c.go": [
+      "main.go"
+    ]
+  }
+}
