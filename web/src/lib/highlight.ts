@@ -5,7 +5,12 @@
 // components import hljs.
 
 import hljs from 'highlight.js/lib/common';
+import hljsKotlin from 'highlight.js/lib/languages/kotlin';
+import hljsSwift from 'highlight.js/lib/languages/swift';
 import hljsSvelte from 'highlightjs-svelte';
+
+hljs.registerLanguage('kotlin', hljsKotlin);
+hljs.registerLanguage('swift', hljsSwift);
 
 // Register Svelte language (script/style blocks are sub-highlighted as
 // JavaScript/CSS automatically by the definition).

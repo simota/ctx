@@ -249,6 +249,8 @@ fn lang_for_ext(path: &Path) -> &'static str {
         "mjs" => "javascript",
         "py" => "python",
         "rs" => "rust",
+        "swift" => "swift",
+        "kt" | "kts" => "kotlin",
         "java" => "java",
         "rb" => "ruby",
         "sh" | "bash" => "bash",

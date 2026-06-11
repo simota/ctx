@@ -136,6 +136,9 @@ export function langFromPath(path: string): string {
     bash: 'bash',
     py: 'python',
     rs: 'rust',
+    swift: 'swift',
+    kt: 'kotlin',
+    kts: 'kotlin',
     sql: 'sql',
     // mermaid isn't in highlight.js's common bundle; falling back to
     // plaintext keeps the source-view path safe (the rendered preview is
