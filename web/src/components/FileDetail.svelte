@@ -890,18 +890,18 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
       return { n: i + 1, html };
     };
     readyLines = false;
-    // Use a local accumulator so we never read `lines` while writing it —
-    // reading a $state inside the effect that owns it would create a feedback loop.
-    let acc = arr.slice(0, FIRST_CHUNK).map(hl);
-    lines = acc;
+    lines = arr.slice(0, FIRST_CHUNK).map(hl);
     if (arr.length <= FIRST_CHUNK) { readyLines = true; return; }
     void (async () => {
       let off = FIRST_CHUNK;
       while (off < arr.length) {
         await yieldToMain();
         if (linesEpoch !== epoch) return;
-        acc = [...acc, ...arr.slice(off, off + REST_CHUNK).map((l, j) => hl(l, off + j))];
-        lines = acc;
+        // Appending to the $state proxy is safe here: the async closure runs
+        // after the effect's tracking pass, so the read doesn't register a
+        // dependency — and push keeps accumulation O(N) total instead of the
+        // O(N²) of rebuilding the array per chunk.
+        lines.push(...arr.slice(off, off + REST_CHUNK).map((l, j) => hl(l, off + j)));
         off += REST_CHUNK;
       }
       if (linesEpoch === epoch) readyLines = true;
@@ -935,16 +935,16 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
         : escapeHtml(ln.text);
       return { type: ln.type, html, oldNum: ln.old_num, newNum: ln.new_num };
     };
-    let acc = all.slice(0, FIRST_CHUNK).map(hl);
-    diffLinesView = acc;
+    diffLinesView = all.slice(0, FIRST_CHUNK).map(hl);
     if (all.length <= FIRST_CHUNK) return;
     void (async () => {
       let off = FIRST_CHUNK;
       while (off < all.length) {
         await yieldToMain();
         if (diffEpoch !== epoch) return;
-        acc = [...acc, ...all.slice(off, off + REST_CHUNK).map(hl)];
-        diffLinesView = acc;
+        // push: see the `lines` effect above — O(N) accumulation, no
+        // dependency registration outside the tracking pass.
+        diffLinesView.push(...all.slice(off, off + REST_CHUNK).map(hl));
         off += REST_CHUNK;
       }
     })();
@@ -1114,8 +1114,9 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
   function decorateLine(lineEl: HTMLElement): void {
     const content = lineEl.querySelector<HTMLElement>('.ln-content');
     if (!content) return;
-    if (content.dataset.ctxDecorated === '1') return;
-    content.dataset.ctxDecorated = '1';
+    const ver = String(decorateVersion);
+    if (content.dataset.ctxDecorated === ver) return;
+    content.dataset.ctxDecorated = ver;
     const idents = content.querySelectorAll<HTMLElement>(HLJS_IDENT_SELECTOR);
     for (const span of idents) {
       // Only operate on a single text-node child; nested spans (e.g.
@@ -1257,16 +1258,60 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     }
   }
 
-  // Walk the rendered code element and decorate every line. Triggered after
-  // the lines $derived block has produced new DOM (tick + microtask).
+  // Decorate lines lazily as they approach the viewport. Decorating the whole
+  // file eagerly walks every rendered line's DOM (TreeWalker + querySelectorAll)
+  // and janks scroll on 5k+ line files; the observer defers that work to the
+  // lines the user can actually see (rootMargin pre-decorates one viewport
+  // ahead in both directions). Clipped lines inside a scrolled pane report no
+  // viewport intersection, so observing against the viewport root is correct.
+  let decorateObserver: IntersectionObserver | null = null;
+
+  function ensureDecorateObserver(): IntersectionObserver {
+    if (decorateObserver) return decorateObserver;
+    decorateObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          decorateObserver?.unobserve(entry.target);
+          decorateLine(entry.target as HTMLElement);
+        }
+      },
+      { rootMargin: '100% 0px' }
+    );
+    return decorateObserver;
+  }
+
+  $effect(() => () => decorateObserver?.disconnect());
+
+  // Decoration version: bumped when the symbol index is replaced (e.g. the
+  // late `/api/file?symbols=true` upgrade). The keyed {#each} reuses .line DOM
+  // across data refreshes, so dataset marks survive — versioning them forces a
+  // re-observe + re-decorate against the new index (decorateLine is idempotent
+  // on already-wrapped content).
+  let lastSymbolIndex: Map<string, Symbol> | null = null;
+  let decorateVersion = 0;
+
+  // Register lines with the observer. Re-runs as chunks land (lines.length) —
+  // which also fixes the old eager pass silently skipping chunks rendered
+  // after it ran — and when the symbol index changes.
   $effect(() => {
     if (!data || !codeEl) return;
-    // Re-track symbols so a late `/api/file?symbols=true` upgrade re-decorates.
-    void symbolIndex;
+    const sym = symbolIndex;
+    void lines.length;
+    if (sym !== lastSymbolIndex) {
+      lastSymbolIndex = sym;
+      decorateVersion++;
+    }
+    const ver = String(decorateVersion);
     const el = codeEl;
     tick().then(() => {
+      const obs = ensureDecorateObserver();
       const lineEls = el.querySelectorAll<HTMLElement>('.line');
-      for (const ln of lineEls) decorateLine(ln);
+      for (const ln of lineEls) {
+        if (ln.dataset.ctxObserved === ver) continue;
+        ln.dataset.ctxObserved = ver;
+        obs.observe(ln);
+      }
     });
   });
 
