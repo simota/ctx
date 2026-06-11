@@ -86,7 +86,12 @@ pub async fn handle(State(state): State<AppState>, method: Method, uri: Uri) -> 
     };
     if meta.is_dir() {
         // Static-server convention: fall through to index.html if present.
-        let idx = target.join("index.html");
+        // Re-resolve through safepath so a symlinked index.html cannot escape
+        // the root jail (the join below would otherwise skip that check).
+        let idx = match safepath::resolve(&state.root, &format!("{}/index.html", decoded)) {
+            Ok(t) => t,
+            Err(e) => return response::bad_path(e),
+        };
         match std::fs::metadata(&idx) {
             Ok(m) if !m.is_dir() => target = idx,
             _ => {
@@ -104,10 +109,11 @@ pub async fn handle(State(state): State<AppState>, method: Method, uri: Uri) -> 
         Err(e) => return response::error(StatusCode::INTERNAL_SERVER_ERROR, "read_file", &e.to_string()),
     };
     let ct = serve_content_type(&target, &data);
+    let len = data.len();
     let body = if method == Method::HEAD {
         Body::empty()
     } else {
-        Body::from(data.clone())
+        Body::from(data)
     };
     (
         StatusCode::OK,
@@ -120,7 +126,7 @@ pub async fn handle(State(state): State<AppState>, method: Method, uri: Uri) -> 
             (header::X_CONTENT_TYPE_OPTIONS, "nosniff".to_string()),
             (header::X_FRAME_OPTIONS, "SAMEORIGIN".to_string()),
             (header::REFERRER_POLICY, "no-referrer".to_string()),
-            (header::CONTENT_LENGTH, data.len().to_string()),
+            (header::CONTENT_LENGTH, len.to_string()),
         ],
         body,
     )
