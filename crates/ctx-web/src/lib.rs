@@ -21,6 +21,7 @@ use std::net::SocketAddr;
 
 use tokio::net::TcpListener;
 
+pub mod blocking;
 pub mod embed;
 pub mod handlers;
 pub mod response;

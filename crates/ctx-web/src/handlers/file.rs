@@ -86,6 +86,11 @@ fn is_false(v: &bool) -> bool {
 }
 
 pub async fn handle(State(state): State<AppState>, Query(params): Query<FileParams>) -> Response {
+    // Cache misses do a full read + tree-sitter parse + token count.
+    crate::blocking::run(move || handle_sync(state, params)).await
+}
+
+fn handle_sync(state: AppState, params: FileParams) -> Response {
     if params.path.is_empty() {
         return response::error(StatusCode::BAD_REQUEST, "bad_request", "path is required");
     }

@@ -78,6 +78,10 @@ struct BudgetResponse {
 // ---------------------------------------------------------------------------
 
 pub async fn handle(State(state): State<AppState>, Query(params): Query<BudgetParams>) -> Response {
+    crate::blocking::run(move || handle_sync(state, params)).await
+}
+
+fn handle_sync(state: AppState, params: BudgetParams) -> Response {
     if params.budget <= 0 {
         return response::error(
             StatusCode::BAD_REQUEST,

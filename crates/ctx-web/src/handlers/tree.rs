@@ -95,6 +95,12 @@ fn is_zero_i64(v: &i64) -> bool {
 // ---------------------------------------------------------------------------
 
 pub async fn handle(State(state): State<AppState>, Query(params): Query<TreeParams>) -> Response {
+    // `git status` + the recursive walk can take seconds on large repos; keep
+    // them off the tokio workers so parallel SPA requests aren't starved.
+    crate::blocking::run(move || handle_sync(state, params)).await
+}
+
+fn handle_sync(state: AppState, params: TreeParams) -> Response {
     let rel = if params.path.is_empty() {
         "."
     } else {

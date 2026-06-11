@@ -87,6 +87,10 @@ fn is_zero_i64(v: &i64) -> bool { *v == 0 }
 // ---------------------------------------------------------------------------
 
 pub async fn handle(State(state): State<AppState>, Query(params): Query<DirParams>) -> Response {
+    crate::blocking::run(move || handle_sync(state, params)).await
+}
+
+fn handle_sync(state: AppState, params: DirParams) -> Response {
     let rel = if params.path.is_empty() { "." } else { &params.path };
 
     let target = match safepath::resolve(&state.root, rel) {

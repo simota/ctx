@@ -62,6 +62,10 @@ struct WhereResponse {
 }
 
 pub async fn handle(State(state): State<AppState>, Query(params): Query<WhereParams>) -> Response {
+    crate::blocking::run(move || handle_sync(state, params)).await
+}
+
+fn handle_sync(state: AppState, params: WhereParams) -> Response {
     if params.query.is_empty() {
         return response::error(StatusCode::BAD_REQUEST, "bad_request", "q is required");
     }

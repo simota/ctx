@@ -86,6 +86,10 @@ pub async fn handle_diff(
     State(state): State<AppState>,
     Query(params): Query<GitDiffParams>,
 ) -> Response {
+    crate::blocking::run(move || handle_diff_sync(state, params)).await
+}
+
+fn handle_diff_sync(state: AppState, params: GitDiffParams) -> Response {
     if params.path.is_empty() {
         return response::error(StatusCode::BAD_REQUEST, "bad_request", "path is required");
     }
@@ -109,6 +113,10 @@ pub async fn handle_file_log(
     State(state): State<AppState>,
     Query(params): Query<FileLogParams>,
 ) -> Response {
+    crate::blocking::run(move || handle_file_log_sync(state, params)).await
+}
+
+fn handle_file_log_sync(state: AppState, params: FileLogParams) -> Response {
     if params.path.is_empty() {
         return response::error(StatusCode::BAD_REQUEST, "bad_request", "path is required");
     }
@@ -151,6 +159,10 @@ pub async fn handle_commit_diff(
     State(state): State<AppState>,
     Query(params): Query<CommitDiffParams>,
 ) -> Response {
+    crate::blocking::run(move || handle_commit_diff_sync(state, params)).await
+}
+
+fn handle_commit_diff_sync(state: AppState, params: CommitDiffParams) -> Response {
     if params.path.is_empty() {
         return response::error(StatusCode::BAD_REQUEST, "bad_request", "path is required");
     }

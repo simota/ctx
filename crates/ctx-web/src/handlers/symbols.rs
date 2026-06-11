@@ -79,6 +79,10 @@ pub async fn handle_symbols(
     State(state): State<AppState>,
     Query(params): Query<SymbolsParams>,
 ) -> Response {
+    crate::blocking::run(move || handle_symbols_sync(state, params)).await
+}
+
+fn handle_symbols_sync(state: AppState, params: SymbolsParams) -> Response {
     let target = match safepath::resolve(&state.root, &params.path) {
         Ok(t) => t,
         Err(e) => return response::bad_path(e),
@@ -148,6 +152,10 @@ pub async fn handle_definition(
     State(state): State<AppState>,
     Query(params): Query<DefinitionParams>,
 ) -> Response {
+    crate::blocking::run(move || handle_definition_sync(state, params)).await
+}
+
+fn handle_definition_sync(state: AppState, params: DefinitionParams) -> Response {
     if params.name.is_empty() {
         return response::error(StatusCode::BAD_REQUEST, "bad_request", "name is required");
     }
