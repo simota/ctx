@@ -434,21 +434,25 @@ pub fn run(root: FileInfo, root_path: &str) -> io::Result<()> {
 
     let mut stdout = io::stdout();
     enable_raw_mode()?;
+    // From here on the terminal is in raw mode; the guard restores it on
+    // every exit path — early error, normal return, or a panic unwinding
+    // out of the event loop (mirror Go's deferred program shutdown).
+    let _restore = RestoreTerminal;
     execute!(stdout, EnterAlternateScreen)?;
 
     let backend = CrosstermBackend::new(stdout);
-    let terminal = Terminal::new(backend);
+    Terminal::new(backend).and_then(|mut terminal| event_loop(&mut terminal, root, Path::new(root_path)))
+}
 
-    // From here on the terminal is in raw/alt-screen mode; ensure we always
-    // restore it, even if the loop returns an error or panics.
-    let result =
-        terminal.and_then(|mut terminal| event_loop(&mut terminal, root, Path::new(root_path)));
+/// Best-effort terminal teardown on drop. `LeaveAlternateScreen` is harmless
+/// when the alternate screen was never entered.
+struct RestoreTerminal;
 
-    // Teardown (best-effort; mirror Go's deferred program shutdown).
-    let _ = disable_raw_mode();
-    let _ = execute!(io::stdout(), LeaveAlternateScreen);
-
-    result
+impl Drop for RestoreTerminal {
+    fn drop(&mut self) {
+        let _ = disable_raw_mode();
+        let _ = execute!(io::stdout(), LeaveAlternateScreen);
+    }
 }
 
 /// The poll/read → update → render loop. Returns when the user quits.
@@ -467,10 +471,10 @@ fn event_loop<B: ratatui::backend::Backend>(
     loop {
         terminal.draw(|frame| render(&model, frame))?;
 
-        // Block until an event is available, then drain it.
-        if !event::poll(Duration::from_millis(250))? {
-            continue;
-        }
+        // Block until an event is available, then drain it. Waiting in poll
+        // (instead of redrawing on every 250ms timeout) keeps an idle TUI from
+        // re-walking the whole tree for `used_tokens`/`is_included` per tick.
+        while !event::poll(Duration::from_millis(250))? {}
         match event::read()? {
             Event::Key(key) if key.kind == KeyEventKind::Press => {
                 // q / ctrl+c quit (mirrors Go: "q", "ctrl+c" => tea.Quit).
