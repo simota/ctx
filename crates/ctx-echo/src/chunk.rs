@@ -107,9 +107,11 @@ fn strip_fences(lines: &[String]) -> Vec<String> {
     }
 
     // Trim leading/trailing blank lines.
-    while !out.is_empty() && out[0].trim().is_empty() {
-        out.remove(0);
-    }
+    let lead = out
+        .iter()
+        .take_while(|l| l.trim().is_empty())
+        .count();
+    out.drain(..lead);
     while !out.is_empty() && out[out.len() - 1].trim().is_empty() {
         out.pop();
     }

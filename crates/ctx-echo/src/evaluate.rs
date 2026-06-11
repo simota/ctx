@@ -94,7 +94,7 @@ pub fn evaluate(pack_path: &str, pack_body: &str, opts_in: &Options) -> EchoResu
 mod tests {
     use super::*;
 
-    const SAMPLE_PACK: &str = include_str!("../../../internal/echo/testdata/sample_pack.md");
+    const SAMPLE_PACK: &str = include_str!("../testdata/sample_pack.md");
 
     #[test]
     fn empty_pack_zero_chunks_exit_zero() {
