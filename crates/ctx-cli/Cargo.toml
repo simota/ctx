@@ -10,6 +10,13 @@ license = "MIT"
 name = "ctx"
 path = "src/main.rs"
 
+# `panic = "abort"` is deliberately NOT set: ctx-tui restores the terminal
+# from a Drop guard, which needs unwinding to run on panic.
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 ctx-contract = { path = "../ctx-contract" }
