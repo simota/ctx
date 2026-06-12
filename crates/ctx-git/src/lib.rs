@@ -652,7 +652,20 @@ fn split_diff_lines(content: &[u8]) -> Vec<&[u8]> {
 fn line_diff_ops<'a>(before: &[&'a [u8]], after: &[&'a [u8]]) -> Vec<DiffOp> {
     let n = before.len();
     let m = after.len();
-    let mut lcs = vec![0u16; (n + 1) * (m + 1)];
+
+    // The LCS DP matrix is O(n×m); huge inputs (e.g. 1MB files) would
+    // allocate multi-GB. Past this cap, emit a whole-file replace — the
+    // callers truncate at MAX_WORKTREE_DIFF_LINES anyway.
+    const MAX_LCS_CELLS: usize = 25_000_000;
+    if (n + 1).saturating_mul(m + 1) > MAX_LCS_CELLS {
+        let mut ops = Vec::with_capacity(n + m);
+        ops.extend((0..n).map(DiffOp::Del));
+        ops.extend((0..m).map(DiffOp::Add));
+        return ops;
+    }
+
+    // u32 cells: a u16 LCS length would wrap past 65535 common lines.
+    let mut lcs = vec![0u32; (n + 1) * (m + 1)];
 
     for i in (0..n).rev() {
         for j in (0..m).rev() {
@@ -838,11 +851,21 @@ mod tests {
     }
 
     fn unique_temp_dir() -> PathBuf {
+        // pid+nanos alone collide across parallel test threads (the system
+        // clock resolution is coarser than a thread spawn), racing git init
+        // against another test's remove_dir_all; the counter disambiguates.
+        static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("time")
             .as_nanos();
-        std::env::temp_dir().join(format!("ctx_git_test_{}_{}", std::process::id(), nanos))
+        std::env::temp_dir().join(format!(
+            "ctx_git_test_{}_{}_{}",
+            std::process::id(),
+            nanos,
+            seq
+        ))
     }
 
     fn git(root: &Path, args: &[&str]) {
