@@ -406,12 +406,15 @@ pub fn pack_markdown(inputs: &[FileInput], goal: &str, budget: i64) -> Result<St
     let mut files = Vec::new();
     let mut used = 0_i64;
     for (input, result) in scored {
-        if budget > 0 && used + input.tokens > budget {
-            continue;
-        }
         let content = std::fs::read_to_string(&input.abs_path)
             .map_err(|err| format!("pack: read {}: {err}", input.path))?;
+        // Gate and accumulate with the SAME measured count: gating on the
+        // caller-supplied estimate (input.tokens) lets a low/zero estimate
+        // overrun the budget.
         let tokens = estimate_text_tokens(&content);
+        if budget > 0 && used + tokens > budget {
+            continue;
+        }
         used += tokens;
         files.push(PackFile {
             path: input.path.clone(),

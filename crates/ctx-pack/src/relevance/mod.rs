@@ -152,11 +152,10 @@ fn normalize_goal_text(goal: &str) -> String {
     out
 }
 
+// Drop <2-rune keywords unconditionally, matching ctx-where's
+// extract_keywords filter — 1-char tokens are noise, stopword or not.
 fn keyword_too_short(word: &str) -> bool {
-    if word.chars().count() >= 2 {
-        return false;
-    }
-    stopwords().contains(word)
+    word.chars().count() < 2
 }
 
 fn is_stopword(word: &str) -> bool {
@@ -268,9 +267,14 @@ fn is_binary_file(f: &FileInput) -> bool {
     if header.contains(&0u8) {
         return true;
     }
-    // utf8.Valid(data) — we approximate with std::str::from_utf8 on
-    // the full slice.
-    std::str::from_utf8(&f.content_head).is_err()
+    // utf8.Valid-style check over the SAME capped window as the NUL check.
+    // content_head is a byte prefix, so a multibyte char cut at the window
+    // boundary is not binary evidence: tolerate an incomplete trailing
+    // sequence (error_len() == None) and only flag invalid sequences.
+    match std::str::from_utf8(header) {
+        Ok(_) => false,
+        Err(err) => err.error_len().is_some(),
+    }
 }
 
 fn append_signal(signals: &mut Vec<String>, signal: String) {
