@@ -327,6 +327,7 @@
       open: open.length > 0 ? open : undefined,
       line: route.lineHint,
       right: rightPathForUrl || undefined,
+      mode: route.mode,
     });
     const current = typeof window !== 'undefined' ? window.location.hash : '';
     if (current === target) return;

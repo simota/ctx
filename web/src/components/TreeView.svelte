@@ -303,7 +303,10 @@
       navigate(toDirHash(dirPath, filterOpts));
     } else {
       void focusPath(node.path);
-      navigate(toFileHash(node.path, filterOpts));
+      navigate(toFileHash(node.path, {
+        ...filterOpts,
+        mode: gitOnly && node.git ? 'diff' : '',
+      }));
     }
   }
 

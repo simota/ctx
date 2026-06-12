@@ -53,7 +53,7 @@
   import { formatTokens, formatSize, langFromPath, gitColor, gitLabel, formatRelative } from '../lib/format';
   import { renderMermaid, resetMermaidTheme } from '../lib/mermaid';
   import { attachPanZoom, type PanZoomController } from '../lib/pan-zoom';
-  import { route, navigate, toFileHash } from '../lib/router.svelte';
+  import { route, navigate, toFileHash, type FileViewMode } from '../lib/router.svelte';
   import { announce } from '../lib/announce.svelte';
   import { openContextMenu, type ContextMenuItem } from '../lib/context-menu.svelte';
   import { repo, absolutePath } from '../lib/repo.svelte';
@@ -152,6 +152,13 @@
     if (!panes.rightOpen || isMobile || !panes.rightPath) return true;
     return panes.focused === pane;
   }
+
+  // URL-driven file view mode belongs to the routed left/single pane. The
+  // right split pane has its own local mode so `?mode=diff` does not flip both
+  // panes at once.
+  let routeModeApplies = $derived(
+    route.name === 'file' && route.path === path && pane === 'left',
+  );
 
   // Breadcrumb segments for the path. Each crumb is clickable to reveal that
   // ancestor (or self) in the tree. Root `.` is excluded for visual reasons;
@@ -634,6 +641,20 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     return true;
   });
 
+  let diffActionAvailable = $derived(
+    hasGitChanges || diffMode || (routeModeApplies && route.mode === 'diff'),
+  );
+
+  function setRouteFileMode(mode: FileViewMode | '') {
+    if (!routeModeApplies) return;
+    navigate(toFileHash(path, {
+      line: route.lineHint,
+      open: route.openPaths.length > 0 ? route.openPaths : undefined,
+      right: route.rightPath || undefined,
+      mode,
+    }));
+  }
+
   function loadDiff(p: string) {
     diffLoading = true;
     diffError = null;
@@ -654,12 +675,14 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     if (!data) return;
     if (diffMode) {
       diffMode = false;
+      setRouteFileMode('');
       announce('Diff view off');
       return;
     }
     // exclusive with historyMode
     historyMode = false;
     diffMode = true;
+    setRouteFileMode('diff');
     announce('Diff view on');
     if (!diffData && !diffLoading) {
       loadDiff(path);
@@ -674,12 +697,14 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     if (!data) return;
     if (historyMode) {
       historyMode = false;
+      setRouteFileMode('');
       announce('History view off');
       return;
     }
     // exclusive with diffMode
     diffMode = false;
     historyMode = true;
+    setRouteFileMode('history');
     announce('History view on');
   }
 
@@ -812,6 +837,27 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
 
   $effect(() => {
     load(path);
+  });
+
+  let appliedRouteModeKey = '';
+  $effect(() => {
+    const mode = routeModeApplies ? route.mode : undefined;
+    const key = `${path}:${mode ?? ''}`;
+    if (key === appliedRouteModeKey) return;
+    appliedRouteModeKey = key;
+    if (!routeModeApplies) return;
+
+    if (mode === 'diff') {
+      historyMode = false;
+      diffMode = true;
+      if (!diffData && !diffLoading) loadDiff(path);
+    } else if (mode === 'history') {
+      diffMode = false;
+      historyMode = true;
+    } else {
+      diffMode = false;
+      historyMode = false;
+    }
   });
 
   // Scroll memo: remember the current path's scrollTop right before this
@@ -2074,7 +2120,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
             disabled={!data || diffMode}
           >View: {previewView === 'rendered' ? 'Rendered' : 'Source'}</button>
         {/if}
-        {#if hasGitChanges}
+        {#if diffActionAvailable}
           <button
             type="button"
             class="action"

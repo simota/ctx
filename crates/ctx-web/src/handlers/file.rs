@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
 
@@ -39,6 +40,7 @@ const MAX_CACHED_BODY_BYTES: usize = 256 << 10;
 pub struct FileCacheEntry {
     mtime: SystemTime,
     size: u64,
+    git: String,
     body: Arc<Vec<u8>>,
 }
 
@@ -57,8 +59,7 @@ pub struct FileParams {
 ///
 /// The `symbols` field is populated via `ctx_symbols::extract` (native
 /// tree-sitter). It is omitted when empty (`omitempty` in Go).
-/// The `git` field is DEFERRED — the git crate is not yet ported; the field
-/// is `omitempty` in Go so omitting it is byte-identical for worktree files.
+/// The `git` field mirrors the tree route's single-letter worktree status.
 #[derive(Serialize)]
 struct FileResponse {
     path: String,
@@ -120,20 +121,18 @@ fn handle_sync(state: AppState, params: FileParams) -> Response {
     // Re-stat through symlinks to mirror os.Stat (follows links).
     let meta = std::fs::metadata(&target).unwrap_or(meta);
     if meta.is_dir() {
-        return response::error(
-            StatusCode::BAD_REQUEST,
-            "not_a_file",
-            "path is a directory",
-        );
+        return response::error(StatusCode::BAD_REQUEST, "not_a_file", "path is a directory");
     }
 
-    // Cache fingerprint: mtime + size. When both match a prior response for this
-    // path, replay the stored bytes and skip the read + tree-sitter parse +
-    // token count entirely. If mtime is unavailable on this platform, fall
-    // through to the uncached path (correctness over speed).
+    let rel_slash = relative_to_root(&state.root, &target);
+    let git = git_status_for_file(&state.root, &rel_slash);
+
+    // Cache fingerprint: mtime + size + git status. Git index transitions
+    // (e.g. unstaged -> staged) may not change file metadata, but they change
+    // the JSON body because `git` is included in the response.
     let fingerprint = meta.modified().ok().map(|mtime| (mtime, meta.len()));
     if let Some((mtime, size)) = fingerprint {
-        if let Some(body) = cache_get(&state.file_cache, &target, mtime, size) {
+        if let Some(body) = cache_get(&state.file_cache, &target, mtime, size, &git) {
             return response::json_bytes(StatusCode::OK, body.as_ref().clone());
         }
     }
@@ -141,7 +140,11 @@ fn handle_sync(state: AppState, params: FileParams) -> Response {
     let raw = match std::fs::read(&target) {
         Ok(d) => d,
         Err(e) => {
-            return response::error(StatusCode::INTERNAL_SERVER_ERROR, "read_file", &e.to_string())
+            return response::error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "read_file",
+                &e.to_string(),
+            )
         }
     };
 
@@ -158,7 +161,7 @@ fn handle_sync(state: AppState, params: FileParams) -> Response {
         .and_then(|s| convert_symbols(s));
 
     let resp = FileResponse {
-        path: relative_to_root(&state.root, &target),
+        path: rel_slash,
         lang: lang_for_ext(&target).to_string(),
         size: meta.len() as i64,
         lines,
@@ -166,12 +169,19 @@ fn handle_sync(state: AppState, params: FileParams) -> Response {
         content,
         truncated,
         symbols,
-        git: String::new(),
+        git,
     };
 
     let body = Arc::new(response::to_json_bytes(&resp));
     if let Some((mtime, size)) = fingerprint {
-        cache_put(&state.file_cache, &target, mtime, size, Arc::clone(&body));
+        cache_put(
+            &state.file_cache,
+            &target,
+            mtime,
+            size,
+            &resp.git,
+            Arc::clone(&body),
+        );
     }
     response::json_bytes(StatusCode::OK, body.as_ref().clone())
 }
@@ -182,16 +192,25 @@ fn cache_get(
     target: &Path,
     mtime: SystemTime,
     size: u64,
+    git: &str,
 ) -> Option<Arc<Vec<u8>>> {
     let guard = cache.read().ok()?;
     let entry = guard.get(target)?;
-    (entry.mtime == mtime && entry.size == size).then(|| Arc::clone(&entry.body))
+    (entry.mtime == mtime && entry.size == size && entry.git == git)
+        .then(|| Arc::clone(&entry.body))
 }
 
 /// Store `body` for `target`. Refreshes an existing entry (so an edited file
 /// re-caches), but does not grow the map past [`FILE_CACHE_CAP`] and never
 /// stores bodies over [`MAX_CACHED_BODY_BYTES`].
-fn cache_put(cache: &FileCache, target: &Path, mtime: SystemTime, size: u64, body: Arc<Vec<u8>>) {
+fn cache_put(
+    cache: &FileCache,
+    target: &Path,
+    mtime: SystemTime,
+    size: u64,
+    git: &str,
+    body: Arc<Vec<u8>>,
+) {
     if body.len() > MAX_CACHED_BODY_BYTES {
         return;
     }
@@ -201,7 +220,39 @@ fn cache_put(cache: &FileCache, target: &Path, mtime: SystemTime, size: u64, bod
     if guard.len() >= FILE_CACHE_CAP && !guard.contains_key(target) {
         return;
     }
-    guard.insert(target.to_path_buf(), FileCacheEntry { mtime, size, body });
+    guard.insert(
+        target.to_path_buf(),
+        FileCacheEntry {
+            mtime,
+            size,
+            git: git.to_string(),
+            body,
+        },
+    );
+}
+
+fn git_status_for_file(root: &str, rel_slash: &str) -> String {
+    let output = Command::new("git")
+        .args(["-C", root, "status", "--porcelain", "--", rel_slash])
+        .output();
+    let Ok(output) = output else {
+        return String::new();
+    };
+    if !output.status.success() {
+        return String::new();
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for line in stdout.lines() {
+        if line.len() < 4 {
+            continue;
+        }
+        let path = crate::handlers::tree::normalize_git_status_path(&line[3..]);
+        if path == rel_slash {
+            return crate::handlers::tree::normalize_git_status(&line[..2]);
+        }
+    }
+    String::new()
 }
 
 fn truncate_file_data(data: &[u8]) -> (&[u8], bool) {
@@ -309,4 +360,41 @@ pub(crate) fn canonical_root(root: &str) -> PathBuf {
         guard.insert(root.to_string(), abs.clone());
     }
     abs
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn git_status_for_file_tracks_index_status_changes() {
+        let root = std::env::temp_dir().join(format!(
+            "ctx-web-file-git-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let root_str = root.to_string_lossy().to_string();
+
+        let init = Command::new("git")
+            .args(["-C", &root_str, "init"])
+            .output()
+            .unwrap();
+        assert!(init.status.success());
+
+        std::fs::write(root.join("hello.txt"), "hello\n").unwrap();
+        assert_eq!(git_status_for_file(&root_str, "hello.txt"), "?");
+
+        let add = Command::new("git")
+            .args(["-C", &root_str, "add", "hello.txt"])
+            .output()
+            .unwrap();
+        assert!(add.status.success());
+        assert_eq!(git_status_for_file(&root_str, "hello.txt"), "A");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
 }

@@ -16,6 +16,7 @@
 // but we treat the suffix as the full id for forward compatibility).
 
 export type RouteName = 'tree' | 'file' | 'dir' | 'search' | 'budget' | 'replay' | 'mixdowns';
+export type FileViewMode = 'diff' | 'history';
 
 export interface Route {
   name: RouteName;
@@ -30,6 +31,9 @@ export interface Route {
   // string means "no right pane". Lives on Route so deep links recreate the
   // 2-pane layout, but day-to-day pane state lives in `lib/panes.svelte.ts`.
   rightPath: string;
+  // File detail display mode. Only file routes currently consume it; undefined
+  // means the normal source/preview view.
+  mode?: FileViewMode;
   // Date filter params for the tree view. Parsed from `#/tree?since=&until=`.
   since?: string;
   until?: string;
@@ -93,6 +97,9 @@ function parse(rawHash: string): Route {
   if (p.startsWith('file/')) {
     const lineRaw = queryParams.get('L');
     const lineHint = lineRaw && /^\d+$/.test(lineRaw) ? Number(lineRaw) : undefined;
+    const modeRaw = queryParams.get('mode');
+    const mode: FileViewMode | undefined =
+      modeRaw === 'diff' || modeRaw === 'history' ? modeRaw : undefined;
     const rightRaw = queryParams.get('right');
     let rightPath = '';
     if (rightRaw) {
@@ -112,6 +119,7 @@ function parse(rawHash: string): Route {
       lineHint,
       openPaths: parseOpenParam(queryParams.get('open')),
       rightPath,
+      mode,
       since,
       until,
       useMtime,
@@ -173,6 +181,7 @@ if (typeof window !== 'undefined') {
     route.lineHint = next.lineHint;
     route.openPaths = next.openPaths;
     route.rightPath = next.rightPath;
+    route.mode = next.mode;
     route.since = next.since;
     route.until = next.until;
     route.useMtime = next.useMtime;
@@ -190,6 +199,7 @@ export interface FileHashOpts {
   line?: number;
   open?: string[];
   right?: string;
+  mode?: FileViewMode | '';
   since?: string;
   until?: string;
   useMtime?: boolean;
@@ -220,6 +230,7 @@ export function toFileHash(path: string, opts?: number | FileHashOpts): string {
   if (o.right) {
     params.push(`right=${encodeURIComponent(o.right)}`);
   }
+  if (o.mode) params.push(`mode=${encodeURIComponent(o.mode)}`);
   if (o.since) params.push(`since=${encodeURIComponent(o.since)}`);
   if (o.until) params.push(`until=${encodeURIComponent(o.until)}`);
   if (o.useMtime) params.push('use_mtime=true');

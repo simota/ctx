@@ -405,7 +405,7 @@ impl GitStatusMap {
     }
 }
 
-fn normalize_git_status(status: &str) -> String {
+pub(crate) fn normalize_git_status(status: &str) -> String {
     if status == "??" {
         return "?".to_string();
     }
@@ -417,7 +417,7 @@ fn normalize_git_status(status: &str) -> String {
     String::new()
 }
 
-fn normalize_git_status_path(raw: &str) -> String {
+pub(crate) fn normalize_git_status_path(raw: &str) -> String {
     let mut path = raw.trim();
     if let Some((_, new_path)) = path.split_once(" -> ") {
         path = new_path;
@@ -539,6 +539,17 @@ mod tests {
             normalize_git_status_path("\"web/src/App.svelte\""),
             "web/src/App.svelte"
         );
+    }
+
+    #[test]
+    fn git_status_code_normalizes_porcelain_status() {
+        assert_eq!(normalize_git_status("??"), "?");
+        assert_eq!(normalize_git_status(" M"), "M");
+        assert_eq!(normalize_git_status("M "), "M");
+        assert_eq!(normalize_git_status("A "), "A");
+        assert_eq!(normalize_git_status(" D"), "D");
+        assert_eq!(normalize_git_status("R "), "R");
+        assert_eq!(normalize_git_status("  "), "");
     }
 
     #[test]
