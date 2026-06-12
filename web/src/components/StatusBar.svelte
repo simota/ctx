@@ -26,6 +26,12 @@
         return `search: ${route.query}`;
       case 'budget':
         return 'budget';
+      case 'replay':
+        return route.path ? `replay: ${route.path}` : 'replay';
+      case 'dir':
+        return route.path ? `dir: ${route.path}` : 'dir';
+      case 'mixdowns':
+        return 'mixdowns';
       default:
         return 'tree';
     }

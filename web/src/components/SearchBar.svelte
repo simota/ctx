@@ -1,5 +1,11 @@
 <script lang="ts">
   import { navigate, toSearchHash, route } from '../lib/router.svelte';
+  import { finder } from '../lib/finder.svelte';
+  import { palette } from '../lib/palette.svelte';
+  import { cheatsheet } from '../lib/cheatsheet.svelte';
+  import { definitionPicker } from '../lib/definition-picker.svelte';
+  import { rootsPicker } from '../lib/roots-picker.svelte';
+  import { bounceDialog } from '../lib/bounce-dialog.svelte';
 
   let value = $state(route.name === 'search' ? route.query : '');
   let inputEl: HTMLInputElement | null = $state(null);
@@ -19,10 +25,26 @@
   }
 
   function onGlobalKey(e: KeyboardEvent) {
-    if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
-      e.preventDefault();
-      inputEl?.focus();
+    if (e.key !== '/') return;
+    // Bare `/` only — with a modifier held it's some other shortcut, and
+    // during IME composition the key is part of the composed text.
+    if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
+    // Don't steal the literal character from editable elements.
+    const a = document.activeElement as HTMLElement | null;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable)) {
+      return;
     }
+    // Overlay mutex — a modal owns the keyboard while open.
+    if (
+      finder.open ||
+      palette.open ||
+      cheatsheet.open ||
+      definitionPicker.open ||
+      rootsPicker.open ||
+      bounceDialog.open
+    ) return;
+    e.preventDefault();
+    inputEl?.focus();
   }
 
   $effect(() => {

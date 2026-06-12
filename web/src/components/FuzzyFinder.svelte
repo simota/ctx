@@ -124,6 +124,11 @@
       closeFinder();
       return;
     }
+    if (e.key === 'Tab') {
+      // Trap Tab inside the input — there are no other focusable controls.
+      e.preventDefault();
+      return;
+    }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (results.length === 0) return;
@@ -232,7 +237,7 @@
             {finder.query === '' ? 'No files indexed.' : 'No matches.'}
           </li>
         {:else}
-          {#each results as r, i (`${i}:${r.path}`)}
+          {#each results as r, i (r.path)}
             {@const sp = splitPath(r.path)}
             {@const segs = highlight(r.path, r.positions)}
             <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->

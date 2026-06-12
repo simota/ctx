@@ -2,7 +2,7 @@
   import { tick } from 'svelte';
   import { fetchTree, ApiCallError, type TreeNode as TreeNodeT } from '../lib/api';
   import { navigate, toFileHash, toDirHash, toTreeHash, route } from '../lib/router.svelte';
-  import { treeState, setExpanded } from '../lib/tree-state.svelte';
+  import { treeState, setExpanded, reloadTree } from '../lib/tree-state.svelte';
   import { setRepoRoot } from '../lib/repo.svelte';
   import TreeNode from './TreeNode.svelte';
 
@@ -41,7 +41,12 @@
     else rowEls.delete(path);
   }
 
+  // Epoch counter so a slow earlier response can't overwrite a newer one
+  // (rapid filter edits / reloads fire overlapping fetches).
+  let loadEpoch = 0;
+
   function load() {
+    const epoch = ++loadEpoch;
     loading = true;
     error = null;
     filterError = null;
@@ -54,6 +59,7 @@
       useMtime: route.useMtime || undefined,
     })
       .then((r) => {
+        if (epoch !== loadEpoch) return;
         tree = r.tree;
         total = r.total;
         setRepoRoot(r.abs_root);
@@ -72,6 +78,7 @@
         treeState.expanded = e;
       })
       .catch((e: unknown) => {
+        if (epoch !== loadEpoch) return;
         if (e instanceof ApiCallError && e.status === 400) {
           const field = e.code === 'invalid_since' ? 'since' : e.code === 'invalid_until' ? 'until' : null;
           if (field) {
@@ -82,17 +89,28 @@
         error = e instanceof Error ? e.message : String(e);
       })
       .finally(() => {
-        loading = false;
+        if (epoch === loadEpoch) loading = false;
       });
   }
 
+  // Last-loaded filter triple. Routes that don't carry since/until/use_mtime
+  // params (budget/replay/search/mixdowns) parse them as undefined; without
+  // this guard, navigating there would silently reset the filter and trigger
+  // a hidden full refetch that discards the user's filtered tree.
+  let loadedFilterKey: string | null = null;
+
   $effect(() => {
+    // Only react while the tree pane is the active consumer of the date
+    // filter params — i.e. on routes whose URLs actually carry them.
+    const filterRoute =
+      route.name === 'tree' || route.name === 'dir' || route.name === 'file';
+    if (!filterRoute && loadedFilterKey !== null) return;
     // Reactive read of route.since / route.until / route.useMtime so that URL
     // changes (e.g. back/forward navigation or initial load with hash params)
     // retrigger load.
-    void route.since;
-    void route.until;
-    void route.useMtime;
+    const key = `${route.since ?? ''}|${route.until ?? ''}|${route.useMtime ? '1' : ''}`;
+    if (key === loadedFilterKey) return;
+    loadedFilterKey = key;
     load();
   });
 
@@ -105,7 +123,10 @@
   });
 
   // Sync route → local inputs when URL changes externally (back/forward nav).
+  // Skipped on routes that don't carry the filter params so the inputs keep
+  // showing the active filter instead of clearing (see the load effect above).
   $effect(() => {
+    if (route.name !== 'tree' && route.name !== 'dir' && route.name !== 'file') return;
     sinceInput = route.since ?? '';
     untilInput = route.until ?? '';
     useMtimeChecked = !!route.useMtime;
@@ -443,9 +464,11 @@
         <circle class="git-filter-dot" cx="11.5" cy="4" r="1.7" />
       </svg>
     </button>
+    <!-- reloadTree (not bare load): bumping reloadKey also marks peer caches
+         stale (e.g. the Cmd-P finder's file list), same as App's Shift+R. -->
     <button
       class="refresh"
-      onclick={load}
+      onclick={() => reloadTree()}
       disabled={loading}
       aria-label="reload tree"
       aria-busy={loading}
@@ -541,7 +564,7 @@
         onkeydown={onKey}
         onfocusin={onFocusIn}
       >
-        {#each visible as row, i (`${row.level}:${row.posinset}:${row.node.path}:${i}`)}
+        {#each visible as row (row.node.path)}
           <TreeNode
             node={row.node}
             level={row.level}

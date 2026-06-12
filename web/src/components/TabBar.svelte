@@ -170,7 +170,7 @@
 
 {#if tabs.paths.length > 0}
   <div class="tabbar" role="tablist" aria-label="Open files">
-    {#each tabs.paths as path, idx (`${idx}:${path}`)}
+    {#each tabs.paths as path, idx (path)}
       {@const active = path === activePath}
       {@const dragging = dragFrom === idx}
       {@const dropHere = dropTarget === idx && dragFrom !== null && dragFrom !== idx}

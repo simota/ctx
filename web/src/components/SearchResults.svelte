@@ -16,16 +16,22 @@
     }
     loading = true;
     error = null;
+    // Cancellation guard: a slow earlier response must not overwrite a newer
+    // query's results after rapid re-searches.
+    let cancelled = false;
     fetchWhere(q, { limit: 30 })
       .then((r) => {
-        data = r;
+        if (!cancelled) data = r;
       })
       .catch((e: unknown) => {
-        error = e instanceof Error ? e.message : String(e);
+        if (!cancelled) error = e instanceof Error ? e.message : String(e);
       })
       .finally(() => {
-        loading = false;
+        if (!cancelled) loading = false;
       });
+    return () => {
+      cancelled = true;
+    };
   });
 
   function openFile(path: string) {

@@ -4,6 +4,7 @@
 
 import { fetchTree, type TreeNode } from './api';
 import { announce } from './announce.svelte';
+import { treeState } from './tree-state.svelte';
 
 export interface FinderState {
   open: boolean;
@@ -25,6 +26,10 @@ export const finder = $state<FinderState>({
 
 let lastFocus: HTMLElement | null = null;
 let loadPromise: Promise<void> | null = null;
+// reloadKey the cached file list was built from. A tree reload (Shift+R / ↻)
+// bumps treeState.reloadKey, which marks the cache stale; the next open
+// revalidates in the background while the old list stays visible.
+let loadedReloadKey = -1;
 
 function flatten(node: TreeNode, out: string[]): void {
   if (!node.is_dir) {
@@ -36,8 +41,11 @@ function flatten(node: TreeNode, out: string[]): void {
 }
 
 export function loadFiles(force = false): Promise<void> {
-  if (!force && finder.files.length > 0) return Promise.resolve();
+  if (!force && finder.files.length > 0 && loadedReloadKey === treeState.reloadKey) {
+    return Promise.resolve();
+  }
   if (loadPromise) return loadPromise;
+  const reloadKey = treeState.reloadKey;
   finder.loading = true;
   finder.error = null;
   loadPromise = fetchTree({ depth: 32, tokens: false, git: false })
@@ -45,6 +53,7 @@ export function loadFiles(force = false): Promise<void> {
       const out: string[] = [];
       flatten(r.tree, out);
       finder.files = out;
+      loadedReloadKey = reloadKey;
     })
     .catch((e: unknown) => {
       finder.error = e instanceof Error ? e.message : String(e);

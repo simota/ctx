@@ -92,6 +92,7 @@
   function onRowKey(e: KeyboardEvent) {
     if (!node.is_dir && e.key === ' ' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
       e.preventDefault();
+      e.stopPropagation();
       toggleInclude(node.path);
       announce(
         mixSelection.includedPaths.has(node.path)

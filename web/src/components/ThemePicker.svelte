@@ -12,7 +12,7 @@
 
   // THEMES is sorted by category; collapse into groups for the picker so users
   // see at a glance which themes are safe for long sessions vs. novelty bursts.
-  const grouped = (['neutral', 'personality', 'novelty'] as const).map((category) => ({
+  const grouped = (Object.keys(CATEGORY_LABELS) as ThemeCategory[]).map((category) => ({
     category,
     label: CATEGORY_LABELS[category],
     items: THEMES.filter((t) => t.category === category),

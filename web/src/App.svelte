@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { route, navigate, toTreeHash, toBudgetHash, toReplayHash, toFileHash, toMixdownsHash } from './lib/router.svelte';
   import ThemePicker from './components/ThemePicker.svelte';
   import { openFinder } from './lib/finder.svelte';
@@ -26,6 +27,7 @@
   import { palette, openPalette } from './lib/palette.svelte';
   import { definitionPicker } from './lib/definition-picker.svelte';
   import { rootsPicker, openRootsPicker } from './lib/roots-picker.svelte';
+  import { bounceDialog } from './lib/bounce-dialog.svelte';
   import { roots, loadRoots, currentRoot } from './lib/roots.svelte';
   import { repo } from './lib/repo.svelte';
   import { basename } from './lib/format';
@@ -149,6 +151,9 @@
     }
     if (mod && !e.shiftKey && !e.altKey && (e.key === 'p' || e.key === 'P')) {
       e.preventDefault();
+      // Mutex with the other overlays — never stack on top of an existing modal.
+      if (palette.open) return;
+      if (cheatsheet.open) return;
       openFinder();
       return;
     }
@@ -156,6 +161,9 @@
       if (isTextInputFocused()) return;
       if (finder.open) return;
       if (palette.open) return;
+      if (definitionPicker.open) return;
+      if (rootsPicker.open) return;
+      if (bounceDialog.open) return;
       e.preventDefault();
       toggleCheatsheet();
       return;
@@ -163,12 +171,24 @@
     if (mod && !e.shiftKey && !e.altKey && (e.key === 'w' || e.key === 'W')) {
       if (isTextInputFocused()) return;
       if (tabs.paths.length === 0) return;
-      const active = route.name === 'file' ? route.path : '';
+      // Target the focused pane: the right pane's path when it has focus,
+      // otherwise the left pane (route.path). Mirrors onTabActivate.
+      const rightFocused = twoPane && panes.focused === 'right';
+      const active = rightFocused
+        ? panes.rightPath
+        : route.name === 'file' ? route.path : '';
       const target = active || tabs.paths[tabs.paths.length - 1];
       if (!target) return;
       e.preventDefault();
       const next = closeTab(target);
-      if (target === active && next) navigate(toFileHash(next));
+      if (target === active) {
+        if (rightFocused) {
+          if (next) panes.rightPath = next;
+          else closeRight();
+        } else if (next) {
+          navigate(toFileHash(next));
+        }
+      }
       return;
     }
     if (mod && !e.shiftKey && !e.altKey && e.key >= '1' && e.key <= '9') {
@@ -177,7 +197,11 @@
       if (idx < 0 || idx >= tabs.paths.length) return;
       e.preventDefault();
       const target = tabs.paths[idx];
-      if (target && target !== (route.name === 'file' ? route.path : '')) {
+      if (!target) return;
+      // Same focused-pane routing as Cmd-W above.
+      if (twoPane && panes.focused === 'right') {
+        if (target !== panes.rightPath) panes.rightPath = target;
+      } else if (target !== (route.name === 'file' ? route.path : '')) {
         navigate(toFileHash(target));
       }
       return;
@@ -274,14 +298,17 @@
 
   // Auto-add a tab whenever we navigate to a file route. Also add right-pane
   // path if it's distinct (so the tab list reflects everything visible).
+  // untrack: openTab reads tabs.paths internally; tracking it would re-run
+  // this effect when a tab is closed and resurrect the closed tab while
+  // route.path still points at it. Depend on route.path only.
   $effect(() => {
     if (route.name === 'file' && route.path) {
-      openTab(route.path);
+      untrack(() => openTab(route.path));
     }
   });
   $effect(() => {
     if (panes.rightOpen && panes.rightPath) {
-      openTab(panes.rightPath);
+      untrack(() => openTab(panes.rightPath));
     }
   });
 
@@ -491,7 +518,7 @@
             onclickcapture={focusLeft}
             onfocusin={focusLeft}
           >
-            <FileDetail path={selectedPath} />
+            <FileDetail path={selectedPath} pane="left" />
           </section>
           <PaneSplitter />
           <section
@@ -503,7 +530,7 @@
             onfocusin={focusRight}
           >
             {#if panes.rightPath}
-              <FileDetail path={panes.rightPath} />
+              <FileDetail path={panes.rightPath} pane="right" />
             {:else}
               <div class="placeholder small">
                 <p class="muted">Select a file for the right pane.</p>

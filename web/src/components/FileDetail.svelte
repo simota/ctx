@@ -1,8 +1,44 @@
-<script lang="ts">
+<script module lang="ts">
   import hljs from '../lib/highlight';
-  import { tick } from 'svelte';
   import { marked } from 'marked';
   import { markedHighlight } from 'marked-highlight';
+
+  // Configure marked once per module load — code blocks get hljs colouring
+  // matching the rest of ctx, so a code fence in README looks identical to
+  // the source viewer's hljs output. Headings get a stable id="…" so the
+  // TOC sidebar can scroll to them by id. Module-level (not per-instance):
+  // marked is a global singleton, so registering in the instance script would
+  // stack a duplicate highlighter + renderer on every FileDetail mount.
+  marked.use(
+    markedHighlight({
+      langPrefix: 'hljs language-',
+      highlight(code: string, lang: string) {
+        const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
+        try {
+          return hljs.highlight(code, { language, ignoreIllegals: true }).value;
+        } catch {
+          return code;
+        }
+      },
+    }),
+  );
+  marked.use({
+    renderer: {
+      // marked v18 passes the heading token; if we attached `slug` during
+      // the pre-walk, render it as an id. Falling back to no id preserves
+      // marked's default behaviour for any token we missed.
+      heading(token) {
+        const inner = this.parser.parseInline(token.tokens);
+        const slug = (token as unknown as { slug?: string }).slug ?? '';
+        const idAttr = slug ? ` id="${slug}"` : '';
+        return `<h${token.depth}${idAttr}>${inner}</h${token.depth}>\n`;
+      },
+    },
+  });
+</script>
+
+<script lang="ts">
+  import { tick } from 'svelte';
   import {
     fetchFile,
     fetchGitDiff,
@@ -40,37 +76,6 @@
   import RelationsPanel from './RelationsPanel.svelte';
   import TestInsightsPanel from './TestInsightsPanel.svelte';
   import EvidencePanel from './EvidencePanel.svelte';
-
-  // Configure marked once per module load — code blocks get hljs colouring
-  // matching the rest of ctx, so a code fence in README looks identical to
-  // the source viewer's hljs output. Headings get a stable id="…" so the
-  // TOC sidebar can scroll to them by id.
-  marked.use(
-    markedHighlight({
-      langPrefix: 'hljs language-',
-      highlight(code: string, lang: string) {
-        const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
-        try {
-          return hljs.highlight(code, { language, ignoreIllegals: true }).value;
-        } catch {
-          return code;
-        }
-      },
-    }),
-  );
-  marked.use({
-    renderer: {
-      // marked v18 passes the heading token; if we attached `slug` during
-      // the pre-walk, render it as an id. Falling back to no id preserves
-      // marked's default behaviour for any token we missed.
-      heading(token) {
-        const inner = this.parser.parseInline(token.tokens);
-        const slug = (token as unknown as { slug?: string }).slug ?? '';
-        const idAttr = slug ? ` id="${slug}"` : '';
-        return `<h${token.depth}${idAttr}>${inner}</h${token.depth}>\n`;
-      },
-    },
-  });
 
   // Slug generator matching the one used to build TOC entries. Keeps Latin
   // and Unicode letters/numbers (so Japanese headings keep their text),
@@ -135,7 +140,18 @@
       .replace(/&amp;/g, '&');
   }
 
-  let { path } = $props<{ path: string }>();
+  // `pane` — which split-view pane this instance renders in. The split view
+  // mounts one FileDetail per pane and each registers window-level keydown
+  // handlers, so without a guard j/k/gg/Ctrl-d etc. would act on both panes.
+  let { path, pane = 'left' } = $props<{ path: string; pane?: 'left' | 'right' }>();
+
+  // True when this instance should handle window-level keyboard events:
+  // either the split view is closed (single pane handles everything) or this
+  // instance belongs to the focused pane.
+  function isFocusedPane(): boolean {
+    if (!panes.rightOpen || isMobile || !panes.rightPath) return true;
+    return panes.focused === pane;
+  }
 
   // Breadcrumb segments for the path. Each crumb is clickable to reveal that
   // ancestor (or self) in the tree. Root `.` is excluded for visual reasons;
@@ -726,6 +742,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
 
   // Keyboard navigation within history list (j/k, only in historyMode).
   function historyKeyNav(e: KeyboardEvent): void {
+    if (!isFocusedPane()) return;
     if (!historyMode || !historyData) return;
     if (isTextInputFocused()) return;
     if (e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -756,8 +773,13 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     el?.scrollIntoView({ block: 'nearest' });
   });
 
+  // Epoch counter so a slow earlier response can't overwrite a newer file's
+  // content (same out-of-order guard as the history/commit-diff effects).
+  let loadEpoch = 0;
+
   function load(p: string) {
     if (!p) return;
+    const epoch = ++loadEpoch;
     loading = true;
     error = null;
     data = null;
@@ -776,13 +798,15 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     historyError = null;
     fetchFile(p, { symbols: true })
       .then((r) => {
+        if (epoch !== loadEpoch) return;
         data = r;
       })
       .catch((e: unknown) => {
+        if (epoch !== loadEpoch) return;
         error = e instanceof Error ? e.message : String(e);
       })
       .finally(() => {
-        loading = false;
+        if (epoch === loadEpoch) loading = false;
       });
   }
 
@@ -1524,6 +1548,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
   }
 
   function onChordKey(e: KeyboardEvent) {
+    if (!isFocusedPane()) return;
     if (isTextInputFocused()) return;
 
     // Shift+D toggles diff display. Handled BEFORE the diffMode/findOpen
@@ -1870,6 +1895,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
 
   // Cmd-Shift-F / Ctrl-Shift-F to open find. SearchBar owns "/".
   function onGlobalKey(e: KeyboardEvent) {
+    if (!isFocusedPane()) return;
     const mod = e.metaKey || e.ctrlKey;
     if (mod && e.shiftKey && (e.key === 'F' || e.key === 'f')) {
       if (!data) return;

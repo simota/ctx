@@ -40,19 +40,26 @@
   // `$props()` which infers as `unknown` without `$props<{...}>` shape, but
   // even with the shape the closure capture in the load promise needs a stable
   // string identity to avoid stale-state reads.
+  // Epoch counter so a slow earlier response can't overwrite a newer
+  // directory's data after rapid navigation.
+  let loadEpoch = 0;
+
   function load(p: string) {
+    const epoch = ++loadEpoch;
     loading = true;
     error = null;
     data = null;
     fetchDir(p)
       .then((r) => {
+        if (epoch !== loadEpoch) return;
         data = r;
       })
       .catch((e: unknown) => {
+        if (epoch !== loadEpoch) return;
         error = e instanceof Error ? e.message : String(e);
       })
       .finally(() => {
-        loading = false;
+        if (epoch === loadEpoch) loading = false;
       });
   }
 
