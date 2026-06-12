@@ -84,8 +84,11 @@ pub fn script_re() -> &'static Regex {
 ///   [3] comma-separated names following `import` on `from` lines
 ///   [4] comma-separated module list on `import` lines
 static PY_IMPORT_RE: Lazy<Regex> = Lazy::new(|| {
+    // Both alternatives live INSIDE one group so the `^\s*` anchor covers
+    // them — a top-level `|` would let bare `import x` match mid-line
+    // (comments/docstrings), creating false edges.
     Regex::new(
-        r"(?m)^\s*(?:from\s+(\.*)([A-Za-z_][\w.]*)?\s+import\s+([^\n#]+))|(?:import\s+([^\n#]+))",
+        r"(?m)^\s*(?:from\s+(\.*)([A-Za-z_][\w.]*)?\s+import\s+([^\n#]+)|import\s+([^\n#]+))",
     )
     .expect("py_import_re")
 });
