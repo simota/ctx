@@ -18,7 +18,7 @@
 
 use std::collections::HashSet;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
@@ -488,12 +488,17 @@ fn event_loop<B: ratatui::backend::Backend>(
                 }
                 if let Some(mapped) = map_key(key.code) {
                     // 'p' triggers a pack write to context.md, mirroring Go's
-                    // writePack(); Model::update sets the status string but does
-                    // not touch the filesystem, so do the write here.
+                    // writePack(); Model::update sets the success status but
+                    // does not touch the filesystem, so do the write here and
+                    // surface a failure status instead of "saved context.md".
                     if mapped == Key::Char('p') {
-                        write_pack(&model, root_path);
+                        match write_pack(&model, root_path) {
+                            Ok(()) => model.update(mapped),
+                            Err(err) => model.status = format!("pack failed: {err}"),
+                        }
+                    } else {
+                        model.update(mapped);
                     }
-                    model.update(mapped);
                 }
             }
             Event::Resize(width, height) => {
@@ -526,19 +531,19 @@ fn map_key(code: KeyCode) -> Option<Key> {
 /// Go's `os.Create("context.md")`; file contents are resolved against
 /// `root` (the path the tree was built from).
 ///
-/// Errors are swallowed (no panic, no status change): the status string
-/// ("saved context.md") is owned by `Model::update` and snapshot-locked.
-fn write_pack(model: &Model, root: &Path) {
-    write_pack_to(model, root, Path::new("context.md"));
+/// Errors are propagated so the event loop can surface a failure status
+/// instead of the snapshot-locked "saved context.md" success string.
+fn write_pack(model: &Model, root: &Path) -> io::Result<()> {
+    write_pack_to(model, root, Path::new("context.md"))
 }
 
 /// Testable core of `write_pack` — renders the pack for the currently
 /// included files and writes it to `out`.
-fn write_pack_to(model: &Model, root: &Path, out: &Path) {
+fn write_pack_to(model: &Model, root: &Path, out: &Path) -> io::Result<()> {
     let inputs = model.pack_inputs(root);
-    if let Ok(rendered) = ctx_pack::assemble::pack_markdown(&inputs, "", model.budget) {
-        let _ = std::fs::write(out, rendered);
-    }
+    let rendered = ctx_pack::assemble::pack_markdown(&inputs, "", model.budget)
+        .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+    std::fs::write(out, rendered)
 }
 
 impl Model {
@@ -592,22 +597,35 @@ impl Model {
 ///   * directories have `tokens: 0` and their `children`.
 ///   * files have their token count and no children.
 ///
-/// Directory entries in the same ExtraIgnore set the web handlers skip
-/// (`.git`, `node_modules`, `dist`, `coverage`) are excluded; children are
-/// sorted by file name to match Go's `os.ReadDir` ordering.
+/// Directory entries in the same skip set as the CLI tree walker
+/// (`.git`, `node_modules`, `dist`, `coverage`, `target`, `*.lock`) are
+/// excluded; children are sorted by file name to match Go's `os.ReadDir`
+/// ordering.
 pub fn build_tree(root_path: &str) -> io::Result<FileInfo> {
-    let root = Path::new(root_path);
-    build_node(root, ".")
+    // Follow a symlink only for the requested root (e.g. /tmp on macOS);
+    // deeper symlinked dirs are never recursed into (see build_node).
+    let root = Path::new(root_path)
+        .canonicalize()
+        .unwrap_or_else(|_| PathBuf::from(root_path));
+    build_node(&root, ".")
 }
 
-/// ExtraIgnore from Go `walk.DefaultOptions().ExtraIgnore`, matching the set
-/// the web tree/dir handlers skip.
+/// ExtraIgnore from Go `walk.DefaultOptions().ExtraIgnore`, aligned with the
+/// CLI tree walker's defaults (tree/json.rs `json_tree_should_skip`):
+/// `target/` is build output and can be huge; `*.lock` is a default ignore
+/// pattern.
 fn should_skip(name: &str) -> bool {
-    matches!(name, ".git" | "node_modules" | "dist" | "coverage")
+    matches!(
+        name,
+        ".git" | "node_modules" | "dist" | "coverage" | "target"
+    ) || name.ends_with(".lock")
 }
 
 fn build_node(path: &Path, rel: &str) -> io::Result<FileInfo> {
-    let meta = std::fs::metadata(path)?;
+    // symlink_metadata (NOT metadata): a symlinked dir is treated as a
+    // non-dir and never recursed into, so cyclic links cannot loop.
+    // Matches the CLI walker (tree/json.rs).
+    let meta = std::fs::symlink_metadata(path)?;
 
     if !meta.is_dir() {
         let tokens = match ctx_tokens::count_file(&path.to_string_lossy()) {
@@ -669,7 +687,7 @@ mod write_pack_tests {
         let tree = build_tree(&dir.to_string_lossy()).expect("build_tree");
         let model = Model::new(tree);
         let out = dir.join("context.md");
-        write_pack_to(&model, &dir, &out);
+        write_pack_to(&model, &dir, &out).expect("write_pack_to");
 
         let pack = std::fs::read_to_string(&out).expect("context.md written");
         // Full rendered markdown pack (Go writePack parity), NOT a path list.
