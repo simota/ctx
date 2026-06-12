@@ -334,6 +334,42 @@ fn gitparity_commit_diff_bad_rev() {
     );
 }
 
+#[test]
+fn rust_git_diff_from_served_subdirectory() {
+    let fx = GitFixture::build();
+    let project = fx.root().join("project");
+    std::fs::create_dir_all(project.join("src")).expect("create nested fixture dir");
+    std::fs::write(project.join("src/nested.txt"), "one\ntwo\n").expect("write nested file");
+    fx.git(&["add", "project/src/nested.txt"], None);
+    fx.commit("Add nested project file", "2020-05-06T07:08:09+00:00");
+    std::fs::write(project.join("src/nested.txt"), "one\nTWO\nthree\n").expect("dirty nested file");
+
+    let rust = RustServer::start(&project);
+    rust.wait_ready();
+    let base = format!("http://127.0.0.1:{}", rust.port);
+    let response = http_request(&base, "GET", "/api/git/diff?path=src/nested.txt", None);
+    rust.shutdown();
+
+    let body = String::from_utf8_lossy(&response.body);
+    assert_eq!(response.status, 200, "body: {body}");
+    assert!(
+        body.contains(r#""path":"src/nested.txt""#),
+        "body should keep served-root-relative path: {body}",
+    );
+    assert!(
+        body.contains(r#"{"type":"del","text":"two","old_num":2}"#),
+        "body should include HEAD-side line from nested file: {body}",
+    );
+    assert!(
+        body.contains(r#"{"type":"add","text":"TWO","new_num":2}"#),
+        "body should include worktree-side line from nested file: {body}",
+    );
+    assert!(
+        body.contains(r#"{"type":"add","text":"three","new_num":3}"#),
+        "body should include added worktree line from nested file: {body}",
+    );
+}
+
 // ----------------------------------------------------------------------------
 // Deterministic git fixture
 // ----------------------------------------------------------------------------

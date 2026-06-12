@@ -1,6 +1,7 @@
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 const MAX_WORKTREE_DIFF_BYTES: u64 = 1 << 20;
 const MAX_WORKTREE_DIFF_LINES: usize = 5000;
@@ -211,7 +212,23 @@ pub fn commit_diff(
 }
 
 fn git_dir(repo_root: &Path) -> PathBuf {
-    repo_root.join(".git")
+    let dot_git = repo_root.join(".git");
+    if dot_git.is_dir() {
+        return dot_git;
+    }
+    let Ok(raw) = fs::read_to_string(&dot_git) else {
+        return dot_git;
+    };
+    let Some(path) = raw.trim().strip_prefix("gitdir:") else {
+        return dot_git;
+    };
+    let path = path.trim();
+    let git_dir = PathBuf::from(path);
+    if git_dir.is_absolute() {
+        git_dir
+    } else {
+        repo_root.join(git_dir)
+    }
 }
 
 fn resolve_revision(git_dir: &Path, rev: &str) -> Result<String> {
@@ -478,7 +495,13 @@ fn read_object(git_dir: &Path, oid: &str, expected_type: &str) -> Result<Vec<u8>
         return Err(GitError::new("invalid object id"));
     }
     let object_path = git_dir.join("objects").join(&oid[..2]).join(&oid[2..]);
-    let compressed = fs::read(object_path)?;
+    let compressed = match fs::read(object_path) {
+        Ok(compressed) => compressed,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            return read_object_via_git(git_dir, oid, expected_type);
+        }
+        Err(err) => return Err(err.into()),
+    };
     let decompressed = miniz_oxide::inflate::decompress_to_vec_zlib(&compressed)
         .map_err(|err| GitError::new(format!("zlib decompression failed: {err:?}")))?;
     let nul = decompressed
@@ -497,6 +520,37 @@ fn read_object(git_dir: &Path, oid: &str, expected_type: &str) -> Result<Vec<u8>
         )));
     }
     Ok(decompressed[nul + 1..].to_vec())
+}
+
+fn read_object_via_git(git_dir: &Path, oid: &str, expected_type: &str) -> Result<Vec<u8>> {
+    let typ = git_output(git_dir, &["cat-file", "-t", oid])?;
+    let typ = String::from_utf8(typ).map_err(|err| GitError::new(err.to_string()))?;
+    let typ = typ.trim();
+    if typ != expected_type {
+        return Err(GitError::new(format!(
+            "expected {expected_type} object, got {typ}"
+        )));
+    }
+    git_output(git_dir, &["cat-file", expected_type, oid])
+}
+
+fn git_output(git_dir: &Path, args: &[&str]) -> Result<Vec<u8>> {
+    let output = Command::new("git")
+        .arg("--git-dir")
+        .arg(git_dir)
+        .args(args)
+        .output()
+        .map_err(|err| GitError::new(err.to_string()))?;
+    if output.status.success() {
+        return Ok(output.stdout);
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let message = stderr.trim();
+    if message.is_empty() {
+        Err(GitError::new(format!("git {} failed", args.join(" "))))
+    } else {
+        Err(GitError::new(message.to_string()))
+    }
 }
 
 fn commit_tree_oid(commit: &[u8]) -> Result<String> {
@@ -796,6 +850,89 @@ mod tests {
             ]
         );
 
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn worktree_diff_reads_packed_head_objects() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("greeting.txt"), "alpha\nBETA\ngamma\n").expect("write greeting");
+        git(&root, &["add", "greeting.txt"]);
+        let mut commit = Command::new("git");
+        commit
+            .args(["commit", "-q", "-m", "Add greeting"])
+            .current_dir(&root);
+        pin_git_env(&mut commit);
+        assert!(commit.status().expect("git commit").success());
+        git(&root, &["gc", "--prune=now"]);
+        fs::write(root.join("greeting.txt"), "alpha\nBETA-worktree\ngamma\n")
+            .expect("modify greeting");
+
+        let diff = worktree_diff(&root, "greeting.txt").expect("worktree diff");
+        assert_eq!(diff.path, "greeting.txt");
+        assert!(!diff.no_change);
+        assert!(diff
+            .lines
+            .iter()
+            .any(|line| line.typ == "del" && line.text == "BETA" && line.old_num == 2));
+        assert!(diff
+            .lines
+            .iter()
+            .any(|line| line.typ == "add" && line.text == "BETA-worktree" && line.new_num == 2));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn worktree_diff_reads_gitdir_file_worktree() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        let worktree = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("greeting.txt"), "alpha\nBETA\ngamma\n").expect("write greeting");
+        git(&root, &["add", "greeting.txt"]);
+        let mut commit = Command::new("git");
+        commit
+            .args(["commit", "-q", "-m", "Add greeting"])
+            .current_dir(&root);
+        pin_git_env(&mut commit);
+        assert!(commit.status().expect("git commit").success());
+        let worktree_str = worktree.to_string_lossy().to_string();
+        git(
+            &root,
+            &["worktree", "add", "-q", "--detach", &worktree_str, "HEAD"],
+        );
+        fs::write(
+            worktree.join("greeting.txt"),
+            "alpha\nBETA-worktree\ngamma\n",
+        )
+        .expect("modify worktree greeting");
+
+        let diff = worktree_diff(&worktree, "greeting.txt").expect("worktree diff");
+        assert_eq!(diff.path, "greeting.txt");
+        assert!(!diff.no_change);
+        assert!(diff
+            .lines
+            .iter()
+            .any(|line| line.typ == "del" && line.text == "BETA" && line.old_num == 2));
+        assert!(diff
+            .lines
+            .iter()
+            .any(|line| line.typ == "add" && line.text == "BETA-worktree" && line.new_num == 2));
+
+        let _ = Command::new("git")
+            .args(["worktree", "remove", "--force", &worktree_str])
+            .current_dir(&root)
+            .status();
+        let _ = fs::remove_dir_all(worktree);
         let _ = fs::remove_dir_all(root);
     }
 

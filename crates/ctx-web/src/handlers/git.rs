@@ -9,6 +9,7 @@ use axum::http::StatusCode;
 use axum::response::Response;
 use serde::Deserialize;
 use serde::Serialize;
+use std::path::{Path, PathBuf};
 
 use crate::response;
 use crate::safepath;
@@ -98,9 +99,13 @@ fn handle_diff_sync(state: AppState, params: GitDiffParams) -> Response {
         Err(err) => return response::bad_path(err),
     };
     let rel_slash = relative_to_root(&state.root, &target);
+    let (git_root, git_rel_slash) = git_context(&state.root, &target, &rel_slash);
 
-    match ctx_git::worktree_diff(&state.root, &rel_slash) {
-        Ok(diff) => response::json(StatusCode::OK, &GitDiffResponse::from(diff)),
+    match ctx_git::worktree_diff(&git_root, &git_rel_slash) {
+        Ok(mut diff) => {
+            diff.path = rel_slash;
+            response::json(StatusCode::OK, &GitDiffResponse::from(diff))
+        }
         Err(err) => response::error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "git_diff",
@@ -125,10 +130,11 @@ fn handle_file_log_sync(state: AppState, params: FileLogParams) -> Response {
         Err(err) => return response::bad_path(err),
     };
     let rel_slash = relative_to_root(&state.root, &target);
+    let (git_root, git_rel_slash) = git_context(&state.root, &target, &rel_slash);
     let mut limit = params.limit.parse::<i32>().unwrap_or(50);
     limit = limit.clamp(1, 200);
 
-    match ctx_git::file_log(&state.root, &rel_slash, limit as usize) {
+    match ctx_git::file_log(&git_root, &git_rel_slash, limit as usize) {
         Ok((entries, truncated)) => response::json(
             StatusCode::OK,
             &FileLogResponse {
@@ -179,9 +185,13 @@ fn handle_commit_diff_sync(state: AppState, params: CommitDiffParams) -> Respons
         Err(err) => return response::bad_path(err),
     };
     let rel_slash = relative_to_root(&state.root, &target);
+    let (git_root, git_rel_slash) = git_context(&state.root, &target, &rel_slash);
 
-    match ctx_git::commit_diff(&state.root, &params.from, &params.to, &rel_slash) {
-        Ok(diff) => response::json(StatusCode::OK, &GitDiffResponse::from(diff)),
+    match ctx_git::commit_diff(&git_root, &params.from, &params.to, &git_rel_slash) {
+        Ok(mut diff) => {
+            diff.path = rel_slash;
+            response::json(StatusCode::OK, &GitDiffResponse::from(diff))
+        }
         Err(err) => response::error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "git_commit_diff",
@@ -221,12 +231,39 @@ fn is_zero(value: &i32) -> bool {
     *value == 0
 }
 
-fn relative_to_root(root: &str, target: &std::path::Path) -> String {
+fn relative_to_root(root: &str, target: &Path) -> String {
     // Memoized in file.rs — the root is stable for the server's lifetime.
     let abs_root = crate::handlers::file::canonical_root(root);
     target
         .strip_prefix(&abs_root)
         .unwrap_or(target)
         .to_string_lossy()
+        .replace(std::path::MAIN_SEPARATOR, "/")
+}
+
+fn git_context(root: &str, target: &Path, fallback_rel_slash: &str) -> (PathBuf, String) {
+    let served_root = crate::handlers::file::canonical_root(root);
+    let Some(git_root) = find_git_root(&served_root) else {
+        return (served_root, fallback_rel_slash.to_string());
+    };
+
+    let git_rel = target
+        .strip_prefix(&git_root)
+        .map(slash_path)
+        .unwrap_or_else(|_| fallback_rel_slash.to_string());
+    (git_root, git_rel)
+}
+
+fn find_git_root(start: &Path) -> Option<PathBuf> {
+    for dir in start.ancestors() {
+        if dir.join(".git").exists() {
+            return Some(dir.to_path_buf());
+        }
+    }
+    None
+}
+
+fn slash_path(path: &Path) -> String {
+    path.to_string_lossy()
         .replace(std::path::MAIN_SEPARATOR, "/")
 }
