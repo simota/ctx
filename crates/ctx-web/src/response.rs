@@ -68,3 +68,9 @@ pub fn error(status: StatusCode, code: &str, message: &str) -> Response {
 pub fn bad_path(err: PathError) -> Response {
     error(StatusCode::BAD_REQUEST, err.code(), err.message())
 }
+
+/// Convert a typed `Query<T>` extraction rejection into the standard JSON
+/// error envelope (axum's default rejection body is text/plain).
+pub fn bad_query(rej: axum::extract::rejection::QueryRejection) -> Response {
+    error(StatusCode::BAD_REQUEST, "bad_query", &rej.body_text())
+}

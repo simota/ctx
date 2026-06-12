@@ -11,11 +11,12 @@ use crate::common::*;
 pub(crate) struct BrowseArgs {
     bind: String,
     allow_nonlocal: bool,
-    /// Selected web engine: "go" (default, delegate) or "rust" (native axum
-    /// server in this binary). Mirrors the per-command `--*-engine` strangler
-    /// convention. Also settable via `CTX_WEB_ENGINE=rust`.
+    /// Selected web engine: only "rust" (native axum server in this binary)
+    /// is supported — there is no Go fallback any more. Also settable via
+    /// `CTX_WEB_ENGINE`.
     web_engine: String,
-    /// Resolved bind port (0 = ephemeral). Parsed from `--port`.
+    /// Resolved bind port (0 = ephemeral). Parsed from `--port`, falling back
+    /// to the port embedded in `--bind host:port` when --port is not given.
     port: u16,
     /// Served project path (positional; defaults to ".").
     path: String,
@@ -81,12 +82,17 @@ pub(crate) fn run_browse_command(args: &[OsString]) -> Option<ExitCode> {
         );
         return Some(ExitCode::from(1));
     }
-    // Strangler selector: `--web-engine rust` (or CTX_WEB_ENGINE=rust) runs the
-    // native axum server in THIS binary; anything else delegates to Go (None).
+    // `--web-engine rust` (or CTX_WEB_ENGINE=rust) runs the native axum
+    // server in THIS binary. There is no Go fallback any more, so any other
+    // value is a usage error — not a delegate signal.
     if parsed.web_engine == "rust" {
         return Some(serve_rust_web(&parsed, &host));
     }
-    None
+    eprintln!(
+        "ctx browse: unknown --web-engine value {:?}: only \"rust\" is supported",
+        parsed.web_engine
+    );
+    Some(ExitCode::from(2))
 }
 
 /// Run the native ctx-web (axum) server headlessly, blocking until the process
@@ -141,6 +147,7 @@ pub(crate) fn parse_browse_args(args: &[OsString]) -> Option<BrowseArgs> {
         _ => "rust".to_string(),
     };
     let mut port: u16 = 0;
+    let mut port_set = false;
     let mut positionals = Vec::new();
     let mut i = 0;
     while i < args.len() {
@@ -162,9 +169,11 @@ pub(crate) fn parse_browse_args(args: &[OsString]) -> Option<BrowseArgs> {
             web_engine = args.get(i)?.to_string_lossy().into_owned();
         } else if let Some(value) = flag_value(arg, "--port") {
             port = value.to_string_lossy().parse().ok()?;
+            port_set = true;
         } else if arg == OsStr::new("--port") {
             i += 1;
             port = args.get(i)?.to_string_lossy().parse().ok()?;
+            port_set = true;
         } else if arg == OsStr::new("--allow-nonlocal") {
             allow_nonlocal = true;
         } else if arg == OsStr::new("--no-open")
@@ -191,6 +200,12 @@ pub(crate) fn parse_browse_args(args: &[OsString]) -> Option<BrowseArgs> {
         .first()
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|| ".".to_string());
+    // `--bind host:port` carries a port; honor it unless --port was given.
+    if !port_set {
+        if let Some(bind_port) = browse_bind_port(&bind) {
+            port = bind_port;
+        }
+    }
     Some(BrowseArgs {
         bind,
         allow_nonlocal,
@@ -300,6 +315,19 @@ pub(crate) fn browse_bind_host(bind: &str) -> String {
         }
     }
     bind.to_string()
+}
+
+/// Port embedded in a `--bind` value, mirroring `browse_bind_host`'s
+/// host:port forms. None when the bind is host-only.
+pub(crate) fn browse_bind_port(bind: &str) -> Option<u16> {
+    if let Ok(addr) = bind.parse::<std::net::SocketAddr>() {
+        return Some(addr.port());
+    }
+    let (host, port) = bind.rsplit_once(':')?;
+    if host.is_empty() {
+        return None;
+    }
+    port.parse::<u16>().ok()
 }
 
 pub(crate) fn is_loopback_host(host: &str) -> bool {

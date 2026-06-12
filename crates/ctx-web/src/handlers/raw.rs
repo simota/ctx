@@ -42,6 +42,11 @@ fn secret_deny(rel: &str) -> bool {
 }
 
 pub async fn handle(State(state): State<AppState>, method: Method, uri: Uri) -> Response {
+    // Stat + full file read are blocking; keep them off the tokio workers.
+    crate::blocking::run(move || handle_sync(state, method, uri)).await
+}
+
+fn handle_sync(state: AppState, method: Method, uri: Uri) -> Response {
     if method != Method::GET && method != Method::HEAD {
         return (
             StatusCode::METHOD_NOT_ALLOWED,
@@ -71,7 +76,7 @@ pub async fn handle(State(state): State<AppState>, method: Method, uri: Uri) -> 
         Err(e) => return response::bad_path(e),
     };
 
-    let meta = match std::fs::metadata(&target) {
+    let mut meta = match std::fs::metadata(&target) {
         Ok(m) => m,
         Err(e) => {
             if e.kind() == std::io::ErrorKind::NotFound {
@@ -93,7 +98,10 @@ pub async fn handle(State(state): State<AppState>, method: Method, uri: Uri) -> 
             Err(e) => return response::bad_path(e),
         };
         match std::fs::metadata(&idx) {
-            Ok(m) if !m.is_dir() => target = idx,
+            Ok(m) if !m.is_dir() => {
+                target = idx;
+                meta = m;
+            }
             _ => {
                 return response::error(
                     StatusCode::BAD_REQUEST,
@@ -104,12 +112,26 @@ pub async fn handle(State(state): State<AppState>, method: Method, uri: Uri) -> 
         }
     }
 
-    let data = match std::fs::read(&target) {
-        Ok(d) => d,
-        Err(e) => return response::error(StatusCode::INTERNAL_SERVER_ERROR, "read_file", &e.to_string()),
+    // HEAD: content-length from metadata; read only the 512-byte sniff window
+    // instead of the whole file.
+    let (data, len) = if method == Method::HEAD {
+        (read_prefix(&target, 512), meta.len() as usize)
+    } else {
+        match std::fs::read(&target) {
+            Ok(d) => {
+                let len = d.len();
+                (d, len)
+            }
+            Err(e) => {
+                return response::error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "read_file",
+                    &e.to_string(),
+                )
+            }
+        }
     };
     let ct = serve_content_type(&target, &data);
-    let len = data.len();
     let body = if method == Method::HEAD {
         Body::empty()
     } else {
@@ -131,6 +153,16 @@ pub async fn handle(State(state): State<AppState>, method: Method, uri: Uri) -> 
         body,
     )
         .into_response()
+}
+
+/// Read at most the first `n` bytes of a file (content-sniff window).
+fn read_prefix(path: &Path, n: usize) -> Vec<u8> {
+    use std::io::Read;
+    let mut buf = Vec::with_capacity(n);
+    if let Ok(f) = std::fs::File::open(path) {
+        let _ = f.take(n as u64).read_to_end(&mut buf);
+    }
+    buf
 }
 
 fn method_not_allowed_body() -> Vec<u8> {

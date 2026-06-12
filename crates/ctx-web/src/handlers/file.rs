@@ -29,6 +29,10 @@ const MAX_EXACT_TOKEN_BYTES: usize = 64 << 10;
 /// long browse sessions over large trees.
 const FILE_CACHE_CAP: usize = 1024;
 
+/// Response bodies larger than this are never cached, bounding worst-case
+/// cache memory to FILE_CACHE_CAP * MAX_CACHED_BODY_BYTES.
+const MAX_CACHED_BODY_BYTES: usize = 256 << 10;
+
 /// A memoized `/api/file` response body plus the file fingerprint that
 /// validates it. `body` is the exact serialized bytes (including the trailing
 /// newline), so serving it is byte-identical to a fresh computation.
@@ -185,8 +189,12 @@ fn cache_get(
 }
 
 /// Store `body` for `target`. Refreshes an existing entry (so an edited file
-/// re-caches), but does not grow the map past [`FILE_CACHE_CAP`].
+/// re-caches), but does not grow the map past [`FILE_CACHE_CAP`] and never
+/// stores bodies over [`MAX_CACHED_BODY_BYTES`].
 fn cache_put(cache: &FileCache, target: &Path, mtime: SystemTime, size: u64, body: Arc<Vec<u8>>) {
+    if body.len() > MAX_CACHED_BODY_BYTES {
+        return;
+    }
     let Ok(mut guard) = cache.write() else {
         return;
     };
@@ -284,7 +292,8 @@ pub fn relative_to_root(root: &str, target: &Path) -> String {
 /// `/api/*` request that resolves a path; `canonicalize` is a syscall and the
 /// root is stable for the server's lifetime, so cache it per root string. The
 /// result is identical to calling `canonicalize` directly, preserving parity.
-fn canonical_root(root: &str) -> PathBuf {
+/// Shared with `symbols.rs` / `git.rs`, which call it once per walked file.
+pub(crate) fn canonical_root(root: &str) -> PathBuf {
     use std::sync::OnceLock;
     static CACHE: OnceLock<RwLock<HashMap<String, PathBuf>>> = OnceLock::new();
     let cache = CACHE.get_or_init(|| RwLock::new(HashMap::new()));

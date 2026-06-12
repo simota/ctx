@@ -16,6 +16,7 @@
 use std::io;
 use std::path::Path;
 
+use axum::extract::rejection::QueryRejection;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
@@ -279,7 +280,20 @@ struct ReplayDiffResponse {
     truncated: bool,
 }
 
-pub async fn handle_diff(State(state): State<AppState>, Query(params): Query<DiffParams>) -> Response {
+pub async fn handle_diff(
+    State(state): State<AppState>,
+    params: Result<Query<DiffParams>, QueryRejection>,
+) -> Response {
+    let Query(params) = match params {
+        Ok(q) => q,
+        Err(e) => return response::bad_query(e),
+    };
+    // The diff walks the whole worktree (read + SHA256 + token count per
+    // file); keep it off the tokio workers.
+    crate::blocking::run(move || handle_diff_sync(state, params)).await
+}
+
+fn handle_diff_sync(state: AppState, params: DiffParams) -> Response {
     if params.id.is_empty() {
         return response::error(StatusCode::BAD_REQUEST, "bad_request", "id is required");
     }
@@ -454,7 +468,10 @@ fn collect_entries(
         if name_str.starts_with('.') || name_str == "node_modules" || name_str == "dist" {
             continue;
         }
-        if path.is_dir() {
+        // DirEntry::file_type does not follow symlinks, so symlinked dirs are
+        // never recursed into (cyclic links would loop; absolute links would
+        // leak outside root).
+        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
             collect_entries(root, &path, out)?;
             continue;
         }

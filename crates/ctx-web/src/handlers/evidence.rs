@@ -11,6 +11,7 @@
 
 use std::path::Path;
 
+use axum::extract::rejection::QueryRejection;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
@@ -86,7 +87,19 @@ fn is_zero_i64(v: &i64) -> bool {
     *v == 0
 }
 
-pub async fn handle(State(state): State<AppState>, Query(params): Query<EvidenceParams>) -> Response {
+pub async fn handle(
+    State(state): State<AppState>,
+    params: Result<Query<EvidenceParams>, QueryRejection>,
+) -> Response {
+    let Query(params) = match params {
+        Ok(q) => q,
+        Err(e) => return response::bad_query(e),
+    };
+    // Store listing + file hashing/token counting are blocking work.
+    crate::blocking::run(move || handle_sync(state, params)).await
+}
+
+fn handle_sync(state: AppState, params: EvidenceParams) -> Response {
     if params.path.is_empty() {
         return response::error(StatusCode::BAD_REQUEST, "bad_request", "path is required");
     }
@@ -307,6 +320,19 @@ fn hex_encode(bytes: &[u8]) -> String {
     out
 }
 
+/// True when the body read failed because the length limit was exceeded
+/// (axum wraps `http_body_util::LengthLimitError` somewhere in the chain).
+fn is_length_limit_error(err: &axum::Error) -> bool {
+    let mut source: Option<&(dyn std::error::Error + 'static)> = Some(err);
+    while let Some(e) = source {
+        if e.is::<http_body_util::LengthLimitError>() {
+            return true;
+        }
+        source = e.source();
+    }
+    false
+}
+
 fn manifest_entry_for_path<'a>(
     manifest: &'a ctx_replay::types::Manifest,
     rel_slash: &str,
@@ -342,15 +368,23 @@ pub async fn handle_verify(State(state): State<AppState>, req: axum::extract::Re
         return resp;
     }
 
-    // Read body up to the total request limit.
+    // Read body up to the total request limit. Only an actual length-limit
+    // overflow is a 413; any other read failure is a plain bad request.
     let body_bytes =
         match axum::body::to_bytes(req.into_body(), MAX_EVIDENCE_VERIFY_REQUEST_BYTES + 1).await {
             Ok(b) => b,
-            Err(_) => {
+            Err(e) if is_length_limit_error(&e) => {
                 return response::error(
                     StatusCode::PAYLOAD_TOO_LARGE,
-                    "pack_too_large",
-                    "pack exceeds 2 MiB",
+                    "request_too_large",
+                    "request exceeds 3 MiB",
+                );
+            }
+            Err(e) => {
+                return response::error(
+                    StatusCode::BAD_REQUEST,
+                    "bad_request",
+                    &format!("read request body: {e}"),
                 );
             }
         };

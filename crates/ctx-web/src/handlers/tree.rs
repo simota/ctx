@@ -13,6 +13,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use axum::extract::rejection::QueryRejection;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
@@ -94,7 +95,14 @@ fn is_zero_i64(v: &i64) -> bool {
 // Handler
 // ---------------------------------------------------------------------------
 
-pub async fn handle(State(state): State<AppState>, Query(params): Query<TreeParams>) -> Response {
+pub async fn handle(
+    State(state): State<AppState>,
+    params: Result<Query<TreeParams>, QueryRejection>,
+) -> Response {
+    let Query(params) = match params {
+        Ok(q) => q,
+        Err(e) => return response::bad_query(e),
+    };
     // `git status` + the recursive walk can take seconds on large repos; keep
     // them off the tokio workers so parallel SPA requests aren't starved.
     crate::blocking::run(move || handle_sync(state, params)).await
@@ -210,8 +218,14 @@ fn walk_tree(
     git_status: &GitStatusMap,
 ) -> std::io::Result<TreeNode> {
     let meta = std::fs::symlink_metadata(dir)?;
-    // Follow symlinks for the root (mirrors Go os.Lstat → fi still uses os.Stat result).
-    let meta = std::fs::metadata(dir).unwrap_or(meta);
+    // Follow symlinks only for the requested root; deeper symlinked dirs keep
+    // their lstat metadata so the walk never recurses through them (cyclic
+    // links would loop forever and absolute links would leak outside root).
+    let meta = if depth == 0 {
+        std::fs::metadata(dir).unwrap_or(meta)
+    } else {
+        meta
+    };
 
     let rel_raw = relative_to_root(root_str, dir);
     // Convert "" (root) to "." to match Go relativeToRoot behaviour.
@@ -298,9 +312,11 @@ fn walk_tree(
             let child_name = entry.file_name();
             let child_name_str = child_name.to_string_lossy();
 
-            // Only skip entries that match the ExtraIgnore patterns.
+            // Only skip directories that match the ExtraIgnore patterns — a
+            // regular file named e.g. "dist" must stay visible.
             // NOTE: Do NOT skip all hidden entries — Go walks .ctx/, etc.
-            if should_skip(&child_name_str) {
+            let child_is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+            if child_is_dir && should_skip(&child_name_str) {
                 continue;
             }
 
@@ -372,10 +388,13 @@ impl GitStatusMap {
         };
         let mut best = "";
         let mut best_rank = 0;
-        for (path, status) in &self.by_path {
-            if !prefix.is_empty() && !path.starts_with(&prefix) {
-                continue;
-            }
+        // BTreeMap is key-sorted, so all paths under the prefix form one
+        // contiguous range — no need to scan unrelated dirty files.
+        for (_, status) in self
+            .by_path
+            .range(prefix.clone()..)
+            .take_while(|(path, _)| path.starts_with(&prefix))
+        {
             let rank = git_status_rank(status);
             if rank > best_rank {
                 best = status;

@@ -222,7 +222,8 @@ fn is_zero(value: &i32) -> bool {
 }
 
 fn relative_to_root(root: &str, target: &std::path::Path) -> String {
-    let abs_root = std::fs::canonicalize(root).unwrap_or_else(|_| std::path::PathBuf::from(root));
+    // Memoized in file.rs — the root is stable for the server's lifetime.
+    let abs_root = crate::handlers::file::canonical_root(root);
     target
         .strip_prefix(&abs_root)
         .unwrap_or(target)

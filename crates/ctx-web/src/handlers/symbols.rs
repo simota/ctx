@@ -246,11 +246,10 @@ pub fn convert_symbols(syms: Vec<ctx_symbols::Symbol>) -> Option<Vec<SymbolWire>
 }
 
 /// Relative slash-separated path from root to target; mirrors Go's
-/// `relativeToRoot`.
+/// `relativeToRoot`. Uses the memoized canonical root shared with `file.rs`
+/// (canonicalize is a syscall and this runs once per walked file).
 fn relative_to_root(root: &str, target: &Path) -> String {
-    let abs_root = std::fs::canonicalize(root)
-        .or_else(|_| std::path::absolute(Path::new(root)))
-        .unwrap_or_else(|_| PathBuf::from(root));
+    let abs_root = crate::handlers::file::canonical_root(root);
     match target.strip_prefix(&abs_root) {
         Ok(rel) => {
             let s = rel.to_string_lossy().replace('\\', "/");
@@ -278,14 +277,20 @@ fn collect_symbols_from_dir(
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
-    let mut children: Vec<PathBuf> = entries
+    // DirEntry::file_type does not follow symlinks, so symlinked dirs are
+    // never recursed into (cyclic links would loop; absolute links would
+    // leak outside root).
+    let mut children: Vec<(PathBuf, bool)> = entries
         .flatten()
-        .map(|e| e.path())
+        .filter_map(|e| {
+            let is_dir = e.file_type().ok()?.is_dir();
+            Some((e.path(), is_dir))
+        })
         .collect();
     // Sort for deterministic order matching Go's walk.Flatten DFS traversal.
     children.sort();
 
-    for path in children {
+    for (path, is_dir) in children {
         let name = path
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
@@ -296,7 +301,7 @@ fn collect_symbols_from_dir(
             continue;
         }
 
-        if path.is_dir() {
+        if is_dir {
             collect_symbols_from_dir(&path, root, files);
             continue;
         }
@@ -339,10 +344,17 @@ fn collect_definition_inner(
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
-    let mut children: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
+    // file_type does not follow symlinks — see collect_symbols_from_dir.
+    let mut children: Vec<(PathBuf, bool)> = entries
+        .flatten()
+        .filter_map(|e| {
+            let is_dir = e.file_type().ok()?.is_dir();
+            Some((e.path(), is_dir))
+        })
+        .collect();
     children.sort();
 
-    for path in children {
+    for (path, is_dir) in children {
         let name = path
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
@@ -352,7 +364,7 @@ fn collect_definition_inner(
             continue;
         }
 
-        if path.is_dir() {
+        if is_dir {
             collect_definition_inner(root_path, root_str, &path, corpus, meta_index);
             continue;
         }

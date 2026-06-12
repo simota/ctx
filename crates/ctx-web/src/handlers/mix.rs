@@ -180,11 +180,15 @@ fn store_list(dir: &Path) -> Result<Vec<Mix>, StoreError> {
     for entry in entries.flatten() {
         let name = entry.file_name();
         let name_str = name.to_string_lossy();
-        if entry.path().is_dir() || !name_str.ends_with(".mix.json") {
+        if entry.path().is_dir() {
             continue;
         }
-        let id = name_str.trim_end_matches(".mix.json").to_string();
-        if let Ok(m) = store_load(dir, &id) {
+        // strip_suffix removes exactly one ".mix.json" (trim_end_matches would
+        // also eat repeated suffixes, e.g. "a.mix.json.mix.json" → "a").
+        let Some(id) = name_str.strip_suffix(".mix.json") else {
+            continue;
+        };
+        if let Ok(m) = store_load(dir, id) {
             out.push(m);
         }
     }

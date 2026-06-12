@@ -84,6 +84,11 @@ struct TestCoverageRange {
 }
 
 pub async fn handle(State(state): State<AppState>, Query(params): Query<TestsParams>) -> Response {
+    // analyze() walks the repo + parses tests; keep it off the tokio workers.
+    crate::blocking::run(move || handle_sync(state, params)).await
+}
+
+fn handle_sync(state: AppState, params: TestsParams) -> Response {
     if params.path.is_empty() {
         return response::error(StatusCode::BAD_REQUEST, "bad_request", "path is required");
     }

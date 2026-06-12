@@ -30,6 +30,7 @@
 
 use std::path::Path;
 
+use axum::extract::rejection::QueryRejection;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
@@ -77,7 +78,14 @@ struct BudgetResponse {
 // Handler
 // ---------------------------------------------------------------------------
 
-pub async fn handle(State(state): State<AppState>, Query(params): Query<BudgetParams>) -> Response {
+pub async fn handle(
+    State(state): State<AppState>,
+    params: Result<Query<BudgetParams>, QueryRejection>,
+) -> Response {
+    let Query(params) = match params {
+        Ok(q) => q,
+        Err(e) => return response::bad_query(e),
+    };
     crate::blocking::run(move || handle_sync(state, params)).await
 }
 
@@ -281,17 +289,17 @@ fn collect_files(root: &str, dir: &Path, out: &mut Vec<FileInfo>) {
         let name = entry.file_name();
         let name_str = name.to_string_lossy();
 
-        // Skip ExtraIgnore dirs.
-        if matches!(name_str.as_ref(), ".git" | "node_modules" | "dist" | "coverage") {
-            continue;
-        }
-
         let meta = match entry.metadata() {
             Ok(m) => m,
             Err(_) => continue,
         };
 
         if meta.is_dir() {
+            // Skip ExtraIgnore dirs (directories only — a regular file named
+            // e.g. "dist" must stay visible).
+            if matches!(name_str.as_ref(), ".git" | "node_modules" | "dist" | "coverage") {
+                continue;
+            }
             collect_files(root, &path, out);
         } else {
             let abs_path = path.to_string_lossy().to_string();

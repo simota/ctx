@@ -45,6 +45,12 @@ pub async fn handle(
     State(state): State<AppState>,
     Query(params): Query<RelationsParams>,
 ) -> Response {
+    // build_cached walks + parses the whole repo on a cold cache; keep it off
+    // the tokio workers.
+    crate::blocking::run(move || handle_sync(state, params)).await
+}
+
+fn handle_sync(state: AppState, params: RelationsParams) -> Response {
     if params.path.is_empty() {
         return response::error(StatusCode::BAD_REQUEST, "bad_request", "path is required");
     }

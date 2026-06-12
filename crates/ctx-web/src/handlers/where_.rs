@@ -14,6 +14,7 @@
 use std::ffi::OsStr;
 use std::path::Path;
 
+use axum::extract::rejection::QueryRejection;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
@@ -61,7 +62,14 @@ struct WhereResponse {
     results: Vec<WhereResult>,
 }
 
-pub async fn handle(State(state): State<AppState>, Query(params): Query<WhereParams>) -> Response {
+pub async fn handle(
+    State(state): State<AppState>,
+    params: Result<Query<WhereParams>, QueryRejection>,
+) -> Response {
+    let Query(params) = match params {
+        Ok(q) => q,
+        Err(e) => return response::bad_query(e),
+    };
     crate::blocking::run(move || handle_sync(state, params)).await
 }
 
@@ -154,7 +162,10 @@ fn collect_files_inner(
             continue;
         }
 
-        if path.is_dir() {
+        // DirEntry::file_type does not follow symlinks, so symlinked dirs are
+        // never recursed into (cyclic links would loop; absolute links would
+        // leak outside root).
+        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
             collect_files_inner(root, &path, out)?;
             continue;
         }
