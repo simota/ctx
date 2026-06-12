@@ -76,7 +76,10 @@ fn build_patterns() -> Vec<SecretPattern> {
         },
         SecretPattern {
             kind: "azure_storage_key",
-            re: re(r"\b[a-zA-Z0-9+/=]{86}==\b"),
+            // No trailing \b: after '=' (non-word) a boundary would REQUIRE a
+            // following word char, so a key at EOL or before a quote could
+            // never match. The leading \b still anchors the token start.
+            re: re(r"\b[a-zA-Z0-9+/=]{86}=="),
             severity: "medium",
         },
         SecretPattern {

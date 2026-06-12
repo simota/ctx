@@ -48,12 +48,29 @@ pub fn scan_file_with_options(path: &str, opts: &Options) -> std::io::Result<Vec
         return Ok(Vec::new());
     }
     let file = fs::File::open(path)?;
-    let reader = BufReader::new(file);
+    let mut reader = BufReader::new(file);
 
     let mut warnings: Vec<Warning> = Vec::new();
     let mut line_no: i64 = 0;
-    for line_result in reader.lines() {
-        let line = line_result?;
+    // read_until + from_utf8_lossy instead of BufRead::lines(): lines()
+    // errors on the first non-UTF8 line, aborting the whole scan and losing
+    // already-found warnings. Binary-ish lines are scanned lossily instead.
+    let mut raw = Vec::new();
+    loop {
+        raw.clear();
+        if reader.read_until(b'\n', &mut raw)? == 0 {
+            break;
+        }
+        // Strip the trailing newline / CRLF like BufRead::lines (and Go's
+        // bufio.Scanner) does.
+        if raw.last() == Some(&b'\n') {
+            raw.pop();
+            if raw.last() == Some(&b'\r') {
+                raw.pop();
+            }
+        }
+        let line = String::from_utf8_lossy(&raw);
+        let line = line.as_ref();
         line_no += 1;
 
         // First match wins per the Go `break`.
@@ -368,6 +385,35 @@ mod tests {
         };
         let w = scan_file_with_options(&path, &opts).unwrap();
         assert!(!w.is_empty(), "expected entropy warning");
+    }
+
+    #[test]
+    fn non_utf8_line_does_not_abort_scan() {
+        // A binary-ish (invalid UTF-8) line between two secrets must not
+        // abort the scan or drop the warnings around it.
+        let key = sample_aws_access_key();
+        let pat = sample_github_pat();
+        let mut content = format!("aws=\"{key}\"\n").into_bytes();
+        content.extend_from_slice(&[0xff, 0xfe, b'x', 0xff, b'\n']);
+        content.extend_from_slice(format!("github=\"{pat}\"\n").as_bytes());
+
+        let dir = std::env::temp_dir().join(format!(
+            "ctx-scan-nonutf8-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("mixed.txt");
+        std::fs::write(&path, &content).unwrap();
+
+        let warnings = scan_file(&path.to_string_lossy()).unwrap();
+        let lines: Vec<i64> = warnings.iter().map(|w| w.line).collect();
+        assert!(lines.contains(&1), "{warnings:?}");
+        assert!(lines.contains(&3), "{warnings:?}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
