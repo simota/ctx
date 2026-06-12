@@ -86,8 +86,9 @@ pub(crate) fn parse_pack_time_filter(input: &str, now: SystemTime) -> Result<Sys
             return subtract_filter_duration(now, n, seconds, input);
         }
     }
+    // `m` is minutes; months are `mo` — keep the example list unambiguous.
     Err(format!(
-        "time filter {input:?}: unrecognised format (expected YYYY-MM-DD or relative like 7d/2w/1m/1y)"
+        "time filter {input:?}: unrecognised format (expected YYYY-MM-DD or relative like 7d/2w/1mo/1y)"
     ))
 }
 

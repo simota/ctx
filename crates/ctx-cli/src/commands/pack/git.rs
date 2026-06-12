@@ -46,7 +46,8 @@ pub(crate) fn git_diff_entries(
     let name_status = git_output_in(root, &["diff", "--name-status", base, head])?;
     let mut entries = Vec::new();
     for line in name_status.lines() {
-        let fields: Vec<&str> = line.split_whitespace().collect();
+        // --name-status output is tab-separated; paths may contain spaces.
+        let fields: Vec<&str> = line.split('\t').collect();
         if fields.len() < 2 {
             continue;
         }

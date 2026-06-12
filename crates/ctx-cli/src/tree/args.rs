@@ -164,16 +164,29 @@ pub(crate) fn run_root_command(args: &[OsString]) -> Option<ExitCode> {
     let root = PathBuf::from(r.path.as_deref().unwrap_or("."));
 
     // Build the walk options (depth + time-filter) shared by every variant.
+    // Invalid --since/--until values are RUNTIME failures (the invocation
+    // shape was recognised): report them, do not fall through to the
+    // "unsupported invocation" path.
     let now = SystemTime::now();
-    let since = if r.since.is_empty() {
-        None
-    } else {
-        parse_pack_time_filter(&r.since, now).ok()?.into()
+    let since = match r.since.as_str() {
+        "" => None,
+        raw => match parse_pack_time_filter(raw, now) {
+            Ok(t) => Some(t),
+            Err(err) => {
+                eprintln!("Error: --since: {err}");
+                return Some(ExitCode::FAILURE);
+            }
+        },
     };
-    let until = if r.until.is_empty() {
-        None
-    } else {
-        parse_pack_time_filter(&r.until, now).ok()?.into()
+    let until = match r.until.as_str() {
+        "" => None,
+        raw => match parse_pack_time_filter(raw, now) {
+            Ok(t) => Some(t),
+            Err(err) => {
+                eprintln!("Error: --until: {err}");
+                return Some(ExitCode::FAILURE);
+            }
+        },
     };
     let _ = r.use_mtime; // non-git fixture → effective time is mtime regardless.
     let tree_opts = TreeBuildOpts {
@@ -183,17 +196,25 @@ pub(crate) fn run_root_command(args: &[OsString]) -> Option<ExitCode> {
     };
 
     // Dispatch order mirrors Go's runRoot: budget > 0 first, then JSON, then text.
+    // Render errors are RUNTIME failures too: the args parsed fine, so report
+    // the real error instead of returning None (= "shape not recognised").
     if r.budget > 0 {
         return match render_root_budget(&root, &tree_opts, r.budget, r.want_json, r.plain) {
             Ok(()) => Some(ExitCode::SUCCESS),
-            Err(_) => None,
+            Err(err) => {
+                eprintln!("Error: {err}");
+                Some(ExitCode::FAILURE)
+            }
         };
     }
 
     if r.want_json {
         return match render_root_json_tree(&root, &tree_opts) {
             Ok(()) => Some(ExitCode::SUCCESS),
-            Err(_) => None,
+            Err(err) => {
+                eprintln!("Error: {err}");
+                Some(ExitCode::FAILURE)
+            }
         };
     }
 
@@ -208,6 +229,9 @@ pub(crate) fn run_root_command(args: &[OsString]) -> Option<ExitCode> {
     };
     match render_root_text_tree(&root, &tree_opts, &text_opts, &r.plan) {
         Ok(()) => Some(ExitCode::SUCCESS),
-        Err(_) => None,
+        Err(err) => {
+            eprintln!("Error: {err}");
+            Some(ExitCode::FAILURE)
+        }
     }
 }

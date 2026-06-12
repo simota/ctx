@@ -89,6 +89,16 @@ fn main() -> ExitCode {
     }
 }
 
+/// Flag-first form (`ctx --json pack`): the SECOND arg names the command only
+/// when the first is a flag. A non-flag first arg is a positional belonging to
+/// some OTHER command (`ctx where pack` is a `where` query, not `pack`), so it
+/// must not steal the dispatch.
+fn flag_then_command(args: &[OsString], name: &str) -> bool {
+    args.first()
+        .is_some_and(|arg| arg.to_string_lossy().starts_with('-'))
+        && args.get(1).is_some_and(|arg| arg == OsStr::new(name))
+}
+
 fn try_run_native(args: &[OsString]) -> Option<ExitCode> {
     if args.len() >= 2 && args[0] == OsStr::new("audit") && args[1] == OsStr::new("verify") {
         return run_audit_verify(&args[2..]);
@@ -97,12 +107,12 @@ fn try_run_native(args: &[OsString]) -> Option<ExitCode> {
         return run_contract_verify(&args[2..]);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("pack"))
-        || args.get(1).is_some_and(|arg| arg == OsStr::new("pack"))
+        || flag_then_command(args, "pack")
     {
         return run_pack_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("browse"))
-        || args.get(1).is_some_and(|arg| arg == OsStr::new("browse"))
+        || flag_then_command(args, "browse")
     {
         return run_browse_command(args);
     }
@@ -111,68 +121,65 @@ fn try_run_native(args: &[OsString]) -> Option<ExitCode> {
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("deps"))
         || args.first().is_some_and(|arg| arg == OsStr::new("impact"))
-        || args
-            .get(1)
-            .is_some_and(|arg| arg == OsStr::new("deps") || arg == OsStr::new("impact"))
+        || flag_then_command(args, "deps")
+        || flag_then_command(args, "impact")
     {
         return run_relations_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("where"))
-        || args.get(1).is_some_and(|arg| arg == OsStr::new("where"))
+        || flag_then_command(args, "where")
     {
         return run_where_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("map"))
-        || args.get(1).is_some_and(|arg| arg == OsStr::new("map"))
+        || flag_then_command(args, "map")
     {
         return run_map_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("focus"))
-        || args.get(1).is_some_and(|arg| arg == OsStr::new("focus"))
+        || flag_then_command(args, "focus")
     {
         return run_focus_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("echo"))
-        || args.get(1).is_some_and(|arg| arg == OsStr::new("echo"))
+        || flag_then_command(args, "echo")
     {
         return run_echo_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("replay"))
-        || args.get(1).is_some_and(|arg| arg == OsStr::new("replay"))
+        || flag_then_command(args, "replay")
     {
         return run_replay_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("noise"))
-        || args.get(1).is_some_and(|arg| arg == OsStr::new("noise"))
+        || flag_then_command(args, "noise")
     {
         return run_noise_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("digest"))
-        || args.get(1).is_some_and(|arg| arg == OsStr::new("digest"))
+        || flag_then_command(args, "digest")
     {
         return run_digest_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("skim"))
-        || args.get(1).is_some_and(|arg| arg == OsStr::new("skim"))
+        || flag_then_command(args, "skim")
     {
         return run_skim_command(args);
     }
     if args
         .first()
         .is_some_and(|arg| arg == OsStr::new("onboarding"))
-        || args
-            .get(1)
-            .is_some_and(|arg| arg == OsStr::new("onboarding"))
+        || flag_then_command(args, "onboarding")
     {
         return run_onboarding_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("roots"))
-        || args.get(1).is_some_and(|arg| arg == OsStr::new("roots"))
+        || flag_then_command(args, "roots")
     {
         return run_roots_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("braid"))
-        || args.get(1).is_some_and(|arg| arg == OsStr::new("braid"))
+        || flag_then_command(args, "braid")
     {
         return run_braid_command(args);
     }

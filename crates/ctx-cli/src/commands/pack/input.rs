@@ -202,6 +202,17 @@ pub(crate) fn collect_pack_inputs(
     ignore: &PackIgnore,
     out: &mut Vec<ctx_pack::FileInput>,
 ) -> Result<(), String> {
+    collect_pack_inputs_walk(root, path, ignore, out)?;
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(())
+}
+
+fn collect_pack_inputs_walk(
+    root: &Path,
+    path: &Path,
+    ignore: &PackIgnore,
+    out: &mut Vec<ctx_pack::FileInput>,
+) -> Result<(), String> {
     if path.is_file() {
         push_pack_input(root, path, ignore, out)?;
         return Ok(());
@@ -217,16 +228,19 @@ pub(crate) fn collect_pack_inputs(
         ) {
             continue;
         }
-        if path.is_dir() {
+        // symlink_metadata (NOT is_dir, which follows links): a symlinked dir
+        // is never recursed into, so cyclic links cannot loop. Consistent
+        // with tree/json.rs.
+        let meta = std::fs::symlink_metadata(&path).map_err(|err| err.to_string())?;
+        if meta.is_dir() {
             if ignore.is_ignored(root, &path, true) {
                 continue;
             }
-            collect_pack_inputs(root, &path, ignore, out)?;
+            collect_pack_inputs_walk(root, &path, ignore, out)?;
         } else {
             push_pack_input(root, &path, ignore, out)?;
         }
     }
-    out.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(())
 }
 
