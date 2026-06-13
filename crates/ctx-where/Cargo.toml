@@ -21,6 +21,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 regex = "1"
 once_cell = "1"
+rayon = "1"
 libc = "0.2"
 dhat = { version = "0.3", optional = true }
 

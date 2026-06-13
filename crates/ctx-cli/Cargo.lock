@@ -655,6 +655,7 @@ dependencies = [
  "cbindgen",
  "libc",
  "once_cell",
+ "rayon",
  "regex",
  "serde",
  "serde_json",

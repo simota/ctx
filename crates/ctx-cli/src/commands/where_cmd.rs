@@ -4,6 +4,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use rayon::prelude::*;
+
 use crate::common::*;
 use crate::gitignore::GitIgnore;
 
@@ -240,17 +242,31 @@ pub(crate) fn where_files_with(
     opts: &WalkIgnoreOptions,
 ) -> Result<Vec<ctx_where::FileInput>, String> {
     let ignore = WalkIgnore::new(root, opts)?;
-    let mut out = Vec::new();
-    collect_where_files(root, root, &ignore, &mut out)?;
+    // Two-phase (mirrors the pack walk): a cheap sequential pass enumerates the
+    // surviving file paths (readdir + ignore pruning only), then the heavy
+    // per-file work (read + tree-sitter symbol extraction) runs in parallel.
+    // Each file maps to a self-contained `FileInput`, so collection order is
+    // irrelevant — the `sort_by(path)` below restores the deterministic order,
+    // keeping byte-parity with the sequential walk.
+    let mut candidates = Vec::new();
+    collect_where_paths(root, root, &ignore, &mut candidates)?;
+    let mut out: Vec<ctx_where::FileInput> = candidates
+        .par_iter()
+        .filter_map(|path| build_where_input(root, path))
+        .collect();
     out.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(out)
 }
 
-pub(crate) fn collect_where_files(
+/// Enumerate the file paths under `dir` that survive ignore pruning, applying
+/// the same rules the sequential walk did (a matching directory prunes the
+/// whole subtree; a matching file is skipped). The per-file read + symbol
+/// extraction is deferred to [`build_where_input`] so it can run in parallel.
+pub(crate) fn collect_where_paths(
     root: &Path,
     dir: &Path,
     ignore: &WalkIgnore,
-    out: &mut Vec<ctx_where::FileInput>,
+    out: &mut Vec<PathBuf>,
 ) -> Result<(), String> {
     for entry in std::fs::read_dir(dir).map_err(|err| format!("walk {}: {err}", dir.display()))? {
         let entry = entry.map_err(|err| err.to_string())?;
@@ -269,36 +285,46 @@ pub(crate) fn collect_where_files(
             continue;
         }
         if is_dir {
-            collect_where_files(root, &path, ignore, out)?;
+            collect_where_paths(root, &path, ignore, out)?;
             continue;
         }
-        let Ok(body) = std::fs::read_to_string(&path) else {
-            continue;
-        };
-        let lines: Vec<String> = body.lines().map(ToString::to_string).collect();
-        // Mirror Go: every consumer of this walk (where / noise / onboarding /
-        // focus / braid) extracts symbols via symbols.New() — the tree-sitter
-        // extractor (ported as ctx_symbols::extract). The previous regex
-        // extractor diverged from the oracle on languages tree-sitter does
-        // not cover (e.g. Rust files scored where symbol bonuses Go never
-        // awards). Errors leave symbols empty, like Go's err == nil guard.
-        let symbols = ctx_symbols::extract(&path)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|sym| ctx_where::SymbolInput {
-                name: sym.name,
-                kind: sym.kind,
-                line: i64::from(sym.line),
-            })
-            .collect();
-        out.push(ctx_where::FileInput {
-            path: rel,
-            is_dir: false,
-            symbols,
-            lines,
-        });
+        out.push(path);
     }
     Ok(())
+}
+
+/// Read and parse a single candidate file into a `FileInput`, or `None` when it
+/// cannot be read (mirroring the sequential walk's `let Ok(body) … else
+/// continue`). Pure given `(root, path)`, so it is safe to call concurrently.
+pub(crate) fn build_where_input(root: &Path, path: &Path) -> Option<ctx_where::FileInput> {
+    let rel = path
+        .strip_prefix(root)
+        .ok()?
+        .to_string_lossy()
+        .replace('\\', "/");
+    let body = std::fs::read_to_string(path).ok()?;
+    let lines: Vec<String> = body.lines().map(ToString::to_string).collect();
+    // Mirror Go: every consumer of this walk (where / noise / onboarding /
+    // focus / braid) extracts symbols via symbols.New() — the tree-sitter
+    // extractor (ported as ctx_symbols::extract). The previous regex
+    // extractor diverged from the oracle on languages tree-sitter does
+    // not cover (e.g. Rust files scored where symbol bonuses Go never
+    // awards). Errors leave symbols empty, like Go's err == nil guard.
+    let symbols = ctx_symbols::extract(path)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|sym| ctx_where::SymbolInput {
+            name: sym.name,
+            kind: sym.kind,
+            line: i64::from(sym.line),
+        })
+        .collect();
+    Some(ctx_where::FileInput {
+        path: rel,
+        is_dir: false,
+        symbols,
+        lines,
+    })
 }
 
 pub(crate) fn extract_where_symbols(path: &str, lines: &[String]) -> Vec<ctx_where::SymbolInput> {

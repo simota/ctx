@@ -8,6 +8,8 @@
 
 use std::collections::BTreeMap;
 
+use rayon::prelude::*;
+
 use crate::levenshtein::levenshtein;
 use crate::score::{
     extract_keywords, has_all_keyword_sets, score_file_with_sets, FileForScore, SymbolInfo,
@@ -104,69 +106,71 @@ pub fn search_with_options(
     }
     let kw_sets = expand_keywords(&keywords, &opts.synonyms);
 
-    let mut results: Vec<SearchResult> = Vec::new();
-    for fi in files {
-        if fi.is_dir || fi.path == "." {
-            continue;
-        }
-        let file = FileForScore {
-            path: fi.path.clone(),
-            symbols: &fi.symbols,
-            lines: &fi.lines,
-        };
-        let mut result = score_file_with_sets(&file, &kw_sets, context_n);
+    // Per-file scoring is independent and read-only over the shared keyword
+    // sets / regex, so it runs in parallel. The collection order is irrelevant
+    // — the `sort_by(score, path)` below restores the deterministic order,
+    // keeping byte-parity with the sequential scan.
+    let mut results: Vec<SearchResult> = files
+        .par_iter()
+        .filter_map(|fi| {
+            if fi.is_dir || fi.path == "." {
+                return None;
+            }
+            let file = FileForScore {
+                path: fi.path.clone(),
+                symbols: &fi.symbols,
+                lines: &fi.lines,
+            };
+            let mut result = score_file_with_sets(&file, &kw_sets, context_n);
 
-        if opts.require_all && !kw_sets.is_empty() {
-            if !has_all_keyword_sets(&kw_sets, &file) {
-                continue;
+            if opts.require_all && !kw_sets.is_empty() && !has_all_keyword_sets(&kw_sets, &file) {
+                return None;
             }
-        }
 
-        if let Some(re) = &regex_opt {
-            let mut regex_matches: Vec<crate::types::Match> = Vec::new();
-            for (i, line) in fi.lines.iter().enumerate() {
-                if let Some(m) = re.find(line) {
-                    let (before, after) =
-                        crate::score::context_lines(&fi.lines, (i + 1) as i64, context_n as i64);
-                    regex_matches.push(crate::types::Match {
-                        line: (i + 1) as i64,
-                        column: (m.start() + 1) as i64,
-                        kind: "content-regex".into(),
-                        text: line.trim().to_string(),
-                        before,
-                        after,
-                    });
+            if let Some(re) = &regex_opt {
+                let mut regex_matches: Vec<crate::types::Match> = Vec::new();
+                for (i, line) in fi.lines.iter().enumerate() {
+                    if let Some(m) = re.find(line) {
+                        let (before, after) = crate::score::context_lines(
+                            &fi.lines,
+                            (i + 1) as i64,
+                            context_n as i64,
+                        );
+                        regex_matches.push(crate::types::Match {
+                            line: (i + 1) as i64,
+                            column: (m.start() + 1) as i64,
+                            kind: "content-regex".into(),
+                            text: line.trim().to_string(),
+                            before,
+                            after,
+                        });
+                    }
+                }
+                if regex_matches.is_empty() {
+                    return None;
+                }
+                // Dedup against existing matches.
+                use std::collections::HashSet;
+                let existing: HashSet<(i64, i64)> =
+                    result.matches.iter().map(|m| (m.line, m.column)).collect();
+                for rm in regex_matches {
+                    if existing.contains(&(rm.line, rm.column)) {
+                        continue;
+                    }
+                    result.matches.push(rm);
+                    result.score += 3;
+                    if result.score_breakdown.is_none() {
+                        result.score_breakdown = Some(Default::default());
+                    }
+                    if let Some(b) = result.score_breakdown.as_mut() {
+                        b.content += 3;
+                    }
                 }
             }
-            if regex_matches.is_empty() {
-                continue;
-            }
-            // Dedup against existing matches.
-            use std::collections::HashSet;
-            let existing: HashSet<(i64, i64)> = result
-                .matches
-                .iter()
-                .map(|m| (m.line, m.column))
-                .collect();
-            for rm in regex_matches {
-                if existing.contains(&(rm.line, rm.column)) {
-                    continue;
-                }
-                result.matches.push(rm);
-                result.score += 3;
-                if result.score_breakdown.is_none() {
-                    result.score_breakdown = Some(Default::default());
-                }
-                if let Some(b) = result.score_breakdown.as_mut() {
-                    b.content += 3;
-                }
-            }
-        }
 
-        if result.score > 0 {
-            results.push(result);
-        }
-    }
+            (result.score > 0).then_some(result)
+        })
+        .collect();
 
     results.sort_by(|a, b| {
         if a.score != b.score {
