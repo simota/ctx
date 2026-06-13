@@ -9,11 +9,38 @@ use axum::http::StatusCode;
 use axum::response::Response;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
+use std::time::SystemTime;
 
 use crate::response;
 use crate::safepath;
 use crate::AppState;
+
+/// Soft cap on cached `/api/git/diff` bodies. Mirrors `FILE_CACHE_CAP`: once
+/// reached, new diffs are served uncached (existing entries stay valid).
+const DIFF_CACHE_CAP: usize = 1024;
+
+/// Diffs whose serialized body exceeds this are never cached, bounding
+/// worst-case cache memory to `DIFF_CACHE_CAP * MAX_CACHED_DIFF_BYTES`.
+const MAX_CACHED_DIFF_BYTES: usize = 256 << 10;
+
+/// A memoized `/api/git/diff` body plus the fingerprint that validates it.
+/// `worktree_diff` compares the HEAD blob against the working-tree file, so the
+/// body is stale only when the working file changes (mtime/size) or HEAD moves
+/// (oid) — index transitions and unrelated commits never affect a single file's
+/// worktree diff.
+pub struct DiffCacheEntry {
+    mtime: SystemTime,
+    size: u64,
+    head_oid: Option<String>,
+    body: Arc<Vec<u8>>,
+}
+
+/// Process-lifetime cache for `/api/git/diff` bodies, keyed by resolved target
+/// path. Shared across requests via [`AppState`].
+pub type DiffCache = Arc<RwLock<HashMap<PathBuf, DiffCacheEntry>>>;
 
 #[derive(Deserialize)]
 pub struct GitDiffParams {
@@ -101,10 +128,34 @@ fn handle_diff_sync(state: AppState, params: GitDiffParams) -> Response {
     let rel_slash = relative_to_root(&state.root, &target);
     let (git_root, git_rel_slash) = git_context(&state.root, &target, &rel_slash);
 
+    // Cache fingerprint: working-tree (mtime, size) + HEAD oid. Both reads are
+    // cheap stats relative to the diff itself (HEAD blob inflate + LCS). A miss
+    // recomputes the full diff; a hit returns the exact bytes it would produce.
+    let fingerprint = std::fs::metadata(&target)
+        .ok()
+        .and_then(|m| Some((m.modified().ok()?, m.len())));
+    let head_oid = ctx_git::head_oid(&git_root).ok().flatten();
+    if let Some((mtime, size)) = fingerprint {
+        if let Some(body) = diff_cache_get(&state.diff_cache, &target, mtime, size, &head_oid) {
+            return response::json_bytes(StatusCode::OK, body.as_ref().clone());
+        }
+    }
+
     match ctx_git::worktree_diff(&git_root, &git_rel_slash) {
         Ok(mut diff) => {
             diff.path = rel_slash;
-            response::json(StatusCode::OK, &GitDiffResponse::from(diff))
+            let body = Arc::new(response::to_json_bytes(&GitDiffResponse::from(diff)));
+            if let Some((mtime, size)) = fingerprint {
+                diff_cache_put(
+                    &state.diff_cache,
+                    &target,
+                    mtime,
+                    size,
+                    head_oid,
+                    Arc::clone(&body),
+                );
+            }
+            response::json_bytes(StatusCode::OK, body.as_ref().clone())
         }
         Err(err) => response::error(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -112,6 +163,50 @@ fn handle_diff_sync(state: AppState, params: GitDiffParams) -> Response {
             &err.to_string(),
         ),
     }
+}
+
+/// Return the cached diff body for `target` if its stored fingerprint matches.
+fn diff_cache_get(
+    cache: &DiffCache,
+    target: &Path,
+    mtime: SystemTime,
+    size: u64,
+    head_oid: &Option<String>,
+) -> Option<Arc<Vec<u8>>> {
+    let guard = cache.read().ok()?;
+    let entry = guard.get(target)?;
+    (entry.mtime == mtime && entry.size == size && entry.head_oid == *head_oid)
+        .then(|| Arc::clone(&entry.body))
+}
+
+/// Store `body` for `target`. Refreshes an existing entry, bounded by
+/// [`DIFF_CACHE_CAP`]; never stores bodies over [`MAX_CACHED_DIFF_BYTES`].
+fn diff_cache_put(
+    cache: &DiffCache,
+    target: &Path,
+    mtime: SystemTime,
+    size: u64,
+    head_oid: Option<String>,
+    body: Arc<Vec<u8>>,
+) {
+    if body.len() > MAX_CACHED_DIFF_BYTES {
+        return;
+    }
+    let Ok(mut guard) = cache.write() else {
+        return;
+    };
+    if guard.len() >= DIFF_CACHE_CAP && !guard.contains_key(target) {
+        return;
+    }
+    guard.insert(
+        target.to_path_buf(),
+        DiffCacheEntry {
+            mtime,
+            size,
+            head_oid,
+            body,
+        },
+    );
 }
 
 pub async fn handle_file_log(
@@ -266,4 +361,46 @@ fn find_git_root(start: &Path) -> Option<PathBuf> {
 fn slash_path(path: &Path) -> String {
     path.to_string_lossy()
         .replace(std::path::MAIN_SEPARATOR, "/")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    fn body(text: &str) -> Arc<Vec<u8>> {
+        Arc::new(text.as_bytes().to_vec())
+    }
+
+    #[test]
+    fn diff_cache_hits_only_on_matching_fingerprint() {
+        let cache: DiffCache = DiffCache::default();
+        let target = PathBuf::from("/repo/src/main.rs");
+        let mtime = SystemTime::UNIX_EPOCH + Duration::from_secs(1000);
+        let head = Some("abc123".to_string());
+        diff_cache_put(&cache, &target, mtime, 42, head.clone(), body("diff"));
+
+        // Identical fingerprint hits.
+        assert!(diff_cache_get(&cache, &target, mtime, 42, &head).is_some());
+
+        // A moved HEAD (same worktree mtime/size, e.g. after commit) misses —
+        // the diff base changed even though the file on disk did not.
+        let moved = Some("def456".to_string());
+        assert!(diff_cache_get(&cache, &target, mtime, 42, &moved).is_none());
+
+        // An edited working file (new mtime or size) misses.
+        let later = mtime + Duration::from_secs(1);
+        assert!(diff_cache_get(&cache, &target, later, 42, &head).is_none());
+        assert!(diff_cache_get(&cache, &target, mtime, 43, &head).is_none());
+    }
+
+    #[test]
+    fn diff_cache_skips_oversized_bodies() {
+        let cache: DiffCache = DiffCache::default();
+        let target = PathBuf::from("/repo/big.rs");
+        let mtime = SystemTime::UNIX_EPOCH;
+        let oversized = Arc::new(vec![0u8; MAX_CACHED_DIFF_BYTES + 1]);
+        diff_cache_put(&cache, &target, mtime, 1, None, oversized);
+        assert!(diff_cache_get(&cache, &target, mtime, 1, &None).is_none());
+    }
 }

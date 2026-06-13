@@ -211,6 +211,14 @@ pub fn commit_diff(
     Ok(result)
 }
 
+/// Current `HEAD` object id for `repo_root`, or `None` on an unborn branch
+/// (no commits yet). Resolves through `gitdir:` files (worktrees/submodules)
+/// and packed refs. Cheap — a handful of small file reads, no object inflate —
+/// so callers can use it as a cache-validity fingerprint for [`worktree_diff`].
+pub fn head_oid(repo_root: impl AsRef<Path>) -> Result<Option<String>> {
+    read_head_oid(&git_dir(repo_root.as_ref()))
+}
+
 fn git_dir(repo_root: &Path) -> PathBuf {
     let dot_git = repo_root.join(".git");
     if dot_git.is_dir() {

@@ -42,6 +42,11 @@ pub struct AppState {
     pub bind: String,
     pub audit: bool,
     pub file_cache: handlers::file::FileCache,
+    /// Memoizes `/api/git/diff` response bodies, keyed by resolved path and
+    /// validated by (worktree mtime, size, HEAD oid). Like [`file_cache`] it is
+    /// a pure performance layer — a hit returns the exact bytes a fresh
+    /// `worktree_diff` would produce.
+    pub diff_cache: handlers::git::DiffCache,
 }
 
 /// Hosts the embedded browser UI + API — analogue of `web.Server`.
@@ -96,6 +101,7 @@ impl Server {
             bind: self.bind,
             audit: self.audit,
             file_cache: handlers::file::FileCache::default(),
+            diff_cache: handlers::git::DiffCache::default(),
         };
         let app = router::build(state);
         axum::serve(listener, app)
