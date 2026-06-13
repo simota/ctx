@@ -91,6 +91,8 @@ struct RootEntryWire {
 #[derive(Serialize)]
 struct RootsListResponse {
     roots: Vec<RootEntryWire>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    warning: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -98,24 +100,30 @@ struct RootsListResponse {
 // ---------------------------------------------------------------------------
 
 pub async fn handle(State(_state): State<AppState>) -> Response {
-    let registry_path = match roots_path() {
+    roots_response_from_file(roots_path())
+}
+
+fn roots_response_from_file(registry_path: Result<PathBuf, String>) -> Response {
+    let registry_path = match registry_path {
         Ok(p) => p,
         Err(e) => {
-            return response::error(StatusCode::INTERNAL_SERVER_ERROR, "roots_load", &e);
+            return roots_warning_response(&e);
         }
     };
 
     let rf = match load_roots(&registry_path) {
         Ok(rf) => rf,
         Err(e) => {
-            return response::error(StatusCode::INTERNAL_SERVER_ERROR, "roots_load", &e);
+            return roots_warning_response(&e);
         }
     };
 
     // Sort by name, case-insensitive — mirrors Go `RootsFile.Sorted()`.
     let mut sorted = rf.roots;
     sorted.sort_by(|a, b| {
-        a.name.to_ascii_lowercase().cmp(&b.name.to_ascii_lowercase())
+        a.name
+            .to_ascii_lowercase()
+            .cmp(&b.name.to_ascii_lowercase())
     });
 
     let roots: Vec<RootEntryWire> = sorted
@@ -129,7 +137,26 @@ pub async fn handle(State(_state): State<AppState>) -> Response {
         })
         .collect();
 
-    response::json(StatusCode::OK, &RootsListResponse { roots })
+    response::json(
+        StatusCode::OK,
+        &RootsListResponse {
+            roots,
+            warning: None,
+        },
+    )
+}
+
+fn roots_warning_response(_detail: &str) -> Response {
+    response::json(
+        StatusCode::OK,
+        &RootsListResponse {
+            roots: Vec::new(),
+            warning: Some(
+                "roots registry could not be loaded; run `ctx roots list` to inspect it"
+                    .to_string(),
+            ),
+        },
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -145,8 +172,7 @@ fn roots_path() -> Result<PathBuf, String> {
             return Ok(expand_home(&path));
         }
     }
-    let home = std::env::var("HOME")
-        .map_err(|e| format!("roots: locate home dir: {e}"))?;
+    let home = std::env::var("HOME").map_err(|e| format!("roots: locate home dir: {e}"))?;
     Ok(PathBuf::from(home).join(".ctx").join("roots.toml"))
 }
 
@@ -166,6 +192,40 @@ fn load_roots(path: &Path) -> Result<RootsFile, String> {
     }
     let raw = std::fs::read_to_string(path)
         .map_err(|e| format!("roots: read {}: {e}", path.display()))?;
-    toml::from_str(&raw)
-        .map_err(|e| format!("roots: decode {}: {e}", path.display()))
+    toml::from_str(&raw).map_err(|e| format!("roots: decode {}: {e}", path.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use http_body_util::BodyExt;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn malformed_roots_registry_returns_warning_not_500() {
+        let mut path = std::env::temp_dir();
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        path.push(format!("ctx-web-bad-roots-{unique}.toml"));
+        std::fs::write(&path, "roots = [").unwrap();
+
+        let response = roots_response_from_file(Ok(path.clone()));
+        let status = response.status();
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body = String::from_utf8(body.to_vec()).unwrap();
+
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(status, StatusCode::OK);
+        assert!(body.contains(r#""roots":[]"#), "body: {body}");
+        assert!(
+            body.contains(r#""warning":"roots registry could not be loaded;"#),
+            "body: {body}",
+        );
+        assert!(!body.contains(&path.display().to_string()), "body: {body}");
+    }
 }

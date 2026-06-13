@@ -53,6 +53,7 @@ export async function loadRoots(): Promise<void> {
     const res = await listRoots();
     roots.entries = sortMru(res.roots ?? []);
     roots.loaded = true;
+    roots.error = res.warning ? `Failed to load roots: ${res.warning}` : null;
   } catch (e) {
     const msg =
       e instanceof ApiCallError

@@ -623,6 +623,7 @@ export interface RootEntry {
 
 export interface RootsListResponse {
   roots: RootEntry[];
+  warning?: string;
 }
 
 export interface RootsOpenRequest {
