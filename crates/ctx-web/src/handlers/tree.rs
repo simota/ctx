@@ -265,11 +265,7 @@ fn walk_tree(
     let (lines, tokens) = if !is_dir {
         let l = count_lines_file(dir);
         let tok = if with_tokens {
-            // Try tiktoken exact count; fall back to size-based estimate.
-            match ctx_tokens::count_file(dir.to_str().unwrap_or("")) {
-                Ok(n) => n as i32,
-                Err(_) => ctx_tokens::estimate_by_size(size) as i32,
-            }
+            cached_file_tokens(dir, &meta, size)
         } else {
             0
         };
@@ -335,6 +331,51 @@ fn walk_tree(
     }
 
     Ok(node)
+}
+
+/// Exact tiktoken token count for `path`, memoized across requests. `/api/tree`
+/// recomputes the whole tree on every navigation, so without this each request
+/// re-runs the BPE encoder over every file — by far the dominant cost of a
+/// `tokens=true` tree. The cache is keyed by absolute path and validated by
+/// (mtime, size); an edited file re-counts. Falls back to a size-based estimate
+/// when the file cannot be read, matching the previous inline behaviour. Result
+/// is identical to a fresh `ctx_tokens::count_file`, so JSON output is unchanged.
+fn cached_file_tokens(path: &Path, meta: &std::fs::Metadata, size: i64) -> i32 {
+    use std::collections::HashMap;
+    use std::sync::{OnceLock, RwLock};
+    use std::time::SystemTime;
+
+    /// path → (mtime, size, token count). The first two validate the third.
+    type TokenCache = HashMap<PathBuf, (SystemTime, u64, i32)>;
+    /// Bounds memory during long browse sessions over large trees.
+    const TOKEN_CACHE_CAP: usize = 1 << 16;
+    static CACHE: OnceLock<RwLock<TokenCache>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| RwLock::new(HashMap::new()));
+
+    let fingerprint = meta.modified().ok().map(|mtime| (mtime, meta.len()));
+    if let Some((mtime, len)) = fingerprint {
+        if let Ok(guard) = cache.read() {
+            if let Some(&(cm, cl, tok)) = guard.get(path) {
+                if cm == mtime && cl == len {
+                    return tok;
+                }
+            }
+        }
+    }
+
+    let tokens = match ctx_tokens::count_file(path.to_str().unwrap_or("")) {
+        Ok(n) => n as i32,
+        Err(_) => ctx_tokens::estimate_by_size(size) as i32,
+    };
+
+    if let Some((mtime, len)) = fingerprint {
+        if let Ok(mut guard) = cache.write() {
+            if guard.len() < TOKEN_CACHE_CAP || guard.contains_key(path) {
+                guard.insert(path.to_path_buf(), (mtime, len, tokens));
+            }
+        }
+    }
+    tokens
 }
 
 #[derive(Default)]
