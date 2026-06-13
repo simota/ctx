@@ -40,6 +40,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import {
+    ApiCallError,
     fetchFile,
     fetchGitDiff,
     fetchFileLog,
@@ -200,6 +201,7 @@
   let historyData = $state<FileLogResponse | null>(null);
   let selectedHash = $state<string | null>(null); // full hash
   let commitDiffData = $state<GitDiffResponse | null>(null);
+  let commitDiffError = $state<string | null>(null);
   let historyLoading = $state(false);
   let historyError = $state<string | null>(null);
   let historyListEl: HTMLElement | null = $state(null);
@@ -715,6 +717,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
       historyData = null;
       selectedHash = null;
       commitDiffData = null;
+      commitDiffError = null;
       historyError = null;
       return;
     }
@@ -746,19 +749,33 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
   $effect(() => {
     if (!historyMode || !historyData || !selectedHash) {
       commitDiffData = null;
+      commitDiffError = null;
       return;
     }
     const commits = historyData.commits;
     const idx = commits.findIndex((c) => c.hash_full === selectedHash);
-    if (idx < 0) { commitDiffData = null; return; }
+    if (idx < 0) {
+      commitDiffData = null;
+      commitDiffError = null;
+      return;
+    }
     const toHash = commits[idx].hash_full;
-    // "from" is the parent commit; if there is no parent (initial commit), use empty tree
+    // The server resolves the parent expression; a root commit's parent is an
+    // empty before-side so the first file version still renders as "New file".
     const fromHash = idx + 1 < commits.length ? commits[idx + 1].hash_full : `${toHash}^`;
     const p = path;
     let cancelled = false;
+    commitDiffData = null;
+    commitDiffError = null;
     fetchFileCommitDiff(p, fromHash, toHash)
       .then((r) => { if (!cancelled) commitDiffData = r; })
-      .catch(() => { if (!cancelled) commitDiffData = null; });
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        commitDiffData = null;
+        commitDiffError = e instanceof ApiCallError && e.code === 'invalid_revision'
+          ? 'Unable to resolve this commit range.'
+          : e instanceof Error ? e.message : String(e);
+      });
     return () => { cancelled = true; };
   });
 
@@ -819,6 +836,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     historyData = null;
     selectedHash = null;
     commitDiffData = null;
+    commitDiffError = null;
     historyLoading = false;
     historyError = null;
     fetchFile(p, { symbols: true })
@@ -2288,6 +2306,8 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
               <div class="history-diff">
                 {#if !selectedHash}
                   <p class="muted diff-note">Select a commit to view diff.</p>
+                {:else if commitDiffError}
+                  <p class="muted diff-note">{commitDiffError}</p>
                 {:else if !commitDiffData}
                   <div class="loading" aria-busy="true">
                     <span class="skel" style="width: 50%; height: 12px;"></span>

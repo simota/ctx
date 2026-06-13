@@ -320,17 +320,37 @@ fn gitparity_commit_diff_missing_revs() {
     );
 }
 
-// (f) Unresolvable revision → 500 git_commit_diff with the resolver error
-// message (no machine path embedded → Exact).
+// Product behavior intentionally diverges from the frozen Go oracle here:
+// history UI can request stale or shallow-clone revisions, which is client
+// input state rather than a server fault. Keep that as 400 to avoid surfacing
+// Internal Server Error during ordinary history navigation.
 #[test]
-fn gitparity_commit_diff_bad_rev() {
-    assert_parity(
+fn rust_commit_diff_bad_rev_returns_bad_request() {
+    let fx = GitFixture::build();
+    let rust = RustServer::start(fx.root());
+    rust.wait_ready();
+    let base = format!("http://127.0.0.1:{}", rust.port);
+    let response = http_request(
+        &base,
+        "GET",
         "/api/git/commit-diff?path=greeting.txt&from=deadbeef&to=e494c66",
-        Norm::Exact,
-        &[
-            r#""code":"git_commit_diff""#,
-            r#"cannot resolve from=\"deadbeef\": reference not found"#,
-        ],
+        None,
+    );
+    rust.shutdown();
+
+    let body = String::from_utf8_lossy(&response.body);
+    assert_eq!(response.status, 400, "body: {body}");
+    assert_eq!(
+        response.header("content-type").as_deref(),
+        Some("application/json; charset=utf-8"),
+    );
+    assert!(
+        body.contains(r#""code":"invalid_revision""#),
+        "body should classify bad revisions as client input errors: {body}",
+    );
+    assert!(
+        body.contains(r#"cannot resolve from=\"deadbeef\": reference not found"#),
+        "body should keep the resolver detail: {body}",
     );
 }
 

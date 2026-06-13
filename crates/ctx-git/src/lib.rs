@@ -161,17 +161,16 @@ pub fn commit_diff(
     slash_path: &str,
 ) -> Result<WorktreeFileDiff> {
     let git_dir = git_dir(repo_root.as_ref());
-    let from_oid = resolve_revision(&git_dir, from_rev)
-        .map_err(|err| GitError::new(format!("cannot resolve from={from_rev:?}: {err}")))?;
-    let to_oid = resolve_revision(&git_dir, to_rev)
-        .map_err(|err| GitError::new(format!("cannot resolve to={to_rev:?}: {err}")))?;
-
-    let from_commit = read_commit(&git_dir, &from_oid)?;
-    let to_commit = read_commit(&git_dir, &to_oid)?;
-    let (before_content, before_binary, before_exists) =
-        file_content_at_commit(&git_dir, &from_commit, slash_path)?;
-    let (after_content, after_binary, after_exists) =
-        file_content_at_commit(&git_dir, &to_commit, slash_path)?;
+    let from_commit = resolve_commit_revision(&git_dir, from_rev, "from")?;
+    let to_commit = resolve_commit_revision(&git_dir, to_rev, "to")?;
+    let (before_content, before_binary, before_exists) = match from_commit {
+        Some(commit) => file_content_at_commit(&git_dir, &commit, slash_path)?,
+        None => (Vec::new(), false, false),
+    };
+    let (after_content, after_binary, after_exists) = match to_commit {
+        Some(commit) => file_content_at_commit(&git_dir, &commit, slash_path)?,
+        None => (Vec::new(), false, false),
+    };
 
     let mut result = WorktreeFileDiff {
         path: slash_path.to_string(),
@@ -209,6 +208,27 @@ pub fn commit_diff(
     result.lines = lines;
     result.truncated = truncated;
     Ok(result)
+}
+
+fn resolve_commit_revision(git_dir: &Path, rev: &str, label: &str) -> Result<Option<CommitInfo>> {
+    if let Some(base_rev) = rev.strip_suffix('^') {
+        let base_oid = resolve_revision(git_dir, base_rev)
+            .map_err(|err| GitError::new(format!("cannot resolve {label}={rev:?}: {err}")))?;
+        let base_commit = read_commit(git_dir, &base_oid)
+            .map_err(|err| GitError::new(format!("cannot resolve {label}={rev:?}: {err}")))?;
+        let Some(parent_oid) = base_commit.parents.first() else {
+            return Ok(None);
+        };
+        return read_commit(git_dir, parent_oid)
+            .map(Some)
+            .map_err(|err| GitError::new(format!("cannot resolve {label}={rev:?}: {err}")));
+    }
+
+    let oid = resolve_revision(git_dir, rev)
+        .map_err(|err| GitError::new(format!("cannot resolve {label}={rev:?}: {err}")))?;
+    read_commit(git_dir, &oid)
+        .map(Some)
+        .map_err(|err| GitError::new(format!("cannot resolve {label}={rev:?}: {err}")))
 }
 
 /// Current `HEAD` object id for `repo_root`, or `None` on an unborn branch
@@ -991,6 +1011,34 @@ mod tests {
             err.to_string(),
             "cannot resolve from=\"deadbeef\": reference not found"
         );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn commit_diff_accepts_first_parent_revision() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("greeting.txt"), "alpha\n").expect("write greeting");
+        git(&root, &["add", "greeting.txt"]);
+        let mut commit = Command::new("git");
+        commit
+            .args(["commit", "-q", "-m", "Add greeting"])
+            .current_dir(&root);
+        pin_git_env(&mut commit);
+        assert!(commit.status().expect("git commit").success());
+
+        let diff = commit_diff(&root, "HEAD^", "HEAD", "greeting.txt")
+            .expect("root parent should behave like an empty before side");
+        assert!(diff.added);
+        assert!(!diff.deleted);
+        assert_eq!(diff.lines.len(), 1);
+        assert_eq!(diff.lines[0].typ, "add");
+        assert_eq!(diff.lines[0].text, "alpha");
 
         let _ = fs::remove_dir_all(root);
     }

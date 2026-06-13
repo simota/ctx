@@ -76,7 +76,7 @@ both-error false PASS is impossible.
 | `gitparity_file_log_missing_path` | (f) missing param | 400 `bad_request` |
 | `gitparity_commit_diff` | (b) commit→commit | eq/del/add line sequence between e494c66 and 1e6958a |
 | `gitparity_commit_diff_missing_revs` | (f) missing from/to | 400 `bad_request` / "from and to are required" |
-| `gitparity_commit_diff_bad_rev` | (f) unresolvable rev | 500 `git_commit_diff` / "reference not found" |
+| `rust_commit_diff_bad_rev_returns_bad_request` | (f) unresolvable rev | 400 `invalid_revision` / "reference not found" |
 
 ## Normalization (`Norm`)
 

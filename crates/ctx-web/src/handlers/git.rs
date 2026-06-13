@@ -287,12 +287,23 @@ fn handle_commit_diff_sync(state: AppState, params: CommitDiffParams) -> Respons
             diff.path = rel_slash;
             response::json(StatusCode::OK, &GitDiffResponse::from(diff))
         }
-        Err(err) => response::error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "git_commit_diff",
-            &err.to_string(),
-        ),
+        Err(err) => git_commit_diff_error(&err.to_string()),
     }
+}
+
+fn git_commit_diff_error(message: &str) -> Response {
+    if is_revision_error(message) {
+        return response::error(StatusCode::BAD_REQUEST, "invalid_revision", message);
+    }
+    response::error(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "git_commit_diff",
+        message,
+    )
+}
+
+fn is_revision_error(message: &str) -> bool {
+    message.starts_with("cannot resolve ")
 }
 
 impl From<ctx_git::WorktreeFileDiff> for GitDiffResponse {
