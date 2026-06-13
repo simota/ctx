@@ -367,9 +367,11 @@
 
   // Eagerly load the roots registry on mount so the header subtitle can
   // resolve the current root's pretty name without waiting for the picker
-  // to open. Cheap and idempotent (loadRoots is re-entrant-guarded).
+  // to open. untrack: loadRoots reads/writes roots.loading internally;
+  // tracking it would re-run this effect every time the fetch settles
+  // (loading flips back to false), causing an infinite /api/roots loop.
   $effect(() => {
-    void loadRoots();
+    untrack(() => void loadRoots());
   });
 
   // Subtitle for the header brand. Prefer the registry entry's name (matches
