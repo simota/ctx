@@ -437,7 +437,10 @@ fn infer_role(path: &str) -> String {
         return "route".to_string();
     }
     // Core
-    if matches!(ext.as_str(), ".ts" | ".tsx" | ".js" | ".go" | ".py" | ".rs") {
+    if matches!(
+        ext.as_str(),
+        ".ts" | ".tsx" | ".js" | ".go" | ".py" | ".rs" | ".swift" | ".kt" | ".kts" | ".java"
+    ) {
         return "core".to_string();
     }
     // Unknown / no role → empty string (omitempty in Go)

@@ -24,6 +24,13 @@
       case 'struct':
       case 'interface':
       case 'class':
+      case 'enum':
+      case 'trait':
+      case 'protocol':
+      case 'module':
+      case 'object':
+      case 'record':
+      case 'annotation':
         return 'var(--ctx-accent-text, var(--ctx-accent))';
       case 'const':
       case 'var':
