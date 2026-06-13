@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+use rayon::prelude::*;
+
 use super::*;
 use crate::commands::where_cmd::extract_where_symbols;
 
@@ -202,19 +204,34 @@ pub(crate) fn collect_pack_inputs(
     ignore: &PackIgnore,
     out: &mut Vec<ctx_pack::FileInput>,
 ) -> Result<(), String> {
-    collect_pack_inputs_walk(root, path, ignore, out)?;
+    // Two-phase: a cheap sequential walk enumerates candidate file paths
+    // (readdir + symlink stat + directory pruning only — no file read or symbol
+    // extraction), then the per-file work (read + symbol parse + token estimate)
+    // runs in parallel. Each file maps to a self-contained `FileInput`, so the
+    // result order is irrelevant — the `sort_by(path)` below restores the exact
+    // deterministic order, keeping byte-parity with the sequential version.
+    let mut candidates = Vec::new();
+    collect_pack_input_paths(root, path, ignore, &mut candidates)?;
+    let collected: Vec<ctx_pack::FileInput> = candidates
+        .par_iter()
+        .filter_map(|path| build_pack_input(root, path, ignore))
+        .collect();
+    out.extend(collected);
     out.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(())
 }
 
-fn collect_pack_inputs_walk(
+/// Enumerate candidate file paths under `path`, applying the same directory
+/// pruning the original walk did. File-level ignore / read / UTF-8 filtering is
+/// deferred to [`build_pack_input`] so it can run in parallel.
+fn collect_pack_input_paths(
     root: &Path,
     path: &Path,
     ignore: &PackIgnore,
-    out: &mut Vec<ctx_pack::FileInput>,
+    out: &mut Vec<PathBuf>,
 ) -> Result<(), String> {
     if path.is_file() {
-        push_pack_input(root, path, ignore, out)?;
+        out.push(path.to_path_buf());
         return Ok(());
     }
     for entry in std::fs::read_dir(path).map_err(|err| format!("walk {}: {err}", path.display()))? {
@@ -236,34 +253,33 @@ fn collect_pack_inputs_walk(
             if ignore.is_ignored(root, &path, true) {
                 continue;
             }
-            collect_pack_inputs_walk(root, &path, ignore, out)?;
+            collect_pack_input_paths(root, &path, ignore, out)?;
         } else {
-            push_pack_input(root, &path, ignore, out)?;
+            out.push(path);
         }
     }
     Ok(())
 }
 
-pub(crate) fn push_pack_input(
+/// Read and parse a single candidate file into a `FileInput`, or `None` when it
+/// is ignored, unreadable, or not valid UTF-8 (mirroring the original
+/// `push_pack_input` skip cases). Pure given `(root, path, ignore)`, so it is
+/// safe to call concurrently across files.
+pub(crate) fn build_pack_input(
     root: &Path,
     path: &Path,
     ignore: &PackIgnore,
-    out: &mut Vec<ctx_pack::FileInput>,
-) -> Result<(), String> {
+) -> Option<ctx_pack::FileInput> {
     let rel = path
         .strip_prefix(root)
         .unwrap_or(path)
         .to_string_lossy()
         .replace('\\', "/");
     if ignore.is_ignored_rel(&rel, path.is_dir()) {
-        return Ok(());
+        return None;
     }
-    let Ok(bytes) = std::fs::read(path) else {
-        return Ok(());
-    };
-    let Ok(body) = String::from_utf8(bytes.clone()) else {
-        return Ok(());
-    };
+    let bytes = std::fs::read(path).ok()?;
+    let body = String::from_utf8(bytes.clone()).ok()?;
     let lines: Vec<String> = body.lines().map(ToString::to_string).collect();
     let symbols = extract_where_symbols(&rel, &lines)
         .into_iter()
@@ -274,7 +290,7 @@ pub(crate) fn push_pack_input(
         })
         .collect();
     let tokens = estimate_text_tokens(&body);
-    out.push(ctx_pack::FileInput {
+    Some(ctx_pack::FileInput {
         path: rel,
         abs_path: path.to_string_lossy().into_owned(),
         is_dir: false,
@@ -287,8 +303,7 @@ pub(crate) fn push_pack_input(
             symbols,
         },
         content_head: bytes.into_iter().take(512).collect(),
-    });
-    Ok(())
+    })
 }
 
 pub(crate) fn parse_pack_stdin_paths(text: &str) -> Vec<String> {

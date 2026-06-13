@@ -34,6 +34,7 @@ ctx-tokens = { path = "../ctx-tokens" }
 ctx-tui = { path = "../ctx-tui" }
 ctx-web = { path = "../ctx-web" }
 ctx-where = { path = "../ctx-where" }
+rayon = "1"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
