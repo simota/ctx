@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -64,6 +65,195 @@ pub struct FileLogEntry {
     pub author_email: String,
     pub subject: String,
     pub date: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RepoLogEntry {
+    pub hash: String,
+    pub hash_full: String,
+    pub author: String,
+    pub author_email: String,
+    pub subject: String,
+    pub date: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommitFile {
+    /// One of "added" | "modified" | "deleted" (other git statuses map to
+    /// "modified" — the per-file commit diff renders them all the same way).
+    pub status: String,
+    pub path: String,
+}
+
+/// Recent repository-wide commit history (newest first), like `git log`.
+/// Returns at most `limit` entries plus a `truncated` flag that is true when
+/// more history exists beyond the window. Empty (and not truncated) on an
+/// unborn branch.
+pub fn repo_log(repo_root: impl AsRef<Path>, limit: usize) -> Result<(Vec<RepoLogEntry>, bool)> {
+    let git_dir = git_dir(repo_root.as_ref());
+    if read_head_oid(&git_dir)?.is_none() {
+        return Ok((Vec::new(), false));
+    }
+
+    // One extra row tells us whether the history is truncated.
+    let probe = limit.saturating_add(1);
+    let n = format!("-n{probe}");
+    // \x1f (unit separator) cannot appear in a hash/email/timestamp and is
+    // stripped from subjects by git's %s (first line only), so it is a safe
+    // field delimiter — far safer than whitespace for author names.
+    let output = git_output(
+        &git_dir,
+        &[
+            "log",
+            "--no-color",
+            &n,
+            "--format=%H\x1f%h\x1f%an\x1f%ae\x1f%ct\x1f%s",
+        ],
+    )?;
+    let text = String::from_utf8_lossy(&output);
+
+    let mut entries = Vec::with_capacity(limit.min(probe));
+    for line in text.lines() {
+        if line.is_empty() {
+            continue;
+        }
+        let mut fields = line.splitn(6, '\x1f');
+        let hash_full = fields.next().unwrap_or("").to_string();
+        let hash = fields.next().unwrap_or("").to_string();
+        let author = truncate_chars(fields.next().unwrap_or(""), MAX_AUTHOR_RUNES);
+        let author_email = truncate_chars(fields.next().unwrap_or(""), MAX_AUTHOR_RUNES);
+        let date = fields
+            .next()
+            .unwrap_or("")
+            .trim()
+            .parse::<i64>()
+            .unwrap_or(0);
+        let subject = truncate_chars(fields.next().unwrap_or(""), MAX_SUBJECT_RUNES);
+        if hash_full.is_empty() {
+            continue;
+        }
+        entries.push(RepoLogEntry {
+            hash,
+            hash_full,
+            author,
+            author_email,
+            subject,
+            date,
+        });
+    }
+
+    let truncated = entries.len() > limit;
+    if truncated {
+        entries.truncate(limit);
+    }
+    Ok((entries, truncated))
+}
+
+/// Files changed by a single commit (`git diff-tree` against its first
+/// parent; a root commit reports every file as "added"). Renames are not
+/// detected — a rename surfaces as a delete + add so each `path` resolves
+/// cleanly through [`commit_diff`] with `from = "<hash>^"`.
+pub fn commit_files(repo_root: impl AsRef<Path>, hash: &str) -> Result<Vec<CommitFile>> {
+    if hash.is_empty() {
+        return Err(GitError::new("hash is required"));
+    }
+    let git_dir = git_dir(repo_root.as_ref());
+    let output = git_output(
+        &git_dir,
+        &[
+            "-c",
+            "core.quotepath=false",
+            "diff-tree",
+            "--no-commit-id",
+            "--name-status",
+            "--no-renames",
+            "-r",
+            "--root",
+            hash,
+        ],
+    )?;
+    let text = String::from_utf8_lossy(&output);
+
+    let mut files = Vec::new();
+    for line in text.lines() {
+        let mut parts = line.splitn(2, '\t');
+        let Some(status_raw) = parts.next() else {
+            continue;
+        };
+        let Some(path) = parts.next() else {
+            continue;
+        };
+        if status_raw.is_empty() || path.is_empty() {
+            continue;
+        }
+        let status = match status_raw.chars().next() {
+            Some('A') => "added",
+            Some('D') => "deleted",
+            _ => "modified",
+        };
+        files.push(CommitFile {
+            status: status.to_string(),
+            path: path.to_string(),
+        });
+    }
+    Ok(files)
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ChurnStat {
+    /// Number of commits that touched this path within the window.
+    pub commits: u32,
+    /// Unix timestamp (committer time) of the most recent touching commit.
+    pub last_commit_time: i64,
+}
+
+/// Per-file change frequency and most-recent commit time derived from
+/// `git log`. Keys are repo-relative, '/'-separated paths matching the
+/// worktree layout (`core.quotepath=false` keeps non-ASCII names literal).
+/// `since` (a git approxidate such as `"90d"` or an ISO date) windows the
+/// log when `Some`; `None` walks the full history. Returns an empty map on
+/// an unborn branch (no commits yet).
+pub fn file_churn(
+    repo_root: impl AsRef<Path>,
+    since: Option<&str>,
+) -> Result<HashMap<String, ChurnStat>> {
+    let git_dir = git_dir(repo_root.as_ref());
+    if read_head_oid(&git_dir)?.is_none() {
+        return Ok(HashMap::new());
+    }
+
+    let mut args: Vec<String> = vec![
+        "-c".into(),
+        "core.quotepath=false".into(),
+        "log".into(),
+        "--no-renames".into(),
+        "--name-only".into(),
+        "--format=%x00%ct".into(),
+    ];
+    if let Some(since) = since.filter(|s| !s.is_empty()) {
+        args.push(format!("--since={since}"));
+    }
+    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let output = git_output(&git_dir, &arg_refs)?;
+    let text = String::from_utf8_lossy(&output);
+
+    let mut churn: HashMap<String, ChurnStat> = HashMap::new();
+    let mut commit_time = 0i64;
+    for line in text.lines() {
+        if let Some(rest) = line.strip_prefix('\0') {
+            commit_time = rest.trim().parse::<i64>().unwrap_or(0);
+            continue;
+        }
+        if line.is_empty() {
+            continue;
+        }
+        let entry = churn.entry(line.to_string()).or_default();
+        entry.commits = entry.commits.saturating_add(1);
+        if commit_time > entry.last_commit_time {
+            entry.last_commit_time = commit_time;
+        }
+    }
+    Ok(churn)
 }
 
 pub fn file_log(
@@ -1041,6 +1231,128 @@ mod tests {
         assert_eq!(diff.lines[0].text, "alpha");
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn file_churn_counts_commits_and_tracks_recency_per_path() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+
+        // hot.txt is touched by two commits, cold.txt by one.
+        fs::write(root.join("hot.txt"), "v1\n").expect("write hot");
+        fs::write(root.join("cold.txt"), "c1\n").expect("write cold");
+        commit_all(&root, "Add hot and cold", "2020-01-02T03:04:05+00:00");
+        fs::write(root.join("hot.txt"), "v2\n").expect("modify hot");
+        commit_all(&root, "Touch hot again", "2021-06-07T08:09:10+00:00");
+
+        let churn = file_churn(&root, None).expect("file churn");
+        assert_eq!(churn.get("hot.txt").map(|c| c.commits), Some(2));
+        assert_eq!(churn.get("cold.txt").map(|c| c.commits), Some(1));
+        // Most recent commit time wins (second commit's committer date).
+        let hot = churn.get("hot.txt").expect("hot stat");
+        assert_eq!(hot.last_commit_time, 1623053350);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn file_churn_empty_for_unborn_branch() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+
+        let churn = file_churn(&root, None).expect("file churn");
+        assert!(churn.is_empty());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn repo_log_returns_recent_commits_newest_first_with_truncation() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("a.txt"), "1\n").expect("write a");
+        commit_all(&root, "first commit", "2020-01-02T03:04:05+00:00");
+        fs::write(root.join("b.txt"), "2\n").expect("write b");
+        commit_all(&root, "second commit", "2021-06-07T08:09:10+00:00");
+
+        let (all, truncated) = repo_log(&root, 50).expect("repo log");
+        assert_eq!(all.len(), 2);
+        assert!(!truncated);
+        assert_eq!(all[0].subject, "second commit");
+        assert_eq!(all[1].subject, "first commit");
+        assert_eq!(all[0].date, 1623053350);
+        assert_eq!(all[0].hash.len(), all[0].hash.len().min(12)); // short hash
+        assert!(all[0].hash_full.starts_with(&all[0].hash));
+
+        let (one, truncated) = repo_log(&root, 1).expect("repo log limit 1");
+        assert_eq!(one.len(), 1);
+        assert!(truncated);
+        assert_eq!(one[0].subject, "second commit");
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn commit_files_lists_changed_paths_with_status() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("keep.txt"), "1\n").expect("write keep");
+        fs::write(root.join("gone.txt"), "x\n").expect("write gone");
+        commit_all(&root, "root commit", "2020-01-02T03:04:05+00:00");
+        fs::write(root.join("keep.txt"), "2\n").expect("modify keep");
+        fs::remove_file(root.join("gone.txt")).expect("rm gone");
+        fs::write(root.join("new.txt"), "n\n").expect("write new");
+        commit_all(&root, "second", "2021-06-07T08:09:10+00:00");
+
+        let head = git_capture(&root, &["rev-parse", "HEAD"]);
+        let files = commit_files(&root, head.trim()).expect("commit files");
+        let by_path: std::collections::HashMap<&str, &str> = files
+            .iter()
+            .map(|f| (f.path.as_str(), f.status.as_str()))
+            .collect();
+        assert_eq!(by_path.get("keep.txt"), Some(&"modified"));
+        assert_eq!(by_path.get("gone.txt"), Some(&"deleted"));
+        assert_eq!(by_path.get("new.txt"), Some(&"added"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    fn git_capture(root: &Path, args: &[&str]) -> String {
+        let mut cmd = Command::new("git");
+        cmd.args(args).current_dir(root);
+        pin_git_env(&mut cmd);
+        let out = cmd.output().expect("git capture");
+        assert!(out.status.success(), "git {args:?}");
+        String::from_utf8_lossy(&out.stdout).into_owned()
+    }
+
+    fn commit_all(root: &Path, message: &str, date: &str) {
+        git(root, &["add", "-A"]);
+        let mut commit = Command::new("git");
+        commit
+            .args(["commit", "-q", "-m", message])
+            .current_dir(root);
+        pin_git_env(&mut commit);
+        commit
+            .env("GIT_AUTHOR_DATE", date)
+            .env("GIT_COMMITTER_DATE", date);
+        assert!(commit.status().expect("git commit").success());
     }
 
     fn unique_temp_dir() -> PathBuf {
