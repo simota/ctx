@@ -77,12 +77,17 @@ pub struct RepoLogEntry {
     pub date: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CommitFile {
     /// One of "added" | "modified" | "deleted" (other git statuses map to
     /// "modified" — the per-file commit diff renders them all the same way).
     pub status: String,
     pub path: String,
+    /// Lines added / removed by this file in the commit (git `--numstat`).
+    /// Both zero for a binary file (see `binary`).
+    pub additions: u32,
+    pub deletions: u32,
+    pub binary: bool,
 }
 
 /// Recent repository-wide commit history (newest first), like `git log`.
@@ -158,24 +163,57 @@ pub fn commit_files(repo_root: impl AsRef<Path>, hash: &str) -> Result<Vec<Commi
         return Err(GitError::new("hash is required"));
     }
     let git_dir = git_dir(repo_root.as_ref());
-    let output = git_output(
-        &git_dir,
-        &[
-            "-c",
-            "core.quotepath=false",
-            "diff-tree",
-            "--no-commit-id",
-            "--name-status",
-            "--no-renames",
-            "-r",
-            "--root",
-            hash,
-        ],
-    )?;
-    let text = String::from_utf8_lossy(&output);
+    let status_args = [
+        "-c",
+        "core.quotepath=false",
+        "diff-tree",
+        "--no-commit-id",
+        "--name-status",
+        "--no-renames",
+        "-r",
+        "--root",
+        hash,
+    ];
+    let status_out = git_output(&git_dir, &status_args)?;
+    let status_text = String::from_utf8_lossy(&status_out);
+
+    // `--numstat` gives `<additions>\t<deletions>\t<path>` per file (a binary
+    // file reports `-\t-\t<path>`). Run it alongside name-status and merge by
+    // path so each row carries both its A/M/D status and its +/- line counts.
+    let numstat_args = [
+        "-c",
+        "core.quotepath=false",
+        "diff-tree",
+        "--no-commit-id",
+        "--numstat",
+        "--no-renames",
+        "-r",
+        "--root",
+        hash,
+    ];
+    let numstat_out = git_output(&git_dir, &numstat_args)?;
+    let numstat_text = String::from_utf8_lossy(&numstat_out);
+    let mut stats: HashMap<String, (u32, u32, bool)> = HashMap::new();
+    for line in numstat_text.lines() {
+        let mut parts = line.splitn(3, '\t');
+        let Some(add_raw) = parts.next() else {
+            continue;
+        };
+        let Some(del_raw) = parts.next() else {
+            continue;
+        };
+        let Some(path) = parts.next() else { continue };
+        if path.is_empty() {
+            continue;
+        }
+        let binary = add_raw == "-" || del_raw == "-";
+        let additions = add_raw.parse::<u32>().unwrap_or(0);
+        let deletions = del_raw.parse::<u32>().unwrap_or(0);
+        stats.insert(path.to_string(), (additions, deletions, binary));
+    }
 
     let mut files = Vec::new();
-    for line in text.lines() {
+    for line in status_text.lines() {
         let mut parts = line.splitn(2, '\t');
         let Some(status_raw) = parts.next() else {
             continue;
@@ -191,9 +229,13 @@ pub fn commit_files(repo_root: impl AsRef<Path>, hash: &str) -> Result<Vec<Commi
             Some('D') => "deleted",
             _ => "modified",
         };
+        let (additions, deletions, binary) = stats.get(path).copied().unwrap_or((0, 0, false));
         files.push(CommitFile {
             status: status.to_string(),
             path: path.to_string(),
+            additions,
+            deletions,
+            binary,
         });
     }
     Ok(files)
@@ -1322,13 +1364,32 @@ mod tests {
 
         let head = git_capture(&root, &["rev-parse", "HEAD"]);
         let files = commit_files(&root, head.trim()).expect("commit files");
-        let by_path: std::collections::HashMap<&str, &str> = files
-            .iter()
-            .map(|f| (f.path.as_str(), f.status.as_str()))
-            .collect();
-        assert_eq!(by_path.get("keep.txt"), Some(&"modified"));
-        assert_eq!(by_path.get("gone.txt"), Some(&"deleted"));
-        assert_eq!(by_path.get("new.txt"), Some(&"added"));
+        let by_path: std::collections::HashMap<&str, &CommitFile> =
+            files.iter().map(|f| (f.path.as_str(), f)).collect();
+        assert_eq!(
+            by_path.get("keep.txt").map(|f| f.status.as_str()),
+            Some("modified")
+        );
+        assert_eq!(
+            by_path.get("gone.txt").map(|f| f.status.as_str()),
+            Some("deleted")
+        );
+        assert_eq!(
+            by_path.get("new.txt").map(|f| f.status.as_str()),
+            Some("added")
+        );
+        // numstat: keep.txt swaps one line (+1/-1), gone.txt drops one (-1),
+        // new.txt adds one (+1).
+        let keep = by_path.get("keep.txt").expect("keep stat");
+        assert_eq!((keep.additions, keep.deletions), (1, 1));
+        assert_eq!(
+            by_path.get("gone.txt").map(|f| (f.additions, f.deletions)),
+            Some((0, 1))
+        );
+        assert_eq!(
+            by_path.get("new.txt").map(|f| (f.additions, f.deletions)),
+            Some((1, 0))
+        );
 
         let _ = fs::remove_dir_all(root);
     }

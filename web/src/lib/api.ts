@@ -521,6 +521,9 @@ export type CommitFileStatus = 'added' | 'modified' | 'deleted';
 export interface CommitFileEntry {
   status: CommitFileStatus;
   path: string;
+  additions?: number;
+  deletions?: number;
+  binary?: boolean;
 }
 
 export interface CommitFilesResponse {

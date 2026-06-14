@@ -132,6 +132,12 @@ pub struct CommitFilesParams {
 struct CommitFileEntry {
     status: String,
     path: String,
+    #[serde(skip_serializing_if = "is_zero_u32")]
+    additions: u32,
+    #[serde(skip_serializing_if = "is_zero_u32")]
+    deletions: u32,
+    #[serde(skip_serializing_if = "is_false")]
+    binary: bool,
 }
 
 #[derive(Serialize)]
@@ -347,6 +353,9 @@ fn handle_commit_files_sync(state: AppState, params: CommitFilesParams) -> Respo
                     .map(|f| CommitFileEntry {
                         status: f.status,
                         path: f.path,
+                        additions: f.additions,
+                        deletions: f.deletions,
+                        binary: f.binary,
                     })
                     .collect(),
             },
@@ -437,6 +446,10 @@ fn is_false(value: &bool) -> bool {
 }
 
 fn is_zero(value: &i32) -> bool {
+    *value == 0
+}
+
+fn is_zero_u32(value: &u32) -> bool {
     *value == 0
 }
 

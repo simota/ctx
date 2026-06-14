@@ -6,11 +6,32 @@
     type CommitFileEntry,
     type GitDiffResponse,
   } from '../lib/api';
-  import { formatRelative } from '../lib/format';
+  import { formatRelative, langFromPath } from '../lib/format';
   import { findCommit, loadGitLog } from '../lib/gitlog.svelte';
   import { toFileHash, navigate } from '../lib/router.svelte';
+  import hljs from '../lib/highlight';
 
   let { hash = '' }: { hash?: string } = $props();
+
+  // Soft-wrap long diff lines (off by default = horizontal scroll, matching
+  // the file-detail diff view).
+  let wrap = $state(false);
+
+  // Syntax-highlight a single diff line for `path`'s language. Falls back to
+  // escaped plaintext when the language is unknown or hljs throws.
+  function hl(text: string, path: string): string {
+    const lang = langFromPath(path);
+    const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
+    try {
+      return hljs.highlight(text, { language, ignoreIllegals: true }).value;
+    } catch {
+      return escapeHtml(text);
+    }
+  }
+
+  function escapeHtml(s: string): string {
+    return s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
+  }
 
   let files = $state<CommitFileEntry[]>([]);
   let filesLoading = $state(false);
@@ -59,15 +80,8 @@
     };
   });
 
-  async function toggleFile(path: string): Promise<void> {
-    const next = new Set(openDiff);
-    if (next.has(path)) {
-      next.delete(path);
-      openDiff = next;
-      return;
-    }
-    next.add(path);
-    openDiff = next;
+  // Fetch a file's diff once (no-op if already loaded or errored).
+  async function loadDiff(path: string): Promise<void> {
     if (diffByPath[path] || diffError[path]) return;
     try {
       // `${hash}^` resolves to the first parent (root commit -> empty before).
@@ -82,6 +96,30 @@
             : 'Failed to load diff.',
       };
     }
+  }
+
+  function toggleFile(path: string): void {
+    const next = new Set(openDiff);
+    if (next.has(path)) {
+      next.delete(path);
+      openDiff = next;
+      return;
+    }
+    next.add(path);
+    openDiff = next;
+    void loadDiff(path);
+  }
+
+  // True once every changed file's diff is open.
+  let allOpen = $derived(files.length > 0 && files.every((f) => openDiff.has(f.path)));
+
+  function toggleAll(): void {
+    if (allOpen) {
+      openDiff = new Set();
+      return;
+    }
+    openDiff = new Set(files.map((f) => f.path));
+    for (const f of files) void loadDiff(f.path);
   }
 
   function statusGlyph(s: string): string {
@@ -116,7 +154,21 @@
     {:else if files.length === 0}
       <p class="muted note">No file changes in this commit.</p>
     {:else}
-      <p class="muted count">{files.length} file{files.length === 1 ? '' : 's'} changed</p>
+      <div class="files-head">
+        <p class="muted count">{files.length} file{files.length === 1 ? '' : 's'} changed</p>
+        <div class="head-actions">
+          <button
+            type="button"
+            class="all-toggle"
+            aria-pressed={allOpen}
+            onclick={toggleAll}
+          >{allOpen ? 'Collapse all' : 'Expand all'}</button>
+          <label class="wrap-toggle">
+            <input type="checkbox" bind:checked={wrap} />
+            <span>Wrap</span>
+          </label>
+        </div>
+      </div>
       <ul class="files" role="list">
         {#each files as f (f.path)}
           <li class="file">
@@ -131,6 +183,13 @@
                 <span class="twisty" aria-hidden="true">{openDiff.has(f.path) ? '▾' : '▸'}</span>
                 <span class="status status-{f.status}" title={f.status}>{statusGlyph(f.status)}</span>
                 <span class="path mono" title={f.path}>{f.path}</span>
+                {#if f.binary}
+                  <span class="stat binary">bin</span>
+                {:else if (f.additions ?? 0) > 0 || (f.deletions ?? 0) > 0}
+                  <span class="stat">
+                    {#if (f.additions ?? 0) > 0}<span class="add">+{f.additions}</span>{/if}{#if (f.deletions ?? 0) > 0}<span class="del">−{f.deletions}</span>{/if}
+                  </span>
+                {/if}
               </button>
               <button
                 type="button"
@@ -151,7 +210,7 @@
               {:else if diffByPath[f.path].no_change && !diffByPath[f.path].added && !diffByPath[f.path].deleted}
                 <p class="muted note">No textual changes.</p>
               {:else}
-                <pre class="diff"><code>{#if diffByPath[f.path].added}<div class="diff-meta">New file</div>{/if}{#if diffByPath[f.path].deleted}<div class="diff-meta">File deleted</div>{/if}{#each diffByPath[f.path].lines as ln (ln)}<div class="diff-line diff-{ln.type}"><span class="gutter" aria-hidden="true"><span class="g-old">{ln.old_num || ''}</span><span class="g-new">{ln.new_num || ''}</span><span class="g-sign">{ln.type === 'add' ? '+' : ln.type === 'del' ? '-' : ' '}</span></span><span class="ln-text">{ln.text || ' '}</span></div>{/each}{#if diffByPath[f.path].truncated}<div class="diff-meta">Diff truncated — use the CLI for the full diff.</div>{/if}</code></pre>
+                <pre class="diff" class:wrap><code class="hljs">{#if diffByPath[f.path].added}<div class="diff-meta">New file</div>{/if}{#if diffByPath[f.path].deleted}<div class="diff-meta">File deleted</div>{/if}{#each diffByPath[f.path].lines as ln (ln)}<div class="diff-line diff-{ln.type}"><span class="gutter" aria-hidden="true"><span class="g-old">{ln.old_num || ''}</span><span class="g-new">{ln.new_num || ''}</span><span class="g-sign">{ln.type === 'add' ? '+' : ln.type === 'del' ? '-' : ' '}</span></span><span class="ln-text">{@html hl(ln.text, f.path) || ' '}</span></div>{/each}{#if diffByPath[f.path].truncated}<div class="diff-meta">Diff truncated — use the CLI for the full diff.</div>{/if}</code></pre>
               {/if}
             {/if}
           </li>
@@ -203,9 +262,60 @@
     padding: 6px 0;
     font-size: 0.88em;
   }
+  .files-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 6px;
+  }
   .count {
     font-size: 0.82em;
-    margin: 0 0 6px;
+    margin: 0;
+  }
+  .head-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .all-toggle {
+    background: transparent;
+    border: 1px solid var(--ctx-border);
+    color: var(--ctx-fg-dim);
+    font-size: 0.76em;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .all-toggle:hover {
+    background: var(--ctx-bg-elev);
+    color: var(--ctx-fg);
+  }
+  .wrap-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.78em;
+    color: var(--ctx-fg-dim);
+    cursor: pointer;
+    user-select: none;
+  }
+  .stat {
+    flex: 0 0 auto;
+    display: inline-flex;
+    gap: 5px;
+    font-size: 0.76em;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .add {
+    color: var(--ctx-git-added);
+  }
+  .stat .del {
+    color: var(--ctx-git-deleted);
+  }
+  .stat.binary {
+    color: var(--ctx-fg-dim);
+    font-style: italic;
   }
   .files {
     list-style: none;
@@ -326,5 +436,16 @@
   }
   .ln-text {
     flex: 1 1 auto;
+  }
+  /* Wrap mode: long lines fold instead of overflowing horizontally. The
+     gutter stays fixed-width and the text column wraps within the row. */
+  .diff.wrap .diff-line {
+    white-space: pre-wrap;
+  }
+  .diff.wrap .ln-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    min-width: 0;
   }
 </style>
