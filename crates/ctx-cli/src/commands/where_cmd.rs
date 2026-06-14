@@ -7,7 +7,7 @@ use std::process::ExitCode;
 use rayon::prelude::*;
 
 use crate::common::*;
-use crate::gitignore::GitIgnore;
+use ctx_gitignore::GitIgnore;
 
 #[derive(Debug)]
 pub(crate) struct WhereArgs {

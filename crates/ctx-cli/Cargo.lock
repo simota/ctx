@@ -440,6 +440,7 @@ dependencies = [
  "ctx-echo",
  "ctx-focus",
  "ctx-git",
+ "ctx-gitignore",
  "ctx-heatmap",
  "ctx-mcp",
  "ctx-pack",
@@ -504,6 +505,13 @@ name = "ctx-git"
 version = "0.1.0"
 dependencies = [
  "miniz_oxide",
+]
+
+[[package]]
+name = "ctx-gitignore"
+version = "0.1.0"
+dependencies = [
+ "regex",
 ]
 
 [[package]]
@@ -635,6 +643,7 @@ dependencies = [
  "axum",
  "ctx-contract",
  "ctx-git",
+ "ctx-gitignore",
  "ctx-relations",
  "ctx-replay",
  "ctx-symbols",

@@ -28,7 +28,7 @@ struct IgnorePattern {
 }
 
 /// Mirrors Go's `GitIgnore`: an ordered list of compiled patterns.
-pub(crate) struct GitIgnore {
+pub struct GitIgnore {
     patterns: Vec<IgnorePattern>,
 }
 
@@ -111,7 +111,7 @@ fn get_pattern_from_line(line: &str) -> Option<(Regex, bool)> {
 
 impl GitIgnore {
     /// Port of Go's `CompileIgnoreLines`.
-    pub(crate) fn from_lines<I, S>(lines: I) -> Self
+    pub fn from_lines<I, S>(lines: I) -> Self
     where
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
@@ -126,7 +126,7 @@ impl GitIgnore {
     }
 
     /// Port of Go's `CompileIgnoreFile`.
-    pub(crate) fn from_file(path: &Path) -> Result<Self, String> {
+    pub fn from_file(path: &Path) -> Result<Self, String> {
         let body = std::fs::read_to_string(path)
             .map_err(|err| format!("read {}: {err}", path.display()))?;
         Ok(Self::from_lines(body.split('\n')))
@@ -134,7 +134,7 @@ impl GitIgnore {
 
     /// Port of Go's `CompileIgnoreFileAndLines`: file content first, then the
     /// extra lines (order matters for negation precedence).
-    pub(crate) fn from_file_and_lines(path: &Path, lines: &[String]) -> Result<Self, String> {
+    pub fn from_file_and_lines(path: &Path, lines: &[String]) -> Result<Self, String> {
         let body = std::fs::read_to_string(path)
             .map_err(|err| format!("read {}: {err}", path.display()))?;
         Ok(Self::from_lines(
@@ -144,7 +144,7 @@ impl GitIgnore {
 
     /// Port of Go's `MatchesPath`: later patterns win; a negated pattern only
     /// clears a match already established by an earlier pattern.
-    pub(crate) fn matches_path(&self, f: &str) -> bool {
+    pub fn matches_path(&self, f: &str) -> bool {
         // Go replaces the OS path separator with '/'; on Unix this is a no-op.
         let f = if std::path::MAIN_SEPARATOR == '/' {
             std::borrow::Cow::Borrowed(f)

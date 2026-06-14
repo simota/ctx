@@ -1,0 +1,14 @@
+[package]
+name = "ctx-gitignore"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Faithful Rust port of go-gitignore — shared .gitignore/.ctxignore matcher"
+license = "MIT"
+
+[lib]
+name = "ctx_gitignore"
+path = "src/lib.rs"
+
+[dependencies]
+regex = "1"

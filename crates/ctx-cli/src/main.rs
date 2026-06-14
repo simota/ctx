@@ -6,7 +6,6 @@ use clap::{Arg, ArgAction, Command as ClapCommand};
 
 mod commands;
 mod common;
-mod gitignore;
 mod tree;
 
 use crate::commands::audit::run_audit_verify;
