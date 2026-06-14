@@ -64,7 +64,7 @@
   import { openDefinitionPicker } from '../lib/definition-picker.svelte';
   import { openTab } from '../lib/tabs.svelte';
   import { theme } from '../lib/theme.svelte';
-  import { view } from '../lib/view.svelte';
+  import { view, toggleDiffContextOnly } from '../lib/view.svelte';
   import { panes, openRight, closeRight } from '../lib/panes.svelte';
   import SymbolList from './SymbolList.svelte';
   import TocList, { type TocEntry } from './TocList.svelte';
@@ -1057,6 +1057,47 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     return hunks;
   });
   let currentHunk = $state(0);
+
+  // Context lines kept on each side of a change when context-only folding is on.
+  const DIFF_CONTEXT = 3;
+
+  // Rendered diff rows. With `view.diffContextOnly` on, long runs of unchanged
+  // (`eq`) lines collapse to a single fold marker, keeping DIFF_CONTEXT lines
+  // around each change. Each line row carries its ORIGINAL index into
+  // diffLinesView so `data-diff-line` (and thus diffHunks scroll targets, which
+  // point at always-kept change lines) stays valid.
+  type DiffRow =
+    | { fold: true; count: number }
+    | { fold: false; idx: number; ln: (typeof diffLinesView)[number] };
+  let visibleDiffRows = $derived.by<DiffRow[]>(() => {
+    const lines = diffLinesView;
+    if (!view.diffContextOnly) {
+      return lines.map((ln, idx) => ({ fold: false, idx, ln }));
+    }
+    const n = lines.length;
+    const keep = new Array<boolean>(n).fill(false);
+    for (let i = 0; i < n; i++) {
+      if (lines[i].type !== 'eq') {
+        for (let j = Math.max(0, i - DIFF_CONTEXT); j <= Math.min(n - 1, i + DIFF_CONTEXT); j++) {
+          keep[j] = true;
+        }
+      }
+    }
+    const rows: DiffRow[] = [];
+    let i = 0;
+    while (i < n) {
+      if (keep[i]) {
+        rows.push({ fold: false, idx: i, ln: lines[i] });
+        i++;
+      } else {
+        let j = i;
+        while (j < n && !keep[j]) j++;
+        rows.push({ fold: true, count: j - i });
+        i = j;
+      }
+    }
+    return rows;
+  });
 
   // Reset and auto-scroll to the first hunk whenever a new diff lands.
   $effect(() => {
@@ -2162,6 +2203,16 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
             >›</button>
           </div>
         {/if}
+        {#if diffMode || historyMode}
+          <button
+            type="button"
+            class="action"
+            aria-pressed={view.diffContextOnly}
+            aria-label="Toggle diff context folding"
+            title={view.diffContextOnly ? 'Showing changes only — click to expand full file' : 'Showing full file — click to collapse unchanged lines'}
+            onclick={toggleDiffContextOnly}
+          >Context: {view.diffContextOnly ? 'changes' : 'full'}</button>
+        {/if}
         <button
           type="button"
           class="action"
@@ -2307,10 +2358,10 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
                     class="code diff"
                     class:wrap
                     bind:this={diffEl}
-                  ><code class="hljs language-{langFromPath(path)}">{#if commitDiffData.added}<div class="diff-meta">New file</div>{/if}{#if commitDiffData.deleted}<div class="diff-meta">File deleted</div>{/if}{#each diffLinesView as ln, li (li)}<div
-                        class="line diff-line diff-{ln.type}"
-                        data-diff-line={li}
-                      ><span class="gutter diff-gutter" aria-hidden="true"><span class="diff-old-num">{ln.oldNum || ''}</span><span class="diff-new-num">{ln.newNum || ''}</span><span class="diff-sign">{ln.type === 'add' ? '+' : ln.type === 'del' ? '-' : ' '}</span></span><span class="ln-content">{@html ln.html || '&nbsp;'}</span></div>{/each}{#if commitDiffData.truncated}<div class="diff-meta">Diff truncated.</div>{/if}</code></pre>
+                  ><code class="hljs language-{langFromPath(path)}">{#if commitDiffData.added}<div class="diff-meta">New file</div>{/if}{#if commitDiffData.deleted}<div class="diff-meta">File deleted</div>{/if}{#each visibleDiffRows as row, ri (ri)}{#if row.fold}<div class="diff-fold" aria-hidden="true">⋯ {row.count} unchanged line{row.count === 1 ? '' : 's'}</div>{:else}<div
+                        class="line diff-line diff-{row.ln.type}"
+                        data-diff-line={row.idx}
+                      ><span class="gutter diff-gutter" aria-hidden="true"><span class="diff-old-num">{row.ln.oldNum || ''}</span><span class="diff-new-num">{row.ln.newNum || ''}</span><span class="diff-sign">{row.ln.type === 'add' ? '+' : row.ln.type === 'del' ? '-' : ' '}</span></span><span class="ln-content">{@html row.ln.html || '&nbsp;'}</span></div>{/if}{/each}{#if commitDiffData.truncated}<div class="diff-meta">Diff truncated.</div>{/if}</code></pre>
                 {/if}
               </div>
             </div>
@@ -2339,10 +2390,10 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
               class="code diff"
               class:wrap
               bind:this={diffEl}
-            ><code class="hljs language-{langFromPath(diffData.path)}">{#if diffData.added}<div class="diff-meta">New file (no HEAD revision)</div>{/if}{#if diffData.deleted}<div class="diff-meta">File removed in worktree</div>{/if}{#each diffLinesView as ln, li (li)}<div
-                  class="line diff-line diff-{ln.type}"
-                  data-diff-line={li}
-                ><span class="gutter diff-gutter" aria-hidden="true"><span class="diff-old-num">{ln.oldNum || ''}</span><span class="diff-new-num">{ln.newNum || ''}</span><span class="diff-sign">{ln.type === 'add' ? '+' : ln.type === 'del' ? '-' : ' '}</span></span><span class="ln-content">{@html ln.html || '&nbsp;'}</span></div>{/each}{#if diffData.truncated}<div class="diff-meta">Diff truncated — use the CLI for the full diff.</div>{/if}</code></pre>
+            ><code class="hljs language-{langFromPath(diffData.path)}">{#if diffData.added}<div class="diff-meta">New file (no HEAD revision)</div>{/if}{#if diffData.deleted}<div class="diff-meta">File removed in worktree</div>{/if}{#each visibleDiffRows as row, ri (ri)}{#if row.fold}<div class="diff-fold" aria-hidden="true">⋯ {row.count} unchanged line{row.count === 1 ? '' : 's'}</div>{:else}<div
+                  class="line diff-line diff-{row.ln.type}"
+                  data-diff-line={row.idx}
+                ><span class="gutter diff-gutter" aria-hidden="true"><span class="diff-old-num">{row.ln.oldNum || ''}</span><span class="diff-new-num">{row.ln.newNum || ''}</span><span class="diff-sign">{row.ln.type === 'add' ? '+' : row.ln.type === 'del' ? '-' : ' '}</span></span><span class="ln-content">{@html row.ln.html || '&nbsp;'}</span></div>{/if}{/each}{#if diffData.truncated}<div class="diff-meta">Diff truncated — use the CLI for the full diff.</div>{/if}</code></pre>
           {/if}
         {/if}
       {:else if isPreviewable && previewView === 'rendered'}
@@ -2857,6 +2908,16 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
   }
   .diff-note {
     padding: 16px;
+  }
+  .code.diff .diff-fold {
+    padding: 2px 16px;
+    color: var(--ctx-fg-dim);
+    background: var(--ctx-bg-elev);
+    border-top: 1px solid var(--ctx-border);
+    border-bottom: 1px solid var(--ctx-border);
+    font-size: 11px;
+    user-select: none;
+    -webkit-user-select: none;
   }
   .hunk-nav {
     display: inline-flex;
