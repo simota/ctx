@@ -135,7 +135,7 @@ pub(crate) fn map_command(args: MapArgs) -> Result<(), String> {
             .map_err(|err| err.to_string())?
             .join(&args.root)
     };
-    let metrics = heatmap_metrics(&root)?;
+    let metrics = heatmap_metrics(&root, &args.by)?;
     let buckets = ctx_heatmap::top_n(
         ctx_heatmap::aggregate(
             &metrics,
@@ -218,16 +218,10 @@ pub(crate) fn map_command(args: MapArgs) -> Result<(), String> {
 
 pub(crate) fn validate_map_args(args: &MapArgs) -> Result<(), String> {
     match args.by.as_str() {
-        "tokens" | "files" | "symbols" => {}
-        "churn" => {
-            return Err(
-                "--by churn is not yet supported (requires git log history); use tokens, files, or symbols"
-                    .to_string(),
-            )
-        }
+        "tokens" | "files" | "symbols" | "churn" => {}
         other => {
             return Err(format!(
-                "unknown --by value {other:?} (allowed: tokens, files, symbols)"
+                "unknown --by value {other:?} (allowed: tokens, files, symbols, churn)"
             ))
         }
     }
@@ -286,7 +280,18 @@ pub(crate) fn map_walk_options(root: &Path) -> WalkIgnoreOptions {
     }
 }
 
-pub(crate) fn heatmap_metrics(root: &Path) -> Result<Vec<ctx_heatmap::FileMetric>, String> {
+pub(crate) fn heatmap_metrics(
+    root: &Path,
+    by: &str,
+) -> Result<Vec<ctx_heatmap::FileMetric>, String> {
+    // git-log churn is only computed for the churn axis — it shells out to
+    // `git log` over the whole history, which the token/symbol axes never
+    // need. An unborn branch or missing git yields an empty map (churn 0).
+    let churn = if by == "churn" {
+        ctx_git::file_churn(root, None).map_err(|err| format!("map --by churn: {err}"))?
+    } else {
+        std::collections::HashMap::new()
+    };
     let files = where_files_with(root, &map_walk_options(root))?;
     Ok(files
         .into_iter()
@@ -299,11 +304,13 @@ pub(crate) fn heatmap_metrics(root: &Path) -> Result<Vec<ctx_heatmap::FileMetric
             let symbols = ctx_symbols::extract(root.join(&fi.path))
                 .map(|syms| syms.len() as i64)
                 .unwrap_or(0);
+            let churn_commits = churn.get(&fi.path).map(|c| c.commits as i64).unwrap_or(0);
             ctx_heatmap::FileMetric {
                 path: fi.path,
                 is_dir: fi.is_dir,
                 tokens,
                 symbols,
+                churn: churn_commits,
             }
         })
         .collect())

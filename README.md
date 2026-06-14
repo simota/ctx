@@ -87,6 +87,7 @@ ctx where "session login" --format json | ctx pack --from-where --budget 30000 -
 ctx focus Pack --hops 1 --budget 8000
 ctx skim crates/ctx-cli/src/main.rs --budget 800
 ctx map --depth 2 --by tokens
+ctx map --depth 2 --by churn
 ctx digest --since 7d
 ctx noise --top 20
 ```
@@ -104,7 +105,7 @@ ctx noise --top 20
 | `ctx where` | 自然語クエリで関連ファイルを検索 |
 | `ctx focus` | シンボル起点の mini-pack を生成 |
 | `ctx skim` | 単一ファイルを予算内に縮約 |
-| `ctx map` | token / file / symbol の heatmap を表示 |
+| `ctx map` | token / file / symbol / churn の heatmap を表示 |
 | `ctx digest` | 最近の変更を要約 |
 | `ctx replay` | pack snapshot を管理 |
 | `ctx noise` | context noise 候補を検出 |

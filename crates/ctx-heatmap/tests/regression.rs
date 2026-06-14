@@ -4,8 +4,8 @@
 // and the edge cases discovered during the Phase 4 Tier 1 #2 port.
 
 use ctx_heatmap::{
-    aggregate, render_ascii, render_json, render_plain, squarify, AggregateOptions,
-    AsciiOptions, Bucket, FileMetric, JsonOptions, PlainOptions,
+    aggregate, render_ascii, render_json, render_plain, squarify, AggregateOptions, AsciiOptions,
+    Bucket, FileMetric, JsonOptions, PlainOptions,
 };
 
 fn metric(path: &str, tokens: i64, symbols: i64) -> FileMetric {
@@ -14,6 +14,7 @@ fn metric(path: &str, tokens: i64, symbols: i64) -> FileMetric {
         is_dir: false,
         tokens,
         symbols,
+        churn: 0,
     }
 }
 
@@ -36,8 +37,10 @@ fn aggregate_tokens_by_depth_matches_go() {
             top: 0,
         },
     );
-    let by_path: std::collections::HashMap<&str, i64> =
-        buckets.iter().map(|b| (b.path.as_str(), b.tokens)).collect();
+    let by_path: std::collections::HashMap<&str, i64> = buckets
+        .iter()
+        .map(|b| (b.path.as_str(), b.tokens))
+        .collect();
     assert_eq!(by_path.get("internal/cli"), Some(&1500));
     assert_eq!(by_path.get("internal/walk"), Some(&300));
     assert_eq!(by_path.get("cmd/ctx"), Some(&100));
@@ -123,10 +126,26 @@ fn aggregate_drops_zero_weight_buckets() {
 #[test]
 fn squarify_area_conservation() {
     let buckets = vec![
-        Bucket { path: "a".into(), weight: 50.0, ..Default::default() },
-        Bucket { path: "b".into(), weight: 30.0, ..Default::default() },
-        Bucket { path: "c".into(), weight: 15.0, ..Default::default() },
-        Bucket { path: "d".into(), weight: 5.0, ..Default::default() },
+        Bucket {
+            path: "a".into(),
+            weight: 50.0,
+            ..Default::default()
+        },
+        Bucket {
+            path: "b".into(),
+            weight: 30.0,
+            ..Default::default()
+        },
+        Bucket {
+            path: "c".into(),
+            weight: 15.0,
+            ..Default::default()
+        },
+        Bucket {
+            path: "d".into(),
+            weight: 5.0,
+            ..Default::default()
+        },
     ];
     let (w, h) = (80, 20);
     let rects = squarify(&buckets, w, h);
@@ -152,10 +171,26 @@ fn squarify_area_conservation() {
 #[test]
 fn squarify_aspect_ratio_reasonable() {
     let buckets = vec![
-        Bucket { path: "a".into(), weight: 40.0, ..Default::default() },
-        Bucket { path: "b".into(), weight: 30.0, ..Default::default() },
-        Bucket { path: "c".into(), weight: 20.0, ..Default::default() },
-        Bucket { path: "d".into(), weight: 10.0, ..Default::default() },
+        Bucket {
+            path: "a".into(),
+            weight: 40.0,
+            ..Default::default()
+        },
+        Bucket {
+            path: "b".into(),
+            weight: 30.0,
+            ..Default::default()
+        },
+        Bucket {
+            path: "c".into(),
+            weight: 20.0,
+            ..Default::default()
+        },
+        Bucket {
+            path: "d".into(),
+            weight: 10.0,
+            ..Default::default()
+        },
     ];
     let rects = squarify(&buckets, 60, 20);
     for r in &rects {
@@ -173,14 +208,26 @@ fn squarify_aspect_ratio_reasonable() {
 #[test]
 fn squarify_empty_and_degenerate() {
     assert!(squarify(&[], 80, 20).is_empty());
-    assert!(
-        squarify(&[Bucket { path: "a".into(), weight: 1.0, ..Default::default() }], 0, 20)
-            .is_empty()
-    );
-    assert!(
-        squarify(&[Bucket { path: "a".into(), weight: 0.0, ..Default::default() }], 80, 20)
-            .is_empty()
-    );
+    assert!(squarify(
+        &[Bucket {
+            path: "a".into(),
+            weight: 1.0,
+            ..Default::default()
+        }],
+        0,
+        20
+    )
+    .is_empty());
+    assert!(squarify(
+        &[Bucket {
+            path: "a".into(),
+            weight: 0.0,
+            ..Default::default()
+        }],
+        80,
+        20
+    )
+    .is_empty());
 }
 
 // ----- mirrors TestRenderASCII_HeaderAndCellLabels ------------------------
@@ -188,8 +235,22 @@ fn squarify_empty_and_degenerate() {
 #[test]
 fn render_ascii_header_and_labels() {
     let buckets = vec![
-        Bucket { path: "internal/cli".into(), weight: 60.0, tokens: 6000, files: 11, symbols: 31 },
-        Bucket { path: "internal/walk".into(), weight: 40.0, tokens: 4000, files: 4, symbols: 12 },
+        Bucket {
+            path: "internal/cli".into(),
+            weight: 60.0,
+            tokens: 6000,
+            files: 11,
+            symbols: 31,
+            churn: 0,
+        },
+        Bucket {
+            path: "internal/walk".into(),
+            weight: 40.0,
+            tokens: 4000,
+            files: 4,
+            symbols: 12,
+            churn: 0,
+        },
     ];
     let rects = squarify(&buckets, 60, 10);
     let out = render_ascii(
@@ -203,7 +264,10 @@ fn render_ascii_header_and_labels() {
         },
     );
 
-    assert!(out.contains("Heatmap (by tokens, root=., total=10,000 tokens)"), "{out}");
+    assert!(
+        out.contains("Heatmap (by tokens, root=., total=10,000 tokens)"),
+        "{out}"
+    );
     for want in ["internal/cli", "internal/walk"] {
         assert!(out.contains(want), "missing {want} in {out}");
     }
@@ -218,8 +282,22 @@ fn render_ascii_header_and_labels() {
 #[test]
 fn render_ascii_budget_legend_and_over() {
     let buckets = vec![
-        Bucket { path: "small".into(), weight: 100.0, tokens: 100, files: 1, symbols: 1 },
-        Bucket { path: "big".into(), weight: 900.0, tokens: 900, files: 1, symbols: 1 },
+        Bucket {
+            path: "small".into(),
+            weight: 100.0,
+            tokens: 100,
+            files: 1,
+            symbols: 1,
+            churn: 0,
+        },
+        Bucket {
+            path: "big".into(),
+            weight: 900.0,
+            tokens: 900,
+            files: 1,
+            symbols: 1,
+            churn: 0,
+        },
     ];
     let rects = squarify(&buckets, 60, 10);
     let out = render_ascii(
@@ -241,8 +319,22 @@ fn render_ascii_budget_legend_and_over() {
 #[test]
 fn render_json_shape_and_in_budget() {
     let buckets = vec![
-        Bucket { path: "a".into(), weight: 100.0, tokens: 100, files: 2, symbols: 5 },
-        Bucket { path: "b".into(), weight: 50.0, tokens: 50, files: 1, symbols: 2 },
+        Bucket {
+            path: "a".into(),
+            weight: 100.0,
+            tokens: 100,
+            files: 2,
+            symbols: 5,
+            churn: 0,
+        },
+        Bucket {
+            path: "b".into(),
+            weight: 50.0,
+            tokens: 50,
+            files: 1,
+            symbols: 2,
+            churn: 0,
+        },
     ];
     let rects = squarify(&buckets, 80, 20);
     let bytes = render_json(
@@ -271,8 +363,22 @@ fn render_json_shape_and_in_budget() {
 #[test]
 fn render_plain_format_and_ordering() {
     let buckets = vec![
-        Bucket { path: "internal/web".into(), weight: 8420.0, tokens: 8420, files: 14, symbols: 87 },
-        Bucket { path: "internal/cli".into(), weight: 2890.0, tokens: 2890, files: 11, symbols: 31 },
+        Bucket {
+            path: "internal/web".into(),
+            weight: 8420.0,
+            tokens: 8420,
+            files: 14,
+            symbols: 87,
+            churn: 0,
+        },
+        Bucket {
+            path: "internal/cli".into(),
+            weight: 2890.0,
+            tokens: 2890,
+            files: 11,
+            symbols: 31,
+            churn: 0,
+        },
     ];
     let out = render_plain(
         &buckets,
@@ -282,7 +388,10 @@ fn render_plain_format_and_ordering() {
             budget: 0,
         },
     );
-    assert!(out.starts_with("Heatmap (by tokens, root=., total=11,310 tokens)\n"), "{out}");
+    assert!(
+        out.starts_with("Heatmap (by tokens, root=., total=11,310 tokens)\n"),
+        "{out}"
+    );
     for want in [
         "1. internal/web \u{2014} 8,420 tokens (14 files, 87 symbols).\n",
         "2. internal/cli \u{2014} 2,890 tokens (11 files, 31 symbols).\n",
@@ -298,8 +407,22 @@ fn render_plain_format_and_ordering() {
 #[test]
 fn render_plain_budget_tagging() {
     let buckets = vec![
-        Bucket { path: "small".into(), weight: 100.0, tokens: 100, files: 1, symbols: 1 },
-        Bucket { path: "big".into(), weight: 900.0, tokens: 900, files: 1, symbols: 1 },
+        Bucket {
+            path: "small".into(),
+            weight: 100.0,
+            tokens: 100,
+            files: 1,
+            symbols: 1,
+            churn: 0,
+        },
+        Bucket {
+            path: "big".into(),
+            weight: 900.0,
+            tokens: 900,
+            files: 1,
+            symbols: 1,
+            churn: 0,
+        },
     ];
     let out = render_plain(
         &buckets,
@@ -318,9 +441,21 @@ fn render_plain_budget_tagging() {
 #[test]
 fn top_n_semantics() {
     let buckets = vec![
-        Bucket { path: "a".into(), weight: 10.0, ..Default::default() },
-        Bucket { path: "b".into(), weight: 5.0, ..Default::default() },
-        Bucket { path: "c".into(), weight: 1.0, ..Default::default() },
+        Bucket {
+            path: "a".into(),
+            weight: 10.0,
+            ..Default::default()
+        },
+        Bucket {
+            path: "b".into(),
+            weight: 5.0,
+            ..Default::default()
+        },
+        Bucket {
+            path: "c".into(),
+            weight: 1.0,
+            ..Default::default()
+        },
     ];
     let t2 = ctx_heatmap::top_n(buckets.clone(), 2);
     assert_eq!(t2.len(), 2);
@@ -342,6 +477,7 @@ fn directory_paths_skipped() {
             is_dir: true,
             tokens: 0,
             symbols: 0,
+            churn: 0,
         },
         metric("internal/cli/a.go", 100, 1),
     ];

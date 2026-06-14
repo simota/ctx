@@ -19,22 +19,23 @@ pub fn aggregate(files: &[FileMetric], opts: &AggregateOptions) -> Vec<Bucket> {
     // BTreeMap so traversal order is stable; the final sort still drives
     // tie-break order, but starting from a stable insertion order makes
     // the per-bucket accumulator deterministic.
-    let mut groups: BTreeMap<String, (i64, i64, i64)> = BTreeMap::new();
+    let mut groups: BTreeMap<String, (i64, i64, i64, i64)> = BTreeMap::new();
 
     for fi in files {
         if fi.is_dir {
             continue;
         }
         let key = truncate_path(&fi.path, depth);
-        let entry = groups.entry(key).or_insert((0, 0, 0));
+        let entry = groups.entry(key).or_insert((0, 0, 0, 0));
         entry.0 += fi.tokens;
         entry.1 += 1;
         entry.2 += fi.symbols;
+        entry.3 += fi.churn;
     }
 
     let mut buckets: Vec<Bucket> = Vec::with_capacity(groups.len());
-    for (path, (tokens, files_cnt, symbols)) in groups.into_iter() {
-        let weight = weight_for(&opts.by, tokens, files_cnt, symbols);
+    for (path, (tokens, files_cnt, symbols, churn)) in groups.into_iter() {
+        let weight = weight_for(&opts.by, tokens, files_cnt, symbols, churn);
         if weight <= 0.0 {
             continue;
         }
@@ -43,6 +44,7 @@ pub fn aggregate(files: &[FileMetric], opts: &AggregateOptions) -> Vec<Bucket> {
             tokens,
             files: files_cnt,
             symbols,
+            churn,
             weight,
         });
     }
@@ -118,10 +120,11 @@ fn parent_dir(path: &str) -> String {
 
 /// weight_for maps the user-facing `--by` axis to the numeric weight
 /// that drives squarify. Unknown axes degrade to tokens (matches Go).
-pub fn weight_for(by: &str, tokens: i64, files: i64, symbols: i64) -> f64 {
+pub fn weight_for(by: &str, tokens: i64, files: i64, symbols: i64, churn: i64) -> f64 {
     match by {
         "files" => files as f64,
         "symbols" => symbols as f64,
+        "churn" => churn as f64,
         // "tokens", "", or anything else.
         _ => tokens as f64,
     }
@@ -160,7 +163,40 @@ mod tests {
             is_dir: false,
             tokens,
             symbols,
+            churn: 0,
         }
+    }
+
+    fn metric_churn(path: &str, churn: i64) -> FileMetric {
+        FileMetric {
+            path: path.into(),
+            is_dir: false,
+            tokens: 0,
+            symbols: 0,
+            churn,
+        }
+    }
+
+    #[test]
+    fn aggregate_churn_axis_sizes_by_commit_count() {
+        let files = vec![
+            metric_churn("internal/hot/a.go", 30),
+            metric_churn("internal/hot/b.go", 12),
+            metric_churn("internal/cold/x.go", 1),
+        ];
+        let buckets = aggregate(
+            &files,
+            &AggregateOptions {
+                by: "churn".into(),
+                depth: 2,
+                top: 0,
+            },
+        );
+        assert_eq!(buckets[0].path, "internal/hot");
+        assert_eq!(buckets[0].churn, 42);
+        assert_eq!(buckets[0].weight, 42.0);
+        // cold dir survives (churn > 0) but ranks last.
+        assert_eq!(buckets.last().unwrap().path, "internal/cold");
     }
 
     #[test]
@@ -180,8 +216,10 @@ mod tests {
                 top: 0,
             },
         );
-        let by_path: std::collections::HashMap<&str, i64> =
-            buckets.iter().map(|b| (b.path.as_str(), b.tokens)).collect();
+        let by_path: std::collections::HashMap<&str, i64> = buckets
+            .iter()
+            .map(|b| (b.path.as_str(), b.tokens))
+            .collect();
         assert_eq!(by_path.get("internal/cli"), Some(&1500));
         assert_eq!(by_path.get("internal/walk"), Some(&300));
         assert_eq!(by_path.get("cmd/ctx"), Some(&100));
@@ -257,9 +295,21 @@ mod tests {
     #[test]
     fn top_n_bounds() {
         let buckets = vec![
-            Bucket { path: "a".into(), weight: 10.0, ..Default::default() },
-            Bucket { path: "b".into(), weight: 5.0, ..Default::default() },
-            Bucket { path: "c".into(), weight: 1.0, ..Default::default() },
+            Bucket {
+                path: "a".into(),
+                weight: 10.0,
+                ..Default::default()
+            },
+            Bucket {
+                path: "b".into(),
+                weight: 5.0,
+                ..Default::default()
+            },
+            Bucket {
+                path: "c".into(),
+                weight: 1.0,
+                ..Default::default()
+            },
         ];
         let t = top_n(buckets.clone(), 2);
         assert_eq!(t.len(), 2);

@@ -22,6 +22,11 @@ pub struct FileMetric {
     /// Number of symbols extracted from this file (Go's len(Metadata.Symbols)).
     #[serde(default)]
     pub symbols: i64,
+    /// Number of commits that touched this file (git-log churn). Absent from
+    /// the Go FFI contract, so it defaults to 0 — only the Rust `map --by
+    /// churn` path populates it.
+    #[serde(default)]
+    pub churn: i64,
 }
 
 /// AggregateOptions controls the per-call aggregation. `by` selects the
@@ -72,8 +77,18 @@ pub struct Bucket {
     pub files: i64,
     #[serde(rename = "Symbols")]
     pub symbols: i64,
+    /// git-log churn (commit count) summed over the bucket. Skipped when
+    /// zero so the tokens/files/symbols axes ship byte-identical JSON to the
+    /// Go parity goldens (Go's Bucket has no Churn field); only the
+    /// churn axis — which has no Go golden — emits the key.
+    #[serde(rename = "Churn", default, skip_serializing_if = "is_zero_i64")]
+    pub churn: i64,
     #[serde(rename = "Weight", serialize_with = "ser_weight")]
     pub weight: f64,
+}
+
+fn is_zero_i64(v: &i64) -> bool {
+    *v == 0
 }
 
 /// ser_weight matches Go's `encoding/json` float64 output: integer-

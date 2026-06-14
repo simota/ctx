@@ -439,6 +439,7 @@ dependencies = [
  "ctx-contract",
  "ctx-echo",
  "ctx-focus",
+ "ctx-git",
  "ctx-heatmap",
  "ctx-mcp",
  "ctx-pack",
