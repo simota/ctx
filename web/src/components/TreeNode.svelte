@@ -6,6 +6,7 @@
   import { openContextMenu, type ContextMenuItem } from '../lib/context-menu.svelte';
   import { announce } from '../lib/announce.svelte';
   import { repo, absolutePath } from '../lib/repo.svelte';
+  import { view } from '../lib/view.svelte';
 
   let {
     node,
@@ -63,8 +64,10 @@
       return gs ? `${base}, contains ${gs}` : base;
     }
     const parts: string[] = [name];
-    if (node.tokens !== undefined && node.tokens > 0) {
-      parts.push(`${node.tokens} tokens`);
+    if (view.showTokens) {
+      if (node.tokens !== undefined && node.tokens > 0) parts.push(`${node.tokens} tokens`);
+    } else if (node.lines !== undefined && node.lines > 0) {
+      parts.push(`${node.lines} lines`);
     }
     const gs = gitStatusName(node.git);
     if (gs) parts.push(gs);
@@ -164,12 +167,16 @@
       >{rel}</span>
     {/if}
   {/if}
-  {#if node.tokens !== undefined && node.tokens > 0}
-    <span
-      class="tokens muted"
-      aria-hidden="true"
-      title="Approx LLM tokens (cl100k_base). Claude Pro caps at ~200k per request."
-    >{formatTokens(node.tokens)}</span>
+  {#if view.showTokens}
+    {#if node.tokens !== undefined && node.tokens > 0}
+      <span
+        class="tokens muted"
+        aria-hidden="true"
+        title="Approx LLM tokens (cl100k_base). Claude Pro caps at ~200k per request."
+      >{formatTokens(node.tokens)}</span>
+    {/if}
+  {:else if !node.is_dir && node.lines !== undefined && node.lines > 0}
+    <span class="tokens muted" aria-hidden="true" title="Line count">{node.lines} L</span>
   {/if}
 </li>
 
