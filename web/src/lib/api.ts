@@ -501,6 +501,38 @@ export function fetchFileCommitDiff(
 }
 
 // ---------------------------------------------------------------------------
+// git log — repository-wide commit history (newest first). Reuses the
+// FileLogEntry shape (the server emits the same fields); `truncated` signals
+// more history exists beyond the requested window.
+// ---------------------------------------------------------------------------
+
+export interface RepoLogResponse {
+  commits: FileLogEntry[];
+  truncated: boolean;
+}
+
+export function fetchGitLog(limit?: number): Promise<RepoLogResponse> {
+  return getJSON<RepoLogResponse>(`/api/git/log${qs({ limit })}`);
+}
+
+// git commit files — paths changed by a single commit, with status.
+export type CommitFileStatus = 'added' | 'modified' | 'deleted';
+
+export interface CommitFileEntry {
+  status: CommitFileStatus;
+  path: string;
+}
+
+export interface CommitFilesResponse {
+  hash: string;
+  files: CommitFileEntry[];
+}
+
+export function fetchCommitFiles(hash: string): Promise<CommitFilesResponse> {
+  return getJSON<CommitFilesResponse>(`/api/git/commit-files${qs({ hash })}`);
+}
+
+// ---------------------------------------------------------------------------
 // replay snapshots — mirror Go `replay.Manifest` + list summary.
 // ---------------------------------------------------------------------------
 

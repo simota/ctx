@@ -15,7 +15,7 @@
 // round-trip correctly. Snapshot ids are opaque strings (no slashes expected,
 // but we treat the suffix as the full id for forward compatibility).
 
-export type RouteName = 'tree' | 'file' | 'dir' | 'search' | 'budget' | 'replay' | 'mixdowns';
+export type RouteName = 'tree' | 'file' | 'dir' | 'search' | 'budget' | 'replay' | 'mixdowns' | 'gitlog';
 export type FileViewMode = 'diff' | 'history';
 
 export interface Route {
@@ -161,6 +161,19 @@ function parse(rawHash: string): Route {
   if (p === 'mixdowns') {
     return { name: 'mixdowns', path: '', query: '', openPaths: [], rightPath: '' };
   }
+  if (p === 'gitlog') {
+    return { name: 'gitlog', path: '', query: '', openPaths: [], rightPath: '' };
+  }
+  if (p.startsWith('gitlog/')) {
+    // path segment is the selected commit's full hash (opaque, no slashes).
+    return {
+      name: 'gitlog',
+      path: decodeURIComponent(p.slice('gitlog/'.length)),
+      query: '',
+      openPaths: [],
+      rightPath: '',
+    };
+  }
   // unknown -> fallback to tree
   return { name: 'tree', path: '', query: '', openPaths: [], rightPath: '' };
 }
@@ -274,6 +287,11 @@ export function toReplayHash(id?: string): string {
 
 export function toMixdownsHash(): string {
   return '#/mixdowns';
+}
+
+export function toGitLogHash(hash?: string): string {
+  if (!hash) return '#/gitlog';
+  return `#/gitlog/${encodeURIComponent(hash)}`;
 }
 
 export interface DirHashOpts {

@@ -33,7 +33,12 @@ pub fn build(state: AppState) -> Router {
             get(handlers::evidence::handle_verify).post(handlers::evidence::handle_verify),
         )
         .route("/api/git/diff", get(handlers::git::handle_diff))
+        .route("/api/git/log", get(handlers::git::handle_repo_log))
         .route("/api/git/file-log", get(handlers::git::handle_file_log))
+        .route(
+            "/api/git/commit-files",
+            get(handlers::git::handle_commit_files),
+        )
         .route(
             "/api/git/commit-diff",
             get(handlers::git::handle_commit_diff),

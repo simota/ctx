@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { route, navigate, toTreeHash, toBudgetHash, toReplayHash, toFileHash, toMixdownsHash } from './lib/router.svelte';
+  import { route, navigate, toTreeHash, toBudgetHash, toReplayHash, toFileHash, toMixdownsHash, toGitLogHash } from './lib/router.svelte';
   import ThemePicker from './components/ThemePicker.svelte';
   import { openFinder } from './lib/finder.svelte';
   import TreeView from './components/TreeView.svelte';
@@ -20,6 +20,8 @@
   import TabBar from './components/TabBar.svelte';
   import BounceDialog from './components/BounceDialog.svelte';
   import MixdownsPanel from './components/MixdownsPanel.svelte';
+  import GitLogList from './components/GitLogList.svelte';
+  import GitCommitDetail from './components/GitCommitDetail.svelte';
   import PaneSplitter from './components/PaneSplitter.svelte';
   import { announceState, announce } from './lib/announce.svelte';
   import { toggleCheatsheet, cheatsheet } from './lib/cheatsheet.svelte';
@@ -40,12 +42,13 @@
   let selectedPath = $derived(route.name === 'file' ? route.path : '');
   let searchQuery = $derived(route.name === 'search' ? route.query : '');
 
-  let rightTab: 'file' | 'search' | 'budget' | 'replay' | 'dir' | 'mixdowns' = $derived.by(() => {
+  let rightTab: 'file' | 'search' | 'budget' | 'replay' | 'dir' | 'mixdowns' | 'gitlog' = $derived.by(() => {
     if (route.name === 'search') return 'search';
     if (route.name === 'budget') return 'budget';
     if (route.name === 'replay') return 'replay';
     if (route.name === 'dir') return 'dir';
     if (route.name === 'mixdowns') return 'mixdowns';
+    if (route.name === 'gitlog') return 'gitlog';
     return 'file';
   });
 
@@ -424,6 +427,11 @@
         class:active={route.name === 'mixdowns'}
         onclick={(e) => { e.preventDefault(); navigate(toMixdownsHash()); }}
       >Mixdowns</a>
+      <a
+        href={toGitLogHash()}
+        class:active={route.name === 'gitlog'}
+        onclick={(e) => { e.preventDefault(); navigate(toGitLogHash()); }}
+      >Git Log</a>
       <button
         type="button"
         class="topnav-action"
@@ -457,8 +465,12 @@
     </nav>
   </header>
 
-  <main class="content" class:two-pane={twoPane} class:no-tree={!view.showTree}>
-    {#if view.showTree}
+  <main class="content" class:two-pane={twoPane} class:no-tree={!view.showTree && route.name !== 'gitlog'}>
+    {#if route.name === 'gitlog'}
+      <aside class="pane left" aria-label="git log commits">
+        <GitLogList />
+      </aside>
+    {:else if view.showTree}
       <aside class="pane left" aria-label="file tree">
         <TreeView selectedPath={selectedPath} />
       </aside>
@@ -476,6 +488,8 @@
           <DirOverview path={route.path} />
         {:else if rightTab === 'mixdowns'}
           <MixdownsPanel />
+        {:else if rightTab === 'gitlog'}
+          <GitCommitDetail hash={route.path} />
         {/if}
       </section>
     {:else if !selectedPath}

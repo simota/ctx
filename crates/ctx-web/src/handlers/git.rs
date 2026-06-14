@@ -110,6 +110,36 @@ struct FileLogResponse {
     truncated: bool,
 }
 
+#[derive(Deserialize)]
+pub struct RepoLogParams {
+    #[serde(default)]
+    limit: String,
+}
+
+#[derive(Serialize)]
+struct RepoLogResponse {
+    commits: Vec<FileLogEntry>,
+    truncated: bool,
+}
+
+#[derive(Deserialize)]
+pub struct CommitFilesParams {
+    #[serde(default)]
+    hash: String,
+}
+
+#[derive(Serialize)]
+struct CommitFileEntry {
+    status: String,
+    path: String,
+}
+
+#[derive(Serialize)]
+struct CommitFilesResponse {
+    hash: String,
+    files: Vec<CommitFileEntry>,
+}
+
 pub async fn handle_diff(
     State(state): State<AppState>,
     Query(params): Query<GitDiffParams>,
@@ -256,6 +286,79 @@ fn handle_file_log_sync(state: AppState, params: FileLogParams) -> Response {
     }
 }
 
+pub async fn handle_repo_log(
+    State(state): State<AppState>,
+    Query(params): Query<RepoLogParams>,
+) -> Response {
+    crate::blocking::run(move || handle_repo_log_sync(state, params)).await
+}
+
+fn handle_repo_log_sync(state: AppState, params: RepoLogParams) -> Response {
+    let git_root = git_root_only(&state.root);
+    let mut limit = params.limit.parse::<i32>().unwrap_or(50);
+    limit = limit.clamp(1, 200);
+
+    match ctx_git::repo_log(&git_root, limit as usize) {
+        Ok((entries, truncated)) => response::json(
+            StatusCode::OK,
+            &RepoLogResponse {
+                commits: entries
+                    .into_iter()
+                    .map(|entry| FileLogEntry {
+                        hash: entry.hash,
+                        hash_full: entry.hash_full,
+                        author: entry.author,
+                        author_email: entry.author_email,
+                        subject: entry.subject,
+                        date: entry.date,
+                    })
+                    .collect(),
+                truncated,
+            },
+        ),
+        Err(err) => response::error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "git_log",
+            &err.to_string(),
+        ),
+    }
+}
+
+pub async fn handle_commit_files(
+    State(state): State<AppState>,
+    Query(params): Query<CommitFilesParams>,
+) -> Response {
+    crate::blocking::run(move || handle_commit_files_sync(state, params)).await
+}
+
+fn handle_commit_files_sync(state: AppState, params: CommitFilesParams) -> Response {
+    if params.hash.is_empty() {
+        return response::error(StatusCode::BAD_REQUEST, "bad_request", "hash is required");
+    }
+    let git_root = git_root_only(&state.root);
+
+    match ctx_git::commit_files(&git_root, &params.hash) {
+        Ok(files) => response::json(
+            StatusCode::OK,
+            &CommitFilesResponse {
+                hash: params.hash,
+                files: files
+                    .into_iter()
+                    .map(|f| CommitFileEntry {
+                        status: f.status,
+                        path: f.path,
+                    })
+                    .collect(),
+            },
+        ),
+        Err(err) => response::error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "git_commit_files",
+            &err.to_string(),
+        ),
+    }
+}
+
 pub async fn handle_commit_diff(
     State(state): State<AppState>,
     Query(params): Query<CommitDiffParams>,
@@ -345,6 +448,15 @@ fn relative_to_root(root: &str, target: &Path) -> String {
         .unwrap_or(target)
         .to_string_lossy()
         .replace(std::path::MAIN_SEPARATOR, "/")
+}
+
+/// Resolve the enclosing git repository root for repo-level queries (log,
+/// commit files) that have no per-file target. Falls back to the served root
+/// when the served directory is not inside a git repo — `ctx_git` then reports
+/// an empty history rather than erroring.
+fn git_root_only(root: &str) -> PathBuf {
+    let served_root = crate::handlers::file::canonical_root(root);
+    find_git_root(&served_root).unwrap_or(served_root)
 }
 
 fn git_context(root: &str, target: &Path, fallback_rel_slash: &str) -> (PathBuf, String) {
