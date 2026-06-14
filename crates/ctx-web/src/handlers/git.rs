@@ -101,6 +101,10 @@ struct FileLogEntry {
     author_email: String,
     subject: String,
     date: i64,
+    /// Parent full-hashes — populated for repo-level log (drives the commit
+    /// graph), empty (and omitted) for the file-scoped log.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    parents: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -331,6 +335,7 @@ fn handle_file_log_sync(state: AppState, params: FileLogParams) -> Response {
                         author_email: entry.author_email,
                         subject: entry.subject,
                         date: entry.date,
+                        parents: Vec::new(),
                     })
                     .collect(),
                 truncated,
@@ -369,6 +374,7 @@ fn handle_repo_log_sync(state: AppState, params: RepoLogParams) -> Response {
                         author_email: entry.author_email,
                         subject: entry.subject,
                         date: entry.date,
+                        parents: entry.parents,
                     })
                     .collect(),
                 truncated,

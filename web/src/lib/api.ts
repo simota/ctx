@@ -478,6 +478,7 @@ export interface FileLogEntry {
   author_email: string;
   subject: string;
   date: number;       // unix seconds
+  parents?: string[]; // parent full-hashes (repo log only; drives the graph)
 }
 
 export interface FileLogResponse {

@@ -75,6 +75,9 @@ pub struct RepoLogEntry {
     pub author_email: String,
     pub subject: String,
     pub date: i64,
+    /// Full hashes of this commit's parents (1 for a normal commit, 2+ for a
+    /// merge, 0 for the root). Drives the commit-graph lane rendering.
+    pub parents: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -314,7 +317,7 @@ pub fn repo_log(repo_root: impl AsRef<Path>, limit: usize) -> Result<(Vec<RepoLo
             "log",
             "--no-color",
             &n,
-            "--format=%H\x1f%h\x1f%an\x1f%ae\x1f%ct\x1f%s",
+            "--format=%H\x1f%h\x1f%an\x1f%ae\x1f%ct\x1f%P\x1f%s",
         ],
     )?;
     let text = String::from_utf8_lossy(&output);
@@ -324,7 +327,7 @@ pub fn repo_log(repo_root: impl AsRef<Path>, limit: usize) -> Result<(Vec<RepoLo
         if line.is_empty() {
             continue;
         }
-        let mut fields = line.splitn(6, '\x1f');
+        let mut fields = line.splitn(7, '\x1f');
         let hash_full = fields.next().unwrap_or("").to_string();
         let hash = fields.next().unwrap_or("").to_string();
         let author = truncate_chars(fields.next().unwrap_or(""), MAX_AUTHOR_RUNES);
@@ -335,6 +338,12 @@ pub fn repo_log(repo_root: impl AsRef<Path>, limit: usize) -> Result<(Vec<RepoLo
             .trim()
             .parse::<i64>()
             .unwrap_or(0);
+        let parents = fields
+            .next()
+            .unwrap_or("")
+            .split_whitespace()
+            .map(str::to_string)
+            .collect();
         let subject = truncate_chars(fields.next().unwrap_or(""), MAX_SUBJECT_RUNES);
         if hash_full.is_empty() {
             continue;
@@ -346,6 +355,7 @@ pub fn repo_log(repo_root: impl AsRef<Path>, limit: usize) -> Result<(Vec<RepoLo
             author_email,
             subject,
             date,
+            parents,
         });
     }
 
@@ -1539,6 +1549,9 @@ mod tests {
         assert_eq!(all[0].date, 1623053350);
         assert_eq!(all[0].hash.len(), all[0].hash.len().min(12)); // short hash
         assert!(all[0].hash_full.starts_with(&all[0].hash));
+        // "second commit"'s single parent is "first commit"; the root has none.
+        assert_eq!(all[0].parents, vec![all[1].hash_full.clone()]);
+        assert!(all[1].parents.is_empty());
 
         let (one, truncated) = repo_log(&root, 1).expect("repo log limit 1");
         assert_eq!(one.len(), 1);

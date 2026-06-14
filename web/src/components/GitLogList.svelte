@@ -3,13 +3,39 @@
   import { announce } from '../lib/announce.svelte';
   import { route, navigate, toGitLogHash } from '../lib/router.svelte';
   import { gitlog, loadGitLog } from '../lib/gitlog.svelte';
+  import { computeGraph, type GraphEdge } from '../lib/git-graph';
 
   const LIMIT = 100;
+  const ROW_H = 46; // fixed row height so graph rails align across rows
+  const LANE_W = 14;
+  const PALETTE = ['#4e9cf6', '#36b37e', '#f2b53d', '#e35d6a', '#9d7be8', '#46c4d4', '#e8884a', '#8bbf4a'];
 
   let commits = $derived(gitlog.commits);
   let truncated = $derived(gitlog.truncated);
   let loading = $derived(gitlog.loading);
   let error = $derived(gitlog.error);
+
+  let graph = $derived(computeGraph(commits));
+  let graphWidth = $derived(
+    (graph.length ? Math.max(...graph.map((r) => r.width)) : 1) * LANE_W,
+  );
+
+  function laneX(lane: number): number {
+    return lane * LANE_W + LANE_W / 2;
+  }
+  function laneColor(i: number): string {
+    return PALETTE[((i % PALETTE.length) + PALETTE.length) % PALETTE.length];
+  }
+  // Straight line for a same-lane rail; a smooth elbow when lanes differ.
+  function edgePath(e: GraphEdge): string {
+    const x1 = laneX(e.fromLane);
+    const y1 = e.fromY * ROW_H;
+    const x2 = laneX(e.toLane);
+    const y2 = e.toY * ROW_H;
+    if (x1 === x2) return `M${x1} ${y1} L${x2} ${y2}`;
+    const my = (y1 + y2) / 2;
+    return `M${x1} ${y1} C${x1} ${my} ${x2} ${my} ${x2} ${y2}`;
+  }
 
   $effect(() => {
     void loadGitLog(LIMIT);
@@ -46,19 +72,43 @@
     <p class="muted note">No commit history.</p>
   {:else}
     <ul role="list">
-      {#each commits as c (c.hash_full)}
-        <li>
+      {#each commits as c, i (c.hash_full)}
+        <li
+          class="row-wrap"
+          class:active={route.path === c.hash_full}
+          style="height: {ROW_H}px"
+        >
+          <svg
+            class="graph"
+            width={graphWidth}
+            height={ROW_H}
+            viewBox="0 0 {graphWidth} {ROW_H}"
+            aria-hidden="true"
+          >
+            {#each graph[i]?.edges ?? [] as e (`${e.fromLane}-${e.fromY}-${e.toLane}-${e.toY}`)}
+              <path d={edgePath(e)} stroke={laneColor(e.color)} stroke-width="1.5" fill="none" />
+            {/each}
+            {#if graph[i]}
+              <circle
+                cx={laneX(graph[i].dotLane)}
+                cy={ROW_H / 2}
+                r="4"
+                fill={laneColor(graph[i].dotColor)}
+                stroke="var(--ctx-bg-panel, var(--ctx-bg))"
+                stroke-width="1.5"
+              />
+            {/if}
+          </svg>
           <button
             type="button"
             class="row"
-            class:active={route.path === c.hash_full}
             aria-current={route.path === c.hash_full ? 'true' : undefined}
             onclick={() => select(c.hash_full)}
           >
             <span class="subject" title={c.subject}>{c.subject}</span>
             <span class="meta">
               <span class="author" title={c.author}>{c.author}</span>
-              <span class="dot" aria-hidden="true">·</span>
+              <span class="sep" aria-hidden="true">·</span>
               <span class="date" title={new Date(c.date * 1000).toISOString()}>{formatRelative(c.date)}</span>
               <span class="hash mono">{c.hash}</span>
             </span>
@@ -115,25 +165,35 @@
     margin: 0;
     padding: 0;
   }
+  .row-wrap {
+    display: flex;
+    align-items: stretch;
+    border-left: 2px solid transparent;
+  }
+  .row-wrap:hover {
+    background: var(--ctx-bg-elev);
+  }
+  .row-wrap.active {
+    background: var(--ctx-bg-elev);
+    border-left-color: var(--ctx-accent);
+  }
+  .graph {
+    flex: 0 0 auto;
+    display: block;
+  }
   .row {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    width: 100%;
+    justify-content: center;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
     text-align: left;
     background: transparent;
     border: 0;
-    border-left: 2px solid transparent;
     color: var(--ctx-fg);
-    padding: 7px 12px;
+    padding: 4px 12px 4px 4px;
     cursor: pointer;
-  }
-  .row:hover {
-    background: var(--ctx-bg-elev);
-  }
-  .row.active {
-    background: var(--ctx-bg-elev);
-    border-left-color: var(--ctx-accent);
   }
   .subject {
     overflow: hidden;
