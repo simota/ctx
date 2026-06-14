@@ -9,6 +9,7 @@
     name: string;
     lines: number;
     size: number;
+    ext: string;
   }
 
   // Minimum-line-count filter presets. `0` means "no filter / all files".
@@ -34,6 +35,16 @@
   // Whether to honor the repo's root `.gitignore` (exclude ignored files).
   // Default on — most users expect ignored/generated files left out.
   let respectGitignore = $state(true);
+  // Extension filter: selected extensions (OR-combined). Empty = all.
+  let selectedExts = $state<string[]>([]);
+  // Path filter: case-insensitive substring match against the full path.
+  let pathQuery = $state('');
+
+  function extOf(path: string): string {
+    const base = path.slice(path.lastIndexOf('/') + 1).toLowerCase();
+    const dot = base.lastIndexOf('.');
+    return dot > 0 ? base.slice(dot + 1) : '';
+  }
 
   function flatten(node: TreeNode, out: FileRow[]): void {
     if (node.is_dir) {
@@ -44,6 +55,7 @@
         name: node.name,
         lines: node.lines ?? 0,
         size: node.size ?? 0,
+        ext: extOf(node.path),
       });
     }
   }
@@ -76,11 +88,34 @@
     load(respectGitignore);
   });
 
+  // Extension options with counts, sorted by frequency then name. Drives the
+  // toggle chips; recomputed from the loaded set (post-gitignore).
+  let extOptions = $derived.by<{ ext: string; count: number }[]>(() => {
+    const counts = new Map<string, number>();
+    for (const f of allFiles) counts.set(f.ext, (counts.get(f.ext) ?? 0) + 1);
+    return [...counts.entries()]
+      .map(([ext, count]) => ({ ext, count }))
+      .sort((a, b) => b.count - a.count || a.ext.localeCompare(b.ext));
+  });
+
   // Ranked + filtered view. Already sorted desc at load time, so filtering
-  // preserves order.
-  let filtered = $derived.by<FileRow[]>(() =>
-    minLines > 0 ? allFiles.filter((f) => f.lines >= minLines) : allFiles,
-  );
+  // preserves order. Combines: min-lines, extension (OR), and path substring.
+  let filtered = $derived.by<FileRow[]>(() => {
+    const q = pathQuery.trim().toLowerCase();
+    const exts = selectedExts;
+    return allFiles.filter(
+      (f) =>
+        (minLines === 0 || f.lines >= minLines) &&
+        (exts.length === 0 || exts.includes(f.ext)) &&
+        (q === '' || f.path.toLowerCase().includes(q)),
+    );
+  });
+
+  function toggleExt(ext: string): void {
+    selectedExts = selectedExts.includes(ext)
+      ? selectedExts.filter((e) => e !== ext)
+      : [...selectedExts, ext];
+  }
   let visible = $derived.by<FileRow[]>(() => filtered.slice(0, RENDER_CAP));
   // Largest line count in the *unfiltered* set drives the relative bar width so
   // bars stay comparable as the filter changes.
@@ -144,6 +179,37 @@
     </label>
   </div>
 
+  <div class="filter" role="group" aria-label="Filter by path and extension">
+    <label class="path-field">
+      <span class="filter-label">Path</span>
+      <input
+        type="search"
+        class="path-input"
+        placeholder="substring, e.g. crates/ctx-web"
+        aria-label="Filter by path substring"
+        value={pathQuery}
+        oninput={(e) => (pathQuery = (e.currentTarget as HTMLInputElement).value)}
+      />
+    </label>
+    {#if extOptions.length > 0}
+      <span class="filter-label">Ext</span>
+      <div class="ext-chips" role="group" aria-label="Filter by extension">
+        {#each extOptions as opt (opt.ext)}
+          <button
+            type="button"
+            class="preset ext-chip"
+            class:active={selectedExts.includes(opt.ext)}
+            aria-pressed={selectedExts.includes(opt.ext)}
+            onclick={() => toggleExt(opt.ext)}
+          >.{opt.ext} <span class="ext-count">{opt.count}</span></button>
+        {/each}
+      </div>
+      {#if selectedExts.length > 0}
+        <button type="button" class="clear-ext" onclick={() => (selectedExts = [])}>Clear</button>
+      {/if}
+    {/if}
+  </div>
+
   {#if loading && allFiles.length === 0}
     <div class="loading" aria-busy="true">
       <span class="skel" style="width: 50%; height: 14px;"></span>
@@ -158,14 +224,15 @@
     </div>
   {:else}
     <div class="result-meta muted">
-      {#if minLines > 0}
-        {filtered.length} of {allFiles.length} source files ≥ {minLines} lines
-      {:else}
+      {#if filtered.length === allFiles.length}
         {allFiles.length} source files
+      {:else}
+        {filtered.length} of {allFiles.length} source files
       {/if}
-      {#if filtered.length > RENDER_CAP}
-        <span> · showing top {RENDER_CAP}</span>
-      {/if}
+      {#if minLines > 0}<span> · ≥ {minLines} lines</span>{/if}
+      {#if selectedExts.length > 0}<span> · {selectedExts.map((e) => `.${e}`).join(', ')}</span>{/if}
+      {#if pathQuery.trim()}<span> · path “{pathQuery.trim()}”</span>{/if}
+      {#if filtered.length > RENDER_CAP}<span> · showing top {RENDER_CAP}</span>{/if}
     </div>
 
     {#if filtered.length === 0}
@@ -300,6 +367,56 @@
   .gitignore-toggle input {
     margin: 0;
     cursor: pointer;
+  }
+  .path-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .path-input {
+    width: 220px;
+    max-width: 40vw;
+    border: 1px solid var(--ctx-border);
+    border-radius: 3px;
+    background: var(--ctx-bg);
+    color: var(--ctx-fg);
+    font: inherit;
+    font-size: 12px;
+    padding: 2px 6px;
+  }
+  .path-input:focus-visible {
+    outline: 2px solid var(--ctx-accent);
+    outline-offset: -1px;
+  }
+  .ext-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-width: 0;
+  }
+  .ext-chip {
+    font-variant-numeric: tabular-nums;
+  }
+  .ext-count {
+    opacity: 0.6;
+    font-size: 10px;
+    margin-left: 1px;
+  }
+  .ext-chip.active .ext-count {
+    opacity: 0.85;
+  }
+  .clear-ext {
+    border: 0;
+    background: transparent;
+    color: var(--ctx-accent);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 4px;
+  }
+  .clear-ext:hover {
+    text-decoration: underline;
   }
 
   .result-meta {
