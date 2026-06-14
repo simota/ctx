@@ -233,7 +233,7 @@
     display: block;
   }
   .name {
-    grid-column: 5;
+    grid-column: 4;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -242,18 +242,18 @@
     color: var(--ctx-link);
   }
   .git {
-    grid-column: 6;
+    grid-column: 5;
     font-weight: 600;
     padding-right: 6px;
   }
   .updated {
-    grid-column: 7;
+    grid-column: 6;
     font-size: 11px;
     color: var(--ctx-muted-fg, var(--ctx-fg-dim));
     padding-right: 4px;
   }
   .tokens {
-    grid-column: 8;
+    grid-column: 7;
     font-size: 11px;
     color: var(--ctx-fg-dim);
   }
