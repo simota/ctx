@@ -2,28 +2,33 @@
   import {
     fetchBranches,
     fetchWorktrees,
+    fetchTags,
     ApiCallError,
     type BranchEntry,
     type WorktreeEntry,
+    type TagEntry,
   } from '../lib/api';
-  import { basename } from '../lib/format';
+  import { basename, formatRelative } from '../lib/format';
 
   let branches = $state<BranchEntry[]>([]);
   let worktrees = $state<WorktreeEntry[]>([]);
+  let tags = $state<TagEntry[]>([]);
   let error = $state<string | null>(null);
 
   let branchesOpen = $state(false);
   let worktreesOpen = $state(false);
+  let tagsOpen = $state(false);
 
   let current = $derived(branches.find((b) => b.current));
 
   $effect(() => {
     let cancelled = false;
-    Promise.all([fetchBranches(), fetchWorktrees()])
-      .then(([b, w]) => {
+    Promise.all([fetchBranches(), fetchWorktrees(), fetchTags()])
+      .then(([b, w, t]) => {
         if (cancelled) return;
         branches = b.branches;
         worktrees = w.worktrees;
+        tags = t.tags;
       })
       .catch((e) => {
         if (cancelled) return;
@@ -33,6 +38,13 @@
       cancelled = true;
     };
   });
+
+  function aheadBehind(b: BranchEntry): string {
+    const parts: string[] = [];
+    if (b.ahead) parts.push(`↑${b.ahead}`);
+    if (b.behind) parts.push(`↓${b.behind}`);
+    return parts.join(' ');
+  }
 
   function worktreeLabel(w: WorktreeEntry): string {
     if (w.bare) return 'bare';
@@ -58,10 +70,37 @@
         </summary>
         <ul role="list">
           {#each branches as b (b.name)}
-            <li class="ref-row" class:active={b.current}>
+            <li class="ref-row branch" class:active={b.current} title={b.subject}>
               <span class="dot" class:on={b.current} aria-hidden="true"></span>
-              <span class="name mono" title={b.name}>{b.name}</span>
+              <span class="name mono">{b.name}</span>
+              {#if aheadBehind(b)}
+                <span class="ab" title={`${b.ahead ?? 0} ahead / ${b.behind ?? 0} behind HEAD`}>{aheadBehind(b)}</span>
+              {/if}
+              {#if b.date}
+                <span class="when" title={new Date(b.date * 1000).toISOString()}>{formatRelative(b.date)}</span>
+              {/if}
               <span class="hash mono">{b.hash}</span>
+            </li>
+          {/each}
+        </ul>
+      </details>
+    {/if}
+
+    {#if tags.length > 0}
+      <details class="group" bind:open={tagsOpen}>
+        <summary>
+          <span class="twisty" aria-hidden="true">{tagsOpen ? '▾' : '▸'}</span>
+          Tags <span class="muted count">({tags.length})</span>
+        </summary>
+        <ul role="list">
+          {#each tags as t (t.name)}
+            <li class="ref-row">
+              <span class="tag-icon" aria-hidden="true">🏷</span>
+              <span class="name mono" title={t.name}>{t.name}</span>
+              {#if t.date}
+                <span class="when" title={new Date(t.date * 1000).toISOString()}>{formatRelative(t.date)}</span>
+              {/if}
+              <span class="hash mono">{t.hash}</span>
             </li>
           {/each}
         </ul>
@@ -180,6 +219,28 @@
     flex: 0 0 auto;
     color: var(--ctx-accent);
     font-size: 0.92em;
+  }
+  .ab {
+    flex: 0 0 auto;
+    font-size: 0.88em;
+    color: var(--ctx-fg-dim);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .when {
+    flex: 0 0 auto;
+    font-size: 0.85em;
+    color: var(--ctx-fg-dim);
+    white-space: nowrap;
+  }
+  .tag-icon {
+    flex: 0 0 auto;
+    font-size: 0.85em;
+  }
+  /* On branch rows the name yields space first so the hash/date/ahead-behind
+     stay visible. */
+  .ref-row.branch .name {
+    flex: 1 1 auto;
   }
   .wt-branch {
     flex: 0 0 auto;

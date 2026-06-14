@@ -134,11 +134,32 @@ struct BranchEntry {
     hash: String,
     #[serde(skip_serializing_if = "is_false")]
     current: bool,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    subject: String,
+    #[serde(skip_serializing_if = "is_zero_i64")]
+    date: i64,
+    #[serde(skip_serializing_if = "is_zero_u32")]
+    ahead: u32,
+    #[serde(skip_serializing_if = "is_zero_u32")]
+    behind: u32,
 }
 
 #[derive(Serialize)]
 struct BranchesResponse {
     branches: Vec<BranchEntry>,
+}
+
+#[derive(Serialize)]
+struct TagEntry {
+    name: String,
+    hash: String,
+    #[serde(skip_serializing_if = "is_zero_i64")]
+    date: i64,
+}
+
+#[derive(Serialize)]
+struct TagsResponse {
+    tags: Vec<TagEntry>,
 }
 
 #[derive(Serialize)]
@@ -377,6 +398,10 @@ fn handle_branches_sync(state: AppState) -> Response {
                         name: b.name,
                         hash: b.hash,
                         current: b.current,
+                        subject: b.subject,
+                        date: b.date,
+                        ahead: b.ahead,
+                        behind: b.behind,
                     })
                     .collect(),
             },
@@ -384,6 +409,34 @@ fn handle_branches_sync(state: AppState) -> Response {
         Err(err) => response::error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "git_branches",
+            &err.to_string(),
+        ),
+    }
+}
+
+pub async fn handle_tags(State(state): State<AppState>) -> Response {
+    crate::blocking::run(move || handle_tags_sync(state)).await
+}
+
+fn handle_tags_sync(state: AppState) -> Response {
+    let git_root = git_root_only(&state.root);
+    match ctx_git::tags(&git_root) {
+        Ok(list) => response::json(
+            StatusCode::OK,
+            &TagsResponse {
+                tags: list
+                    .into_iter()
+                    .map(|t| TagEntry {
+                        name: t.name,
+                        hash: t.hash,
+                        date: t.date,
+                    })
+                    .collect(),
+            },
+        ),
+        Err(err) => response::error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "git_tags",
             &err.to_string(),
         ),
     }
@@ -539,6 +592,10 @@ fn is_zero(value: &i32) -> bool {
 }
 
 fn is_zero_u32(value: &u32) -> bool {
+    *value == 0
+}
+
+fn is_zero_i64(value: &i64) -> bool {
     *value == 0
 }
 

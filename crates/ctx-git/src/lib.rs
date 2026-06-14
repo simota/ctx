@@ -84,6 +84,24 @@ pub struct Branch {
     pub hash: String,
     /// True for the branch HEAD currently points at.
     pub current: bool,
+    /// Subject of the branch's tip commit (first line).
+    pub subject: String,
+    /// Committer time (unix seconds) of the tip commit.
+    pub date: i64,
+    /// Commits this branch is ahead / behind the checked-out HEAD. Both zero
+    /// when even, when the branch is HEAD, or when git is too old to report
+    /// `ahead-behind` (best-effort — never breaks the listing).
+    pub ahead: u32,
+    pub behind: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Tag {
+    pub name: String,
+    pub hash: String,
+    /// Creator time (unix seconds) — tag date for annotated tags, commit date
+    /// for lightweight tags.
+    pub date: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,8 +115,9 @@ pub struct Worktree {
     pub detached: bool,
 }
 
-/// Local branches (`refs/heads`), each with its short target oid and a flag
-/// for the branch HEAD points at. Empty on an unborn branch / no branches.
+/// Local branches (`refs/heads`), each with its tip oid, subject, date, the
+/// HEAD flag, and best-effort ahead/behind counts vs the checked-out HEAD.
+/// Empty on an unborn branch / no branches.
 pub fn branches(repo_root: impl AsRef<Path>) -> Result<Vec<Branch>> {
     let git_dir = git_dir(repo_root.as_ref());
     let output = git_output(
@@ -107,8 +126,83 @@ pub fn branches(repo_root: impl AsRef<Path>) -> Result<Vec<Branch>> {
             "-c",
             "core.quotepath=false",
             "for-each-ref",
-            "--format=%(refname:short)\x1f%(objectname:short)\x1f%(HEAD)",
+            "--format=%(refname:short)\x1f%(objectname:short)\x1f%(HEAD)\x1f%(committerdate:unix)\x1f%(contents:subject)",
             "refs/heads",
+        ],
+    )?;
+    let text = String::from_utf8_lossy(&output);
+    let mut out = Vec::new();
+    for line in text.lines() {
+        let mut fields = line.splitn(5, '\x1f');
+        let Some(name) = fields.next() else { continue };
+        if name.is_empty() {
+            continue;
+        }
+        let hash = fields.next().unwrap_or("").to_string();
+        // `%(HEAD)` is "*" for the checked-out branch, " " otherwise.
+        let current = fields.next().unwrap_or("").trim() == "*";
+        let date = fields
+            .next()
+            .unwrap_or("")
+            .trim()
+            .parse::<i64>()
+            .unwrap_or(0);
+        let subject = truncate_chars(fields.next().unwrap_or(""), MAX_SUBJECT_RUNES);
+        out.push(Branch {
+            name: name.to_string(),
+            hash,
+            current,
+            subject,
+            date,
+            ahead: 0,
+            behind: 0,
+        });
+    }
+
+    // Best-effort ahead/behind in a separate call: the `ahead-behind` atom
+    // needs git 2.41+, so an older git fails this command — we then leave the
+    // counts at zero rather than breaking the whole listing.
+    if let Ok(ab_out) = git_output(
+        &git_dir,
+        &[
+            "for-each-ref",
+            "--format=%(refname:short)\x1f%(ahead-behind:HEAD)",
+            "refs/heads",
+        ],
+    ) {
+        let ab_text = String::from_utf8_lossy(&ab_out);
+        for line in ab_text.lines() {
+            let mut fields = line.splitn(2, '\x1f');
+            let Some(name) = fields.next() else { continue };
+            let counts = fields.next().unwrap_or("");
+            let mut nums = counts.split_whitespace();
+            let ahead = nums.next().and_then(|s| s.parse::<u32>().ok());
+            let behind = nums.next().and_then(|s| s.parse::<u32>().ok());
+            if let (Some(ahead), Some(behind)) = (ahead, behind) {
+                if let Some(b) = out.iter_mut().find(|b| b.name == name) {
+                    b.ahead = ahead;
+                    b.behind = behind;
+                }
+            }
+        }
+    }
+
+    Ok(out)
+}
+
+/// Tags (`refs/tags`), each with its short target oid and creator date,
+/// newest first. Empty when the repo has no tags.
+pub fn tags(repo_root: impl AsRef<Path>) -> Result<Vec<Tag>> {
+    let git_dir = git_dir(repo_root.as_ref());
+    let output = git_output(
+        &git_dir,
+        &[
+            "-c",
+            "core.quotepath=false",
+            "for-each-ref",
+            "--sort=-creatordate",
+            "--format=%(refname:short)\x1f%(objectname:short)\x1f%(creatordate:unix)",
+            "refs/tags",
         ],
     )?;
     let text = String::from_utf8_lossy(&output);
@@ -120,12 +214,16 @@ pub fn branches(repo_root: impl AsRef<Path>) -> Result<Vec<Branch>> {
             continue;
         }
         let hash = fields.next().unwrap_or("").to_string();
-        // `%(HEAD)` is "*" for the checked-out branch, " " otherwise.
-        let current = fields.next().unwrap_or("").trim() == "*";
-        out.push(Branch {
+        let date = fields
+            .next()
+            .unwrap_or("")
+            .trim()
+            .parse::<i64>()
+            .unwrap_or(0);
+        out.push(Tag {
             name: name.to_string(),
             hash,
-            current,
+            date,
         });
     }
     Ok(out)
@@ -1509,16 +1607,48 @@ mod tests {
         fs::write(root.join("a.txt"), "1\n").expect("write a");
         commit_all(&root, "init", "2020-01-02T03:04:05+00:00");
         git(&root, &["branch", "feature/x"]);
+        // feature/x is one commit behind main after another commit on main.
+        fs::write(root.join("b.txt"), "2\n").expect("write b");
+        commit_all(&root, "second", "2021-06-07T08:09:10+00:00");
 
         let list = branches(&root).expect("branches");
         let by_name: std::collections::HashMap<&str, &Branch> =
             list.iter().map(|b| (b.name.as_str(), b)).collect();
-        assert_eq!(by_name.get("main").map(|b| b.current), Some(true));
-        assert_eq!(by_name.get("feature/x").map(|b| b.current), Some(false));
-        assert!(by_name
-            .get("main")
-            .map(|b| !b.hash.is_empty())
-            .unwrap_or(false));
+        let main = by_name.get("main").expect("main");
+        assert!(main.current);
+        assert!(!main.hash.is_empty());
+        assert_eq!(main.subject, "second");
+        assert!(main.date > 0);
+        // main == HEAD, so even.
+        assert_eq!((main.ahead, main.behind), (0, 0));
+        // feature/x sits at the first commit: 0 ahead, 1 behind HEAD.
+        let feat = by_name.get("feature/x").expect("feature/x");
+        assert!(!feat.current);
+        assert_eq!((feat.ahead, feat.behind), (0, 1));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn tags_lists_newest_first() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("a.txt"), "1\n").expect("write a");
+        commit_all(&root, "init", "2020-01-02T03:04:05+00:00");
+        git(&root, &["tag", "v0.1.0"]);
+        fs::write(root.join("a.txt"), "2\n").expect("write a2");
+        commit_all(&root, "second", "2021-06-07T08:09:10+00:00");
+        git(&root, &["tag", "v0.2.0"]);
+
+        let list = tags(&root).expect("tags");
+        let names: Vec<&str> = list.iter().map(|t| t.name.as_str()).collect();
+        assert!(names.contains(&"v0.1.0"));
+        assert!(names.contains(&"v0.2.0"));
+        assert!(list.iter().all(|t| !t.hash.is_empty()));
 
         let _ = fs::remove_dir_all(root);
     }

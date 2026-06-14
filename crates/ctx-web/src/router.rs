@@ -35,6 +35,7 @@ pub fn build(state: AppState) -> Router {
         .route("/api/git/diff", get(handlers::git::handle_diff))
         .route("/api/git/log", get(handlers::git::handle_repo_log))
         .route("/api/git/branches", get(handlers::git::handle_branches))
+        .route("/api/git/tags", get(handlers::git::handle_tags))
         .route("/api/git/worktrees", get(handlers::git::handle_worktrees))
         .route("/api/git/file-log", get(handlers::git::handle_file_log))
         .route(

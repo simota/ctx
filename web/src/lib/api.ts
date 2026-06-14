@@ -541,6 +541,10 @@ export interface BranchEntry {
   name: string;
   hash: string;
   current?: boolean;
+  subject?: string;
+  date?: number; // unix seconds of the tip commit
+  ahead?: number; // commits ahead of HEAD
+  behind?: number; // commits behind HEAD
 }
 
 export interface BranchesResponse {
@@ -549,6 +553,21 @@ export interface BranchesResponse {
 
 export function fetchBranches(): Promise<BranchesResponse> {
   return getJSON<BranchesResponse>('/api/git/branches');
+}
+
+// git tags — newest first; `date` is unix seconds.
+export interface TagEntry {
+  name: string;
+  hash: string;
+  date?: number;
+}
+
+export interface TagsResponse {
+  tags: TagEntry[];
+}
+
+export function fetchTags(): Promise<TagsResponse> {
+  return getJSON<TagsResponse>('/api/git/tags');
 }
 
 // git worktrees — linked worktrees (incl. the main one). `branch` is null when
