@@ -4,6 +4,8 @@
 
 const SHOW_TREE_KEY = 'ctx-show-tree';
 const SHOW_SYMBOLS_KEY = 'ctx-show-symbols';
+const SHOW_TOKENS_KEY = 'ctx-show-tokens';
+const TREE_GITIGNORE_KEY = 'ctx-tree-gitignore';
 
 function readBool(key: string, def: boolean): boolean {
   if (typeof localStorage === 'undefined') return def;
@@ -25,9 +27,20 @@ function writeBool(key: string, v: boolean): void {
   }
 }
 
-export const view = $state<{ showTree: boolean; showSymbols: boolean }>({
+export const view = $state<{
+  showTree: boolean;
+  showSymbols: boolean;
+  showTokens: boolean;
+  treeGitignore: boolean;
+}>({
   showTree: readBool(SHOW_TREE_KEY, true),
   showSymbols: readBool(SHOW_SYMBOLS_KEY, true),
+  // Token counts in the file tree are off by default — they require a tiktoken
+  // pass over every file (slower load) and add visual noise. Opt in via toggle.
+  showTokens: readBool(SHOW_TOKENS_KEY, false),
+  // Honor the repo's root .gitignore in the file tree. Off by default so the
+  // tree keeps showing every file; opt in to hide ignored/generated files.
+  treeGitignore: readBool(TREE_GITIGNORE_KEY, false),
 });
 
 export function toggleTree(): void {
@@ -38,4 +51,14 @@ export function toggleTree(): void {
 export function toggleSymbols(): void {
   view.showSymbols = !view.showSymbols;
   writeBool(SHOW_SYMBOLS_KEY, view.showSymbols);
+}
+
+export function toggleTokens(): void {
+  view.showTokens = !view.showTokens;
+  writeBool(SHOW_TOKENS_KEY, view.showTokens);
+}
+
+export function toggleTreeGitignore(): void {
+  view.treeGitignore = !view.treeGitignore;
+  writeBool(TREE_GITIGNORE_KEY, view.treeGitignore);
 }

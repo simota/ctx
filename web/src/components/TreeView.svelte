@@ -4,6 +4,7 @@
   import { navigate, toFileHash, toDirHash, toTreeHash, route } from '../lib/router.svelte';
   import { treeState, setExpanded, reloadTree } from '../lib/tree-state.svelte';
   import { setRepoRoot } from '../lib/repo.svelte';
+  import { view } from '../lib/view.svelte';
   import TreeNode from './TreeNode.svelte';
 
   let { selectedPath = '' } = $props<{ selectedPath?: string }>();
@@ -52,7 +53,8 @@
     filterError = null;
     fetchTree({
       depth: 6,
-      tokens: true,
+      tokens: view.showTokens || undefined,
+      gitignore: view.treeGitignore || undefined,
       git: true,
       since: route.since || undefined,
       until: route.until || undefined,
@@ -108,7 +110,7 @@
     // Reactive read of route.since / route.until / route.useMtime so that URL
     // changes (e.g. back/forward navigation or initial load with hash params)
     // retrigger load.
-    const key = `${route.since ?? ''}|${route.until ?? ''}|${route.useMtime ? '1' : ''}`;
+    const key = `${route.since ?? ''}|${route.until ?? ''}|${route.useMtime ? '1' : ''}|${view.showTokens ? 't' : ''}|${view.treeGitignore ? 'g' : ''}`;
     if (key === loadedFilterKey) return;
     loadedFilterKey = key;
     load();

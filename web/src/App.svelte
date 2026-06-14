@@ -34,7 +34,7 @@
   import { COMMANDS } from './lib/commands';
   import { tabs, openTab, closeTab, setTabs } from './lib/tabs.svelte';
   import { panes, openRight, closeRight, setFocused } from './lib/panes.svelte';
-  import { view, toggleTree, toggleSymbols } from './lib/view.svelte';
+  import { view, toggleTree, toggleSymbols, toggleTokens, toggleTreeGitignore } from './lib/view.svelte';
   import { reloadTree } from './lib/tree-state.svelte';
 
   let selectedPath = $derived(route.name === 'file' ? route.path : '');
@@ -451,6 +451,28 @@
         onclick={toggleSymbols}
       >
         <span aria-hidden="true">⌘</span>
+      </button>
+      <button
+        type="button"
+        class="view-toggle"
+        class:active={view.showTokens}
+        aria-pressed={view.showTokens}
+        aria-label="Toggle token counts in file tree"
+        title="Toggle token counts in file tree"
+        onclick={toggleTokens}
+      >
+        <span aria-hidden="true">#</span>
+      </button>
+      <button
+        type="button"
+        class="view-toggle"
+        class:active={view.treeGitignore}
+        aria-pressed={view.treeGitignore}
+        aria-label="Respect .gitignore in file tree"
+        title="Respect .gitignore in file tree (hide ignored files)"
+        onclick={toggleTreeGitignore}
+      >
+        <span aria-hidden="true">⊘</span>
       </button>
       <ThemePicker />
     </nav>
