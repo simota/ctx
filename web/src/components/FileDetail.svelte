@@ -58,7 +58,6 @@
   import { announce } from '../lib/announce.svelte';
   import { openContextMenu, type ContextMenuItem } from '../lib/context-menu.svelte';
   import { repo, absolutePath } from '../lib/repo.svelte';
-  import { mixSelection, toggleInclude, isIncluded } from '../lib/mix-selection.svelte';
   import { revealPath } from '../lib/tree-state.svelte';
   import { rememberScroll, recallScroll } from '../lib/scroll-memo.svelte';
   import { lookup as lookupDefinition, peek as peekDefinition } from '../lib/definitions.svelte';
@@ -2038,8 +2037,6 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     e.preventDefault();
     // Snapshot the selection now: opening the menu can clear it before run().
     const selText = selectionText();
-    const name = path.split('/').pop() ?? path;
-    const included = isIncluded(path);
     const items: ContextMenuItem[] = [
       {
         id: 'open-to-side',
@@ -2085,18 +2082,6 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
         id: 'open-raw',
         label: 'Open Raw',
         run: () => window.open(rawUrl, '_blank', 'noopener'),
-      },
-      {
-        id: 'toggle-mix',
-        label: included ? 'Remove from Mix' : 'Add to Mix',
-        run: () => {
-          toggleInclude(path);
-          announce(
-            mixSelection.includedPaths.has(path)
-              ? `Added ${name} to mix`
-              : `Removed ${name} from mix`,
-          );
-        },
       },
     ];
     openContextMenu(e.clientX, e.clientY, items);

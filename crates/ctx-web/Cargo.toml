@@ -20,6 +20,7 @@ mime_guess = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 ctx-testinsights = { path = "../ctx-testinsights" }
+ctx-gitignore = { path = "../ctx-gitignore" }
 ctx-tokens = { path = "../ctx-tokens" }
 ctx-symbols = { path = "../ctx-symbols" }
 ctx-where = { path = "../ctx-where" }

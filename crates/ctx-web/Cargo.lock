@@ -368,6 +368,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctx-gitignore"
+version = "0.1.0"
+dependencies = [
+ "regex",
+]
+
+[[package]]
 name = "ctx-relations"
 version = "0.1.0"
 dependencies = [
@@ -434,6 +441,7 @@ dependencies = [
  "axum",
  "ctx-contract",
  "ctx-git",
+ "ctx-gitignore",
  "ctx-relations",
  "ctx-replay",
  "ctx-symbols",

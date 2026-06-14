@@ -42,6 +42,12 @@ pub struct TreeParams {
     _symbols: bool,
     #[serde(default)]
     git: bool,
+    // When true, entries matching the root `.gitignore` are pruned from the
+    // walk (in addition to the always-on ExtraIgnore list). Default false so
+    // the plain tree view keeps showing every tracked + untracked file; the
+    // "Largest source files" view opts in via `gitignore=true`.
+    #[serde(default)]
+    gitignore: bool,
     #[serde(default)]
     _use_mtime: bool,
     // since/until time-filter strings are accepted but DEFERRED (no git-log
@@ -132,6 +138,16 @@ fn handle_sync(state: AppState, params: TreeParams) -> Response {
         GitStatusMap::default()
     };
 
+    // Optional `.gitignore` matcher (root file only, mirroring the CLI walk's
+    // root-`.gitignore` handling). Compiled once and shared across the walk.
+    // A missing or unparseable file yields `None` (no extra pruning).
+    let ignore = if params.gitignore {
+        let gi_path = Path::new(&state.root).join(".gitignore");
+        ctx_gitignore::GitIgnore::from_file(&gi_path).ok()
+    } else {
+        None
+    };
+
     let root_node = match walk_tree(
         &state.root,
         &target,
@@ -139,6 +155,7 @@ fn handle_sync(state: AppState, params: TreeParams) -> Response {
         max_depth,
         params.tokens,
         &git_status,
+        ignore.as_ref(),
     ) {
         Ok(n) => n,
         Err(e) => {
@@ -216,6 +233,7 @@ fn walk_tree(
     max_depth: usize,
     with_tokens: bool,
     git_status: &GitStatusMap,
+    ignore: Option<&ctx_gitignore::GitIgnore>,
 ) -> std::io::Result<TreeNode> {
     let meta = std::fs::symlink_metadata(dir)?;
     // Follow symlinks only for the requested root; deeper symlinked dirs keep
@@ -316,6 +334,19 @@ fn walk_tree(
                 continue;
             }
 
+            // Prune entries matched by the root `.gitignore` when active.
+            // Directories are checked with a trailing "/" AND the bare path,
+            // matching how the CLI walk applies `GitIgnore::matches_path`.
+            if let Some(ig) = ignore {
+                let child_rel = relative_to_root(root_str, &child_path);
+                if !child_rel.is_empty() {
+                    let dir_form = format!("{child_rel}/");
+                    if (child_is_dir && ig.matches_path(&dir_form)) || ig.matches_path(&child_rel) {
+                        continue;
+                    }
+                }
+            }
+
             match walk_tree(
                 root_str,
                 &child_path,
@@ -323,6 +354,7 @@ fn walk_tree(
                 max_depth,
                 with_tokens,
                 git_status,
+                ignore,
             ) {
                 Ok(child_node) => node.children.push(child_node),
                 Err(_) => continue,

@@ -3,13 +3,11 @@
     fetchEvidence,
     verifyEvidence,
     type EvidenceResponse,
-    type EvidenceSnapshot,
     type EvidenceVerifyOK,
     type EvidenceVerifyResponse,
     type EvidenceVerifyViolation,
   } from '../lib/api';
   import { formatTokens } from '../lib/format';
-  import { navigate, toReplayHash } from '../lib/router.svelte';
   import { announce } from '../lib/announce.svelte';
 
   let { path }: { path: string } = $props();
@@ -92,11 +90,6 @@
     }
   }
 
-  function openReplay(snapshot: EvidenceSnapshot) {
-    navigate(toReplayHash(snapshot.id));
-    announce(`Opened replay snapshot ${snapshot.id}`);
-  }
-
   function resetVerify() {
     packText = '';
     responseText = '';
@@ -171,20 +164,14 @@
         <ul>
           {#each data.snapshots as snap (snap.id)}
             <li class={snap.status}>
-              <button
-                type="button"
-                class="row"
-                title={snap.goal || snap.id}
-                aria-label={`Open replay ${snap.id}`}
-                onclick={() => openReplay(snap)}
-              >
+              <div class="row" title={snap.goal || snap.id}>
                 <span class={`dot ${snap.status}`} aria-hidden="true"></span>
                 <span class="main">
                   <span class="id mono">{snap.id}</span>
                   <span class="time muted">{relTime(snap.created_at)}</span>
                 </span>
                 <span class="status muted">{statusLabel(snap.status)}</span>
-              </button>
+              </div>
               <div class="meta muted">
                 <span class="mono">{shortSHA(snap.pack_sha256)}</span>
                 {#if snap.current_sha256}
@@ -397,14 +384,6 @@
     background: transparent;
     color: var(--ctx-fg);
     text-align: start;
-    cursor: pointer;
-  }
-  .row:hover {
-    background: var(--ctx-bg-elev);
-  }
-  .row:focus-visible {
-    outline: 2px solid var(--ctx-accent);
-    outline-offset: -1px;
   }
   .dot {
     width: 7px;

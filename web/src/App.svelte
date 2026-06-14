@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { route, navigate, toTreeHash, toBudgetHash, toReplayHash, toFileHash, toMixdownsHash, toGitLogHash } from './lib/router.svelte';
+  import { route, navigate, toTreeHash, toBudgetHash, toFileHash, toGitLogHash, toLargestHash } from './lib/router.svelte';
   import ThemePicker from './components/ThemePicker.svelte';
   import { openFinder } from './lib/finder.svelte';
   import TreeView from './components/TreeView.svelte';
@@ -9,7 +9,6 @@
   import SearchResults from './components/SearchResults.svelte';
   import BudgetPanel from './components/BudgetPanel.svelte';
   import DirOverview from './components/DirOverview.svelte';
-  import ReplayPanel from './components/ReplayPanel.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import FuzzyFinder from './components/FuzzyFinder.svelte';
   import Cheatsheet from './components/Cheatsheet.svelte';
@@ -18,9 +17,8 @@
   import DefinitionPicker from './components/DefinitionPicker.svelte';
   import RootsPicker from './components/RootsPicker.svelte';
   import TabBar from './components/TabBar.svelte';
-  import BounceDialog from './components/BounceDialog.svelte';
-  import MixdownsPanel from './components/MixdownsPanel.svelte';
   import GitLogList from './components/GitLogList.svelte';
+  import LargestFiles from './components/LargestFiles.svelte';
   import GitRefsPanel from './components/GitRefsPanel.svelte';
   import GitCommitDetail from './components/GitCommitDetail.svelte';
   import PaneSplitter from './components/PaneSplitter.svelte';
@@ -30,7 +28,6 @@
   import { palette, openPalette } from './lib/palette.svelte';
   import { definitionPicker } from './lib/definition-picker.svelte';
   import { rootsPicker, openRootsPicker } from './lib/roots-picker.svelte';
-  import { bounceDialog } from './lib/bounce-dialog.svelte';
   import { roots, loadRoots, currentRoot } from './lib/roots.svelte';
   import { repo } from './lib/repo.svelte';
   import { basename } from './lib/format';
@@ -43,13 +40,12 @@
   let selectedPath = $derived(route.name === 'file' ? route.path : '');
   let searchQuery = $derived(route.name === 'search' ? route.query : '');
 
-  let rightTab: 'file' | 'search' | 'budget' | 'replay' | 'dir' | 'mixdowns' | 'gitlog' = $derived.by(() => {
+  let rightTab: 'file' | 'search' | 'budget' | 'dir' | 'gitlog' | 'largest' = $derived.by(() => {
     if (route.name === 'search') return 'search';
     if (route.name === 'budget') return 'budget';
-    if (route.name === 'replay') return 'replay';
     if (route.name === 'dir') return 'dir';
-    if (route.name === 'mixdowns') return 'mixdowns';
     if (route.name === 'gitlog') return 'gitlog';
+    if (route.name === 'largest') return 'largest';
     return 'file';
   });
 
@@ -167,7 +163,6 @@
       if (palette.open) return;
       if (definitionPicker.open) return;
       if (rootsPicker.open) return;
-      if (bounceDialog.open) return;
       e.preventDefault();
       toggleCheatsheet();
       return;
@@ -419,15 +414,10 @@
         onclick={(e) => { e.preventDefault(); navigate(toBudgetHash()); }}
       >Budget</a>
       <a
-        href={toReplayHash()}
-        class:active={route.name === 'replay'}
-        onclick={(e) => { e.preventDefault(); navigate(toReplayHash()); }}
-      >Replay</a>
-      <a
-        href={toMixdownsHash()}
-        class:active={route.name === 'mixdowns'}
-        onclick={(e) => { e.preventDefault(); navigate(toMixdownsHash()); }}
-      >Mixdowns</a>
+        href={toLargestHash()}
+        class:active={route.name === 'largest'}
+        onclick={(e) => { e.preventDefault(); navigate(toLargestHash()); }}
+      >Largest</a>
       <a
         href={toGitLogHash()}
         class:active={route.name === 'gitlog'}
@@ -484,14 +474,12 @@
           <SearchResults query={searchQuery} />
         {:else if rightTab === 'budget'}
           <BudgetPanel />
-        {:else if rightTab === 'replay'}
-          <ReplayPanel />
         {:else if rightTab === 'dir'}
           <DirOverview path={route.path} />
-        {:else if rightTab === 'mixdowns'}
-          <MixdownsPanel />
         {:else if rightTab === 'gitlog'}
           <GitCommitDetail hash={route.path} />
+        {:else if rightTab === 'largest'}
+          <LargestFiles />
         {/if}
       </section>
     {:else if !selectedPath}
@@ -575,8 +563,6 @@
 <RootsPicker />
 
 <Cheatsheet />
-
-<BounceDialog />
 
 <!-- WHY: visually-hidden polite live region. Bumping `key` forces SR re-read
      even when the same message reoccurs (Theme: dark -> dark via reload). -->

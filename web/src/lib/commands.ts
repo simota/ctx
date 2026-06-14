@@ -16,7 +16,7 @@ import {
   toFileHash,
   toTreeHash,
   toBudgetHash,
-  toReplayHash,
+  toLargestHash,
   route,
 } from './router.svelte';
 import { openFinder } from './finder.svelte';
@@ -112,11 +112,11 @@ export const COMMANDS: Command[] = [
     run: () => navigate(toBudgetHash()),
   },
   {
-    id: 'nav.replay',
-    label: 'Go to: Replay',
+    id: 'nav.largest',
+    label: 'Go to: Largest Source Files',
     category: 'Navigation',
-    keywords: ['replay', 'snapshot', 'history'],
-    run: () => navigate(toReplayHash()),
+    keywords: ['largest', 'biggest', 'lines', 'loc', 'source', 'code', 'rank', 'ranking', 'big files'],
+    run: () => navigate(toLargestHash()),
   },
   {
     id: 'roots.switch',

@@ -8,14 +8,12 @@
 //   #/dir/<path>             -> directory overview for <path>
 //   #/search?q=<query>       -> search results
 //   #/budget                 -> budget panel
-//   #/replay                 -> replay snapshot list
-//   #/replay/<id>            -> replay snapshot detail
 // The path segment after #/file/ or #/dir/ is treated as the full remaining
 // path (no further slash splitting), so paths like "internal/cli/pack.go"
 // round-trip correctly. Snapshot ids are opaque strings (no slashes expected,
 // but we treat the suffix as the full id for forward compatibility).
 
-export type RouteName = 'tree' | 'file' | 'dir' | 'search' | 'budget' | 'replay' | 'mixdowns' | 'gitlog';
+export type RouteName = 'tree' | 'file' | 'dir' | 'search' | 'budget' | 'gitlog' | 'largest';
 export type FileViewMode = 'diff' | 'history';
 
 export interface Route {
@@ -85,6 +83,9 @@ function parse(rawHash: string): Route {
   if (p === 'budget') {
     return { name: 'budget', path: '', query: '', openPaths: [], rightPath: '' };
   }
+  if (p === 'largest') {
+    return { name: 'largest', path: '', query: '', openPaths: [], rightPath: '' };
+  }
   if (p === 'search') {
     return {
       name: 'search',
@@ -145,21 +146,6 @@ function parse(rawHash: string): Route {
       until,
       useMtime,
     };
-  }
-  if (p === 'replay') {
-    return { name: 'replay', path: '', query: '', openPaths: [], rightPath: '' };
-  }
-  if (p.startsWith('replay/')) {
-    return {
-      name: 'replay',
-      path: decodeURIComponent(p.slice('replay/'.length)),
-      query: '',
-      openPaths: [],
-      rightPath: '',
-    };
-  }
-  if (p === 'mixdowns') {
-    return { name: 'mixdowns', path: '', query: '', openPaths: [], rightPath: '' };
   }
   if (p === 'gitlog') {
     return { name: 'gitlog', path: '', query: '', openPaths: [], rightPath: '' };
@@ -280,13 +266,8 @@ export function toBudgetHash(): string {
   return '#/budget';
 }
 
-export function toReplayHash(id?: string): string {
-  if (!id) return '#/replay';
-  return `#/replay/${encodeURIComponent(id)}`;
-}
-
-export function toMixdownsHash(): string {
-  return '#/mixdowns';
+export function toLargestHash(): string {
+  return '#/largest';
 }
 
 export function toGitLogHash(hash?: string): string {

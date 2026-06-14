@@ -115,6 +115,28 @@ export function dirname(path: string): string {
   return i === -1 ? '' : path.slice(0, i);
 }
 
+// Source-code extensions used by the "Largest" view to keep its ranking
+// limited to actual code (excludes docs, config, data, lockfiles, assets).
+// Broader than the backend `role==="core"` classification, which only covers
+// ts/tsx/js/go/py/rs and so drops svelte/css/etc.
+const SOURCE_EXTENSIONS = new Set<string>([
+  'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'svelte', 'vue', 'astro',
+  'go', 'rs', 'py', 'rb', 'php', 'java', 'kt', 'kts', 'scala', 'swift', 'dart',
+  'c', 'h', 'cc', 'cpp', 'cxx', 'hpp', 'hh', 'cs', 'm', 'mm',
+  'css', 'scss', 'sass', 'less', 'html',
+  'sh', 'bash', 'zsh', 'fish', 'lua', 'pl', 'pm', 'r', 'sql',
+  'ex', 'exs', 'erl', 'clj', 'cljs', 'hs', 'ml', 'vim',
+]);
+
+// Whether `path` points at a source-code file (by extension). Dotfiles with no
+// real extension (e.g. ".gitignore") and extensionless files are not source.
+export function isSourceCode(path: string): boolean {
+  const base = (path.slice(path.lastIndexOf('/') + 1)).toLowerCase();
+  const dot = base.lastIndexOf('.');
+  if (dot <= 0) return false;
+  return SOURCE_EXTENSIONS.has(base.slice(dot + 1));
+}
+
 // crude language detection from extension; the API may also return `lang`.
 export function langFromPath(path: string): string {
   const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase();

@@ -5,7 +5,6 @@
   import { cheatsheet } from '../lib/cheatsheet.svelte';
   import { definitionPicker } from '../lib/definition-picker.svelte';
   import { rootsPicker } from '../lib/roots-picker.svelte';
-  import { bounceDialog } from '../lib/bounce-dialog.svelte';
 
   let value = $state(route.name === 'search' ? route.query : '');
   let inputEl: HTMLInputElement | null = $state(null);
@@ -40,8 +39,7 @@
       palette.open ||
       cheatsheet.open ||
       definitionPicker.open ||
-      rootsPicker.open ||
-      bounceDialog.open
+      rootsPicker.open
     ) return;
     e.preventDefault();
     inputEl?.focus();

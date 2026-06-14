@@ -174,6 +174,8 @@ export interface FetchTreeOpts {
   since?: string;
   until?: string;
   useMtime?: boolean;
+  // When true, the server prunes entries matched by the root `.gitignore`.
+  gitignore?: boolean;
 }
 
 export function fetchTree(opts: FetchTreeOpts = {}): Promise<TreeResponse> {
@@ -587,111 +589,6 @@ export interface WorktreesResponse {
 
 export function fetchWorktrees(): Promise<WorktreesResponse> {
   return getJSON<WorktreesResponse>('/api/git/worktrees');
-}
-
-// ---------------------------------------------------------------------------
-// replay snapshots — mirror Go `replay.Manifest` + list summary.
-// ---------------------------------------------------------------------------
-
-export interface ReplayListItem {
-  id: string;
-  created_at: string; // RFC3339
-  goal?: string;
-  budget: number;
-  used: number;
-  format: string;
-  preset?: string;
-  ctx_version: string;
-  file_count: number;
-}
-
-export interface ReplayListResponse {
-  snapshots: ReplayListItem[];
-  store_path: string;
-}
-
-export interface ReplayManifestEntry {
-  path: string;
-  sha256: string;
-  tokens: number;
-  relevance?: string;
-  score?: number;
-  reason?: string;
-}
-
-export interface ReplayManifestSkipped {
-  path: string;
-  reason: string;
-}
-
-export interface ReplayManifest {
-  schema_version: number;
-  id: string;
-  created_at: string;
-  ctx_version: string;
-  goal?: string;
-  budget: number;
-  used: number;
-  root: string;
-  preset?: string;
-  format: string;
-  out_sha256?: string;
-  entries: ReplayManifestEntry[];
-  skipped?: ReplayManifestSkipped[];
-}
-
-export function fetchReplayList(): Promise<ReplayListResponse> {
-  return getJSON<ReplayListResponse>('/api/replay/list');
-}
-
-export function fetchReplayShow(id: string): Promise<ReplayManifest> {
-  return getJSON<ReplayManifest>(`/api/replay/show${qs({ id })}`);
-}
-
-// Diff of a snapshot vs the current working tree. The server returns changes
-// sorted (modified > added > removed, then by |tokens_delta| DESC) and may
-// truncate when `limit` is hit (signaled via `truncated: true`).
-export interface ReplayDiffChange {
-  path: string;
-  kind: 'added' | 'modified' | 'removed';
-  tokens_delta: number;
-  base_tokens?: number;
-  current_tokens?: number;
-}
-
-export interface ReplayDiffResponse {
-  snapshot_id: string;
-  snapshot_time: string;
-  changes: ReplayDiffChange[];
-  unchanged_count: number;
-  total_token_delta: number;
-  strict: boolean;
-  truncated: boolean;
-}
-
-export interface FetchReplayDiffOpts {
-  strict?: boolean;
-  limit?: number;
-}
-
-export function fetchReplayDiff(
-  id: string,
-  opts: FetchReplayDiffOpts = {},
-): Promise<ReplayDiffResponse> {
-  return getJSON<ReplayDiffResponse>(
-    `/api/replay/diff${qs({ id, strict: opts.strict, limit: opts.limit })}`,
-  );
-}
-
-export interface ReplayVerifyRequest {
-  id: string;
-  response: string;
-  check_worktree?: boolean;
-  strict?: boolean;
-}
-
-export function verifyReplayResponse(req: ReplayVerifyRequest): Promise<EvidenceVerifyResponse> {
-  return postJSON<EvidenceVerifyResponse>('/api/replay/verify', req);
 }
 
 // ---------------------------------------------------------------------------

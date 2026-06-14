@@ -94,7 +94,7 @@
   }
 
   // Last-loaded filter triple. Routes that don't carry since/until/use_mtime
-  // params (budget/replay/search/mixdowns) parse them as undefined; without
+  // params (budget/search) parse them as undefined; without
   // this guard, navigating there would silently reset the filter and trigger
   // a hidden full refetch that discards the user's filtered tree.
   let loadedFilterKey: string | null = null;
