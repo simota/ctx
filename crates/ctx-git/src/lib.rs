@@ -77,6 +77,110 @@ pub struct RepoLogEntry {
     pub date: i64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Branch {
+    pub name: String,
+    /// Short object id the branch points at.
+    pub hash: String,
+    /// True for the branch HEAD currently points at.
+    pub current: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Worktree {
+    pub path: String,
+    /// Branch short name, or `None` when detached/bare.
+    pub branch: Option<String>,
+    /// Short HEAD object id (empty for a bare worktree).
+    pub head: String,
+    pub bare: bool,
+    pub detached: bool,
+}
+
+/// Local branches (`refs/heads`), each with its short target oid and a flag
+/// for the branch HEAD points at. Empty on an unborn branch / no branches.
+pub fn branches(repo_root: impl AsRef<Path>) -> Result<Vec<Branch>> {
+    let git_dir = git_dir(repo_root.as_ref());
+    let output = git_output(
+        &git_dir,
+        &[
+            "-c",
+            "core.quotepath=false",
+            "for-each-ref",
+            "--format=%(refname:short)\x1f%(objectname:short)\x1f%(HEAD)",
+            "refs/heads",
+        ],
+    )?;
+    let text = String::from_utf8_lossy(&output);
+    let mut out = Vec::new();
+    for line in text.lines() {
+        let mut fields = line.splitn(3, '\x1f');
+        let Some(name) = fields.next() else { continue };
+        if name.is_empty() {
+            continue;
+        }
+        let hash = fields.next().unwrap_or("").to_string();
+        // `%(HEAD)` is "*" for the checked-out branch, " " otherwise.
+        let current = fields.next().unwrap_or("").trim() == "*";
+        out.push(Branch {
+            name: name.to_string(),
+            hash,
+            current,
+        });
+    }
+    Ok(out)
+}
+
+/// Linked worktrees (`git worktree list`), including the main one. `branch`
+/// is the short name when on a branch, `None` when detached or bare.
+pub fn worktrees(repo_root: impl AsRef<Path>) -> Result<Vec<Worktree>> {
+    let git_dir = git_dir(repo_root.as_ref());
+    let output = git_output(&git_dir, &["worktree", "list", "--porcelain"])?;
+    let text = String::from_utf8_lossy(&output);
+
+    let mut out = Vec::new();
+    let mut cur: Option<Worktree> = None;
+    for line in text.lines() {
+        if line.is_empty() {
+            if let Some(wt) = cur.take() {
+                out.push(wt);
+            }
+            continue;
+        }
+        if let Some(path) = line.strip_prefix("worktree ") {
+            if let Some(wt) = cur.take() {
+                out.push(wt);
+            }
+            cur = Some(Worktree {
+                path: path.to_string(),
+                branch: None,
+                head: String::new(),
+                bare: false,
+                detached: false,
+            });
+        } else if let Some(wt) = cur.as_mut() {
+            if let Some(head) = line.strip_prefix("HEAD ") {
+                wt.head = head.chars().take(7).collect();
+            } else if let Some(branch) = line.strip_prefix("branch ") {
+                wt.branch = Some(
+                    branch
+                        .strip_prefix("refs/heads/")
+                        .unwrap_or(branch)
+                        .to_string(),
+                );
+            } else if line == "bare" {
+                wt.bare = true;
+            } else if line == "detached" {
+                wt.detached = true;
+            }
+        }
+    }
+    if let Some(wt) = cur.take() {
+        out.push(wt);
+    }
+    Ok(out)
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CommitFile {
     /// One of "added" | "modified" | "deleted" (other git statuses map to
@@ -1391,6 +1495,62 @@ mod tests {
             Some((1, 0))
         );
 
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn branches_lists_locals_and_marks_current() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("a.txt"), "1\n").expect("write a");
+        commit_all(&root, "init", "2020-01-02T03:04:05+00:00");
+        git(&root, &["branch", "feature/x"]);
+
+        let list = branches(&root).expect("branches");
+        let by_name: std::collections::HashMap<&str, &Branch> =
+            list.iter().map(|b| (b.name.as_str(), b)).collect();
+        assert_eq!(by_name.get("main").map(|b| b.current), Some(true));
+        assert_eq!(by_name.get("feature/x").map(|b| b.current), Some(false));
+        assert!(by_name
+            .get("main")
+            .map(|b| !b.hash.is_empty())
+            .unwrap_or(false));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn worktrees_lists_main_and_linked() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        let linked = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("a.txt"), "1\n").expect("write a");
+        commit_all(&root, "init", "2020-01-02T03:04:05+00:00");
+        let linked_str = linked.to_string_lossy().to_string();
+        git(&root, &["worktree", "add", "-q", "-b", "wt", &linked_str]);
+
+        let list = worktrees(&root).expect("worktrees");
+        assert!(list.iter().any(|w| w.branch.as_deref() == Some("main")));
+        let wt = list
+            .iter()
+            .find(|w| w.branch.as_deref() == Some("wt"))
+            .expect("linked worktree present");
+        assert!(!wt.head.is_empty());
+        assert!(!wt.bare && !wt.detached);
+
+        let _ = Command::new("git")
+            .args(["worktree", "remove", "--force", &linked_str])
+            .current_dir(&root)
+            .status();
+        let _ = fs::remove_dir_all(linked);
         let _ = fs::remove_dir_all(root);
     }
 

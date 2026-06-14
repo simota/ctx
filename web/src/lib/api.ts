@@ -535,6 +535,40 @@ export function fetchCommitFiles(hash: string): Promise<CommitFilesResponse> {
   return getJSON<CommitFilesResponse>(`/api/git/commit-files${qs({ hash })}`);
 }
 
+// git branches — local branches with their short target hash; `current` marks
+// the branch HEAD points at.
+export interface BranchEntry {
+  name: string;
+  hash: string;
+  current?: boolean;
+}
+
+export interface BranchesResponse {
+  branches: BranchEntry[];
+}
+
+export function fetchBranches(): Promise<BranchesResponse> {
+  return getJSON<BranchesResponse>('/api/git/branches');
+}
+
+// git worktrees — linked worktrees (incl. the main one). `branch` is null when
+// detached or bare.
+export interface WorktreeEntry {
+  path: string;
+  branch?: string | null;
+  head?: string;
+  bare?: boolean;
+  detached?: boolean;
+}
+
+export interface WorktreesResponse {
+  worktrees: WorktreeEntry[];
+}
+
+export function fetchWorktrees(): Promise<WorktreesResponse> {
+  return getJSON<WorktreesResponse>('/api/git/worktrees');
+}
+
 // ---------------------------------------------------------------------------
 // replay snapshots — mirror Go `replay.Manifest` + list summary.
 // ---------------------------------------------------------------------------

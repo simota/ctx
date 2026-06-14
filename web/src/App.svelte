@@ -21,6 +21,7 @@
   import BounceDialog from './components/BounceDialog.svelte';
   import MixdownsPanel from './components/MixdownsPanel.svelte';
   import GitLogList from './components/GitLogList.svelte';
+  import GitRefsPanel from './components/GitRefsPanel.svelte';
   import GitCommitDetail from './components/GitCommitDetail.svelte';
   import PaneSplitter from './components/PaneSplitter.svelte';
   import { announceState, announce } from './lib/announce.svelte';
@@ -467,7 +468,8 @@
 
   <main class="content" class:two-pane={twoPane} class:no-tree={!view.showTree && route.name !== 'gitlog'}>
     {#if route.name === 'gitlog'}
-      <aside class="pane left" aria-label="git log commits">
+      <aside class="pane left gitlog-side" aria-label="git log commits">
+        <GitRefsPanel />
         <GitLogList />
       </aside>
     {:else if view.showTree}
@@ -696,6 +698,17 @@
   .pane.left {
     border-right: 1px solid var(--ctx-border);
     background: var(--ctx-bg-panel);
+  }
+  /* Git Log sidebar stacks the refs panel (fixed) above the scrolling commit
+     list. overflow:hidden so only the inner list scrolls. */
+  .pane.left.gitlog-side {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .pane.left.gitlog-side :global(.gitlog-list) {
+    flex: 1 1 auto;
+    min-height: 0;
   }
   .pane.right {
     background: var(--ctx-bg);

@@ -129,6 +129,37 @@ pub struct CommitFilesParams {
 }
 
 #[derive(Serialize)]
+struct BranchEntry {
+    name: String,
+    hash: String,
+    #[serde(skip_serializing_if = "is_false")]
+    current: bool,
+}
+
+#[derive(Serialize)]
+struct BranchesResponse {
+    branches: Vec<BranchEntry>,
+}
+
+#[derive(Serialize)]
+struct WorktreeEntry {
+    path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    branch: Option<String>,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    head: String,
+    #[serde(skip_serializing_if = "is_false")]
+    bare: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    detached: bool,
+}
+
+#[derive(Serialize)]
+struct WorktreesResponse {
+    worktrees: Vec<WorktreeEntry>,
+}
+
+#[derive(Serialize)]
 struct CommitFileEntry {
     status: String,
     path: String,
@@ -325,6 +356,64 @@ fn handle_repo_log_sync(state: AppState, params: RepoLogParams) -> Response {
         Err(err) => response::error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "git_log",
+            &err.to_string(),
+        ),
+    }
+}
+
+pub async fn handle_branches(State(state): State<AppState>) -> Response {
+    crate::blocking::run(move || handle_branches_sync(state)).await
+}
+
+fn handle_branches_sync(state: AppState) -> Response {
+    let git_root = git_root_only(&state.root);
+    match ctx_git::branches(&git_root) {
+        Ok(list) => response::json(
+            StatusCode::OK,
+            &BranchesResponse {
+                branches: list
+                    .into_iter()
+                    .map(|b| BranchEntry {
+                        name: b.name,
+                        hash: b.hash,
+                        current: b.current,
+                    })
+                    .collect(),
+            },
+        ),
+        Err(err) => response::error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "git_branches",
+            &err.to_string(),
+        ),
+    }
+}
+
+pub async fn handle_worktrees(State(state): State<AppState>) -> Response {
+    crate::blocking::run(move || handle_worktrees_sync(state)).await
+}
+
+fn handle_worktrees_sync(state: AppState) -> Response {
+    let git_root = git_root_only(&state.root);
+    match ctx_git::worktrees(&git_root) {
+        Ok(list) => response::json(
+            StatusCode::OK,
+            &WorktreesResponse {
+                worktrees: list
+                    .into_iter()
+                    .map(|w| WorktreeEntry {
+                        path: w.path,
+                        branch: w.branch,
+                        head: w.head,
+                        bare: w.bare,
+                        detached: w.detached,
+                    })
+                    .collect(),
+            },
+        ),
+        Err(err) => response::error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "git_worktrees",
             &err.to_string(),
         ),
     }
