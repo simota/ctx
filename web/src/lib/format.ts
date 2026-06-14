@@ -15,6 +15,43 @@ export function formatSize(bytes: number | undefined | null): string {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
+// Format Unix st_mode permission bits as a symbolic string, e.g.
+// 0o100644 -> "-rw-r--r--", 0o40755 -> "drwxr-xr-x". Returns "" for 0/undefined.
+export function formatMode(mode: number | undefined | null): string {
+  if (!mode) return '';
+  const typeChar =
+    (mode & 0o170000) === 0o040000 ? 'd' :
+    (mode & 0o170000) === 0o120000 ? 'l' : '-';
+  const rwx = (bits: number, special: '' | 's' | 't' = ''): string => {
+    let s = (bits & 4 ? 'r' : '-') + (bits & 2 ? 'w' : '-');
+    if (special && bits & 1) s += special;
+    else if (special) s += special.toUpperCase();
+    else s += bits & 1 ? 'x' : '-';
+    return s;
+  };
+  const setuid = mode & 0o4000 ? 's' : '';
+  const setgid = mode & 0o2000 ? 's' : '';
+  const sticky = mode & 0o1000 ? 't' : '';
+  return (
+    typeChar +
+    rwx((mode >> 6) & 7, setuid) +
+    rwx((mode >> 3) & 7, setgid) +
+    rwx(mode & 7, sticky)
+  );
+}
+
+// Octal permission string (last 4 digits), e.g. 0o100644 -> "0644".
+export function formatModeOctal(mode: number | undefined | null): string {
+  if (!mode) return '';
+  return '0' + (mode & 0o7777).toString(8).padStart(3, '0');
+}
+
+// Absolute local datetime for a Unix epoch-seconds timestamp; "" when falsy.
+export function formatDateTime(epochSeconds: number | undefined | null): string {
+  if (!epochSeconds) return '';
+  return new Date(epochSeconds * 1000).toLocaleString();
+}
+
 export function gitColor(g: string | undefined | null): string {
   switch (g) {
     case 'A':

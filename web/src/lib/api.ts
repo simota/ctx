@@ -43,6 +43,13 @@ export interface FileResponse {
   content: string;
   truncated: boolean;
   lang?: string;
+  // Filesystem metadata (Unix). Epoch seconds; `mode` is raw st_mode perm bits;
+  // `owner`/`group` are resolved names. Omitted by the server when unavailable.
+  modified_at?: number;
+  created_at?: number;
+  mode?: number;
+  owner?: string;
+  group?: string;
 }
 
 export interface WhereMatch {

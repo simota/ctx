@@ -51,7 +51,7 @@
     type FileLogResponse,
     type Symbol,
   } from '../lib/api';
-  import { formatTokens, formatSize, langFromPath, gitColor, gitLabel, formatRelative } from '../lib/format';
+  import { formatTokens, formatSize, langFromPath, gitColor, gitLabel, formatRelative, formatMode, formatModeOctal, formatDateTime } from '../lib/format';
   import { renderMermaid, resetMermaidTheme } from '../lib/mermaid';
   import { attachPanZoom, type PanZoomController } from '../lib/pan-zoom';
   import { route, navigate, toFileHash, type FileViewMode } from '../lib/router.svelte';
@@ -2253,6 +2253,30 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
           <div>
             <dt>git</dt>
             <dd style="color: {gitColor(data.git)}">{gitLabel(data.git)}</dd>
+          </div>
+        {/if}
+        {#if data.modified_at}
+          <div title={formatDateTime(data.modified_at)}>
+            <dt>modified</dt>
+            <dd>{formatRelative(data.modified_at)}</dd>
+          </div>
+        {/if}
+        {#if data.created_at}
+          <div title={formatDateTime(data.created_at)}>
+            <dt>created</dt>
+            <dd>{formatRelative(data.created_at)}</dd>
+          </div>
+        {/if}
+        {#if data.mode}
+          <div title={`Permissions ${formatModeOctal(data.mode)}`}>
+            <dt>perm</dt>
+            <dd class="mono">{formatMode(data.mode)}</dd>
+          </div>
+        {/if}
+        {#if data.owner}
+          <div title="Owner (user:group)">
+            <dt>owner</dt>
+            <dd>{data.owner}{data.group ? `:${data.group}` : ''}</dd>
           </div>
         {/if}
       </dl>

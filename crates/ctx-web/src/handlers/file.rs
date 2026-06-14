@@ -78,6 +78,20 @@ struct FileResponse {
     symbols: Option<Vec<crate::handlers::symbols::SymbolWire>>,
     #[serde(skip_serializing_if = "str::is_empty")]
     git: String,
+    /// Filesystem metadata (Unix). Epoch seconds; `mode` is the raw st_mode
+    /// permission bits; `owner`/`group` are resolved names (empty if lookup
+    /// fails). All omitted when zero/empty so non-Unix or unavailable values
+    /// don't clutter the payload.
+    #[serde(skip_serializing_if = "is_zero_i64")]
+    modified_at: i64,
+    #[serde(skip_serializing_if = "is_zero_i64")]
+    created_at: i64,
+    #[serde(skip_serializing_if = "is_zero_u32")]
+    mode: u32,
+    #[serde(skip_serializing_if = "str::is_empty")]
+    owner: String,
+    #[serde(skip_serializing_if = "str::is_empty")]
+    group: String,
 }
 
 fn is_zero_i32(v: &i32) -> bool {
@@ -88,6 +102,67 @@ fn is_zero_i64(v: &i64) -> bool {
 }
 fn is_false(v: &bool) -> bool {
     !*v
+}
+fn is_zero_u32(v: &u32) -> bool {
+    *v == 0
+}
+
+/// Unix epoch seconds for a stat timestamp; 0 when unavailable.
+fn epoch_secs(t: std::io::Result<SystemTime>) -> i64 {
+    t.ok()
+        .and_then(|st| st.duration_since(SystemTime::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+/// `(mode, owner, group)` from Unix metadata. Names resolved via the passwd/
+/// group databases; empty when the lookup fails. No-op on non-Unix.
+#[cfg(unix)]
+fn perm_owner(meta: &std::fs::Metadata) -> (u32, String, String) {
+    use std::os::unix::fs::MetadataExt;
+    (meta.mode(), lookup_user(meta.uid()), lookup_group(meta.gid()))
+}
+#[cfg(not(unix))]
+fn perm_owner(_: &std::fs::Metadata) -> (u32, String, String) {
+    (0, String::new(), String::new())
+}
+
+#[cfg(unix)]
+fn lookup_user(uid: u32) -> String {
+    use std::ffi::CStr;
+    let mut buf = vec![0 as libc::c_char; 1024];
+    let mut pwd: libc::passwd = unsafe { std::mem::zeroed() };
+    let mut result: *mut libc::passwd = std::ptr::null_mut();
+    // getpwuid_r is the thread-safe variant — the handler runs on a shared
+    // blocking pool, so the non-_r form's static buffer would race.
+    let rc = unsafe {
+        libc::getpwuid_r(uid, &mut pwd, buf.as_mut_ptr(), buf.len(), &mut result)
+    };
+    if rc == 0 && !result.is_null() && !pwd.pw_name.is_null() {
+        unsafe { CStr::from_ptr(pwd.pw_name) }
+            .to_string_lossy()
+            .into_owned()
+    } else {
+        String::new()
+    }
+}
+
+#[cfg(unix)]
+fn lookup_group(gid: u32) -> String {
+    use std::ffi::CStr;
+    let mut buf = vec![0 as libc::c_char; 1024];
+    let mut grp: libc::group = unsafe { std::mem::zeroed() };
+    let mut result: *mut libc::group = std::ptr::null_mut();
+    let rc = unsafe {
+        libc::getgrgid_r(gid, &mut grp, buf.as_mut_ptr(), buf.len(), &mut result)
+    };
+    if rc == 0 && !result.is_null() && !grp.gr_name.is_null() {
+        unsafe { CStr::from_ptr(grp.gr_name) }
+            .to_string_lossy()
+            .into_owned()
+    } else {
+        String::new()
+    }
 }
 
 pub async fn handle(State(state): State<AppState>, Query(params): Query<FileParams>) -> Response {
@@ -160,6 +235,7 @@ fn handle_sync(state: AppState, params: FileParams) -> Response {
         .ok()
         .and_then(|s| convert_symbols(s));
 
+    let (mode, owner, group) = perm_owner(&meta);
     let resp = FileResponse {
         path: rel_slash,
         lang: lang_for_ext(&target).to_string(),
@@ -170,6 +246,11 @@ fn handle_sync(state: AppState, params: FileParams) -> Response {
         truncated,
         symbols,
         git,
+        modified_at: epoch_secs(meta.modified()),
+        created_at: epoch_secs(meta.created()),
+        mode,
+        owner,
+        group,
     };
 
     let body = Arc::new(response::to_json_bytes(&resp));
