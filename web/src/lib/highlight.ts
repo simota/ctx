@@ -7,10 +7,14 @@
 import hljs from 'highlight.js/lib/common';
 import hljsKotlin from 'highlight.js/lib/languages/kotlin';
 import hljsSwift from 'highlight.js/lib/languages/swift';
+import hljsDockerfile from 'highlight.js/lib/languages/dockerfile';
 import hljsSvelte from 'highlightjs-svelte';
 
 hljs.registerLanguage('kotlin', hljsKotlin);
 hljs.registerLanguage('swift', hljsSwift);
+// `makefile` ships in highlight.js/lib/common; `dockerfile` does not, so
+// register it here for the Dockerfile source view.
+hljs.registerLanguage('dockerfile', hljsDockerfile);
 
 // Register Svelte language (script/style blocks are sub-highlighted as
 // JavaScript/CSS automatically by the definition).

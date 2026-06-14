@@ -73,6 +73,12 @@
   import XmlInsights from './XmlInsights.svelte';
   import YamlInsights from './YamlInsights.svelte';
   import SqlInsights from './SqlInsights.svelte';
+  import MakefileInsights from './MakefileInsights.svelte';
+  import DockerfileInsights from './DockerfileInsights.svelte';
+  import ConfigTree from './ConfigTree.svelte';
+  import MakefileRender from './MakefileRender.svelte';
+  import DockerfileRender from './DockerfileRender.svelte';
+  import { buildConfigTree } from '../lib/config-tree';
   import RelationsPanel from './RelationsPanel.svelte';
   import TestInsightsPanel from './TestInsightsPanel.svelte';
   import EvidencePanel from './EvidencePanel.svelte';
@@ -300,6 +306,42 @@
   let isXml = $derived(!isSvg && !isHtml && /\.(xml|xsd|xsl|xslt|rss|atom|plist)$/i.test(path));
   let isYaml = $derived(/\.ya?ml$/i.test(path));
   let isSql = $derived(/\.sql$/i.test(path));
+  // Build files identify by basename (no extension) as well as by suffix:
+  // `Makefile`/`GNUmakefile`/`*.mk`, `Dockerfile`/`Dockerfile.dev`/`*.dockerfile`.
+  let baseName = $derived(path.split('/').pop() ?? '');
+  let isMakefile = $derived(
+    /^(GNUmakefile|[Mm]akefile)$/.test(baseName) || /\.(mk|make|mak)$/i.test(baseName),
+  );
+  let isDockerfile = $derived(
+    /^(Dockerfile|Containerfile)(\.[\w.-]+)?$/i.test(baseName) || /\.dockerfile$/i.test(baseName),
+  );
+  let isToml = $derived(/\.toml$/i.test(path));
+  // Config files that get a structured "Rendered" view alongside Source —
+  // Dockerfile/Makefile draw dedicated cards; YAML/JSON/TOML/XML share the
+  // collapsible ConfigTree. `configRenderKind` names which path to take.
+  let configRenderKind = $derived(
+    isMakefile
+      ? 'makefile'
+      : isDockerfile
+        ? 'dockerfile'
+        : isYaml
+          ? 'yaml'
+          : isJson
+            ? 'json'
+            : isToml
+              ? 'toml'
+              : isXml
+                ? 'xml'
+                : '',
+  );
+  let isConfigRender = $derived(configRenderKind !== '');
+  // Built only for the tree formats; Dockerfile/Makefile render from their
+  // own insight extractors inside the dedicated components.
+  let configTree = $derived(
+    isConfigRender && ['yaml', 'json', 'toml', 'xml'].includes(configRenderKind)
+      ? buildConfigTree(configRenderKind, data?.content ?? '')
+      : null,
+  );
   let isMmd = $derived(/\.(mmd|mermaid)$/i.test(path));
   // Files whose right-sidebar should also surface the import graph. Matches
   // the language list in internal/relations.Supported on the backend.
@@ -307,7 +349,7 @@
     /\.(go|tsx?|jsx?|mjs|cjs|svelte|vue|py|java|kts?|php|swift)$/i.test(path),
   );
   let isTestsTarget = $derived(/\.go$/i.test(path));
-  let isPreviewable = $derived(isSvg || isHtml || isMarkdown || isMmd);
+  let isPreviewable = $derived(isSvg || isHtml || isMarkdown || isMmd || isConfigRender);
   let svgDataUrl = $derived.by(() => {
     if (!isSvg || !data) return '';
     return `data:image/svg+xml;utf8,${encodeURIComponent(data.content)}`;
@@ -1172,6 +1214,18 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
       return;
     }
     if (line < 1) return;
+    // Line elements only exist in the Source view. When jumping from the
+    // structured config render (or its insights sidebar), flip to Source
+    // first — without persisting, so the next file still opens Rendered —
+    // then scroll once the source DOM has mounted.
+    if (previewView === 'rendered' && isConfigRender) {
+      previewView = 'source';
+      tick().then(() => {
+        scrollToLine(line, 'smooth');
+        pulse(line);
+      });
+      return;
+    }
     scrollToLine(line, 'smooth');
     pulse(line);
   }
@@ -2469,6 +2523,20 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
               </div>
             {/if}
           </div>
+        {:else if isConfigRender}
+          <div class="config-render">
+            {#if configRenderKind === 'dockerfile'}
+              <DockerfileRender content={data.content} onJump={(line) => jumpToSymbol(line)} />
+            {:else if configRenderKind === 'makefile'}
+              <MakefileRender content={data.content} onJump={(line) => jumpToSymbol(line)} />
+            {:else if configTree && configTree.ok}
+              <ConfigTree roots={configTree.roots} onJump={(line) => jumpToSymbol(line)} />
+            {:else}
+              <p class="config-error muted">
+                {configTree?.error ?? 'Could not render this file — switch to Source.'}
+              </p>
+            {/if}
+          </div>
         {:else}
           <iframe
             class="html-preview"
@@ -2531,6 +2599,16 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
         {:else if isSql}
           <aside class="symbols">
             <SqlInsights content={data.content} onJump={(line) => jumpToSymbol(line)} />
+            <EvidencePanel {path} />
+          </aside>
+        {:else if isMakefile}
+          <aside class="symbols">
+            <MakefileInsights content={data.content} onJump={(line) => jumpToSymbol(line)} />
+            <EvidencePanel {path} />
+          </aside>
+        {:else if isDockerfile}
+          <aside class="symbols">
+            <DockerfileInsights content={data.content} onJump={(line) => jumpToSymbol(line)} />
             <EvidencePanel {path} />
           </aside>
         {:else if isRelationsTarget}
@@ -2742,6 +2820,18 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     border: 0;
     background: var(--ctx-bg);
     min-height: 0;
+  }
+  /* Host for the structured config render (cards / collapsible tree). The
+     child components own their layout; the host just fills and scrolls. */
+  .config-render {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: auto;
+    background: var(--ctx-bg);
+  }
+  .config-error {
+    padding: 16px;
   }
   .mmd-wrap {
     position: relative;

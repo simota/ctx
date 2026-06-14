@@ -176,6 +176,16 @@ export function isSourceCode(path: string): boolean {
 
 // crude language detection from extension; the API may also return `lang`.
 export function langFromPath(path: string): string {
+  // Build files identify by basename, not extension — `Makefile`,
+  // `Dockerfile`, `Dockerfile.dev` etc. have no (or a misleading) suffix, so
+  // resolve them before the extension map. Both languages are registered on
+  // the shared hljs instance (makefile via the common bundle, dockerfile
+  // explicitly in lib/highlight).
+  const base = path.slice(path.lastIndexOf('/') + 1);
+  if (/^(GNUmakefile|[Mm]akefile)$/.test(base) || /\.(mk|make|mak)$/i.test(base)) return 'makefile';
+  if (/^(Dockerfile|Containerfile)(\.[\w.-]+)?$/i.test(base) || /\.dockerfile$/i.test(base)) {
+    return 'dockerfile';
+  }
   const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
   const map: Record<string, string> = {
     go: 'go',
