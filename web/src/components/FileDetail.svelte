@@ -297,6 +297,13 @@
   //     direct navigation (no iframe) still falls into the same sandbox.
   let isSvg = $derived(/\.svg$/i.test(path));
   let isHtml = $derived(/\.x?html?$/i.test(path));
+  // Binary media served straight from /raw with the right Content-Type — the
+  // /api/file text content is meaningless for these, so they render as an
+  // <img>/<iframe> preview instead of a source pane. SVG keeps its own
+  // data-URL path (script-safe) and is intentionally excluded here.
+  let isImage = $derived(/\.(png|jpe?g|gif|webp|avif|bmp|ico|apng)$/i.test(path));
+  let isPdf = $derived(/\.pdf$/i.test(path));
+  let isBinaryView = $derived(isImage || isPdf);
   let isMarkdown = $derived(/\.(md|markdown|mdx)$/i.test(path));
   let isCss = $derived(/\.(css|scss|sass|less|pcss|postcss)$/i.test(path));
   let isJson = $derived(/\.json$/i.test(path));
@@ -2206,7 +2213,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
           class="action"
           aria-label="Copy file content"
           onclick={copyAll}
-          disabled={!data}
+          disabled={!data || isBinaryView}
         >{copyLabel}</button>
         {#if isPreviewable}
           <button
@@ -2297,8 +2304,10 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     </div>
     {#if data}
       <dl class="stats" aria-label="file stats">
-        <div title="Approx LLM tokens (cl100k_base). Claude Pro caps at ~200k per request."><dt>tokens</dt><dd>{formatTokens(data.tokens)}</dd></div>
-        <div><dt>lines</dt><dd>{data.lines || lineCount}</dd></div>
+        {#if !isBinaryView}
+          <div title="Approx LLM tokens (cl100k_base). Claude Pro caps at ~200k per request."><dt>tokens</dt><dd>{formatTokens(data.tokens)}</dd></div>
+          <div><dt>lines</dt><dd>{data.lines || lineCount}</dd></div>
+        {/if}
         <div><dt>size</dt><dd>{formatSize(data.size)}</dd></div>
         {#if data.role}
           <div title="Inferred file role (e.g. core / test / config / doc)."><dt>role</dt><dd>{data.role}</dd></div>
@@ -2474,6 +2483,16 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
                 ><span class="gutter diff-gutter" aria-hidden="true"><span class="diff-old-num">{row.ln.oldNum || ''}</span><span class="diff-new-num">{row.ln.newNum || ''}</span><span class="diff-sign">{row.ln.type === 'add' ? '+' : row.ln.type === 'del' ? '-' : ' '}</span></span><span class="ln-content">{@html row.ln.html || '&nbsp;'}</span></div>{/if}{/each}{#if diffData.truncated}<div class="diff-meta">Diff truncated — use the CLI for the full diff.</div>{/if}</code></pre>
           {/if}
         {/if}
+      {:else if isImage}
+        <div class="img-preview" role="img" aria-label={`Image preview of ${path}`}>
+          <img src={rawUrl} alt={`Image: ${path}`} />
+        </div>
+      {:else if isPdf}
+        <iframe
+          class="pdf-preview"
+          src={rawUrl}
+          title={`PDF preview of ${path}`}
+        ></iframe>
       {:else if isPreviewable && previewView === 'rendered'}
         {#if isSvg}
           <div class="svg-preview" role="img" aria-label={`Rendered SVG preview of ${path}`}>
@@ -2808,6 +2827,38 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     object-fit: contain;
   }
   .html-preview {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #fff;
+    min-height: 0;
+  }
+  /* Image preview: centred, fit-to-pane, on a checkerboard so transparency
+     is legible against any theme. */
+  .img-preview {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: auto;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background-color: var(--ctx-bg);
+    background-image:
+      linear-gradient(45deg, var(--ctx-bg-elev) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--ctx-bg-elev) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--ctx-bg-elev) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--ctx-bg-elev) 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+  }
+  .img-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.25);
+  }
+  .pdf-preview {
     width: 100%;
     height: 100%;
     border: 0;
