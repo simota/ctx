@@ -6,11 +6,15 @@ the SPA catch-all (404 for `/api/*`) — they do NOT return wrong/under-reported
 data. The Go server continues to serve them. Each is deferred because it
 depends on a Go module that has no Rust crate equivalent yet.
 
-| Route | Go handler | Blocking dependency |
-|-------|-----------|--------------------|
-| `GET /api/git/diff` | `handleGitDiff` | `internal/git` (go-git + diffmatchpatch custom renderer) |
-| `GET /api/git/file-log` | `handleFileLog` | `internal/git` (go-git committer-time log traversal) |
-| `GET /api/git/commit-diff` | `handleCommitDiff` | `internal/git` (go-git + diffmatchpatch custom renderer) |
+> **Resolved 2026-06-15:** the three `GET /api/git/*` routes (`diff`,
+> `file-log`, `commit-diff`) formerly listed here are now **ported and
+> byte-parity verified** — handlers in `crates/ctx-web/src/handlers/git.rs`
+> (backed by the `ctx-git` crate), 14/14 differential cases GREEN in
+> `crates/ctx-web/tests/git_parity.rs`. See "Git Routes — PORTED" below. The
+> only remaining `/api/*` deferral is `/api/mix` mutations (next note).
+
+_No `/api/*` route currently meets the "unregistered + blocked" bar; the git
+rows that formerly filled this table are ported (see below)._
 
 > **Note:** `/api/mix` is a DIFFERENT shape of deferral. Its GET routes (list +
 > get-by-id) ARE ported and byte-parity. Its **mutations** (`POST` create,
@@ -130,15 +134,21 @@ fields are byte-identical.
 
 ---
 
-## Git Routes — DEFERRED
+## Git Routes — PORTED (byte-parity verified)
 
 Routes: `GET /api/git/diff`, `GET /api/git/file-log`, `GET /api/git/commit-diff`
 Go handlers: `handleGitDiff`, `handleFileLog`, `handleCommitDiff` in `internal/web/handlers.go`
 Go internals: `internal/git/diff.go`, `internal/git/file_log.go`
-Assessed: Wave 2 / 2026-06
+Assessed: Wave 2 / 2026-06 — **RESOLVED 2026-06-15**
 
-**Verdict: DEFERRED — byte-parity not achievable without non-trivial renderer work.**
-All three routes are currently unregistered in `crates/ctx-web/src/router.rs`.
+**Status: PORTED — all three routes registered in `crates/ctx-web/src/router.rs`
+and byte-parity verified against the frozen `go-oracle/v1` oracle.**
+Handlers live in `crates/ctx-web/src/handlers/git.rs` (backed by the `ctx-git`
+crate); 14/14 differential cases pass in `crates/ctx-web/tests/git_parity.rs`
+(harness + fixture documented in `crates/ctx-web/tests/GIT_ORACLE.md`). The
+Wave-2 analysis below is retained as the historical record of how byte-parity
+was reached — the diffmatchpatch-vs-`similar` Myers tie-break risk it flags did
+**not** materialize on the pinned deterministic git fixture.
 
 ---
 
@@ -209,17 +219,22 @@ bundled `.git/`) would be needed. This is a non-trivial addition to the harness.
 | **C. Accept a format-parity carve-out** | Low | Structurally equivalent but NOT byte-identical; requires ADR amendment |
 | **D. Add pinned git fixture + verify Myers parity empirically** | High | Required before any of A/B/C can be validated |
 
-## Recommendation
+## Recommendation (historical) — followed and resolved
 
-Option D first, then Option A if Myers tie-breaking matches on real inputs.
-- Create a small pinned git bundle under `crates/ctx-web/tests/git-fixture/`
-- Add `Norm::GitDiff` case to normalize commit hashes / timestamps
-- Run empirical comparison of Rust `similar::TextDiff` vs `diffmatchpatch.Do` output
-- If they match for the fixture → implement handlers; if not → consider Option C with ADR
+Option D-then-A was the planned path, and it is what shipped:
+- A deterministic git fixture is built at runtime by `GitFixture::build` in
+  `crates/ctx-web/tests/git_parity.rs` (frozen identity/dates → stable SHAs),
+  rather than a committed bundle under `tests/git-fixture/`.
+- Commit hashes / timestamps are baked into the fixture (deterministic), so the
+  cases assert with `Norm::Exact` plus `expect_contains` guards — a dedicated
+  `Norm::GitDiff` normalizer proved unnecessary.
+- The empirical `similar` vs `diffmatchpatch` comparison **matched** on the
+  fixture, so Option A (port the renderer to Rust) was implemented directly;
+  Option C (format-parity carve-out + ADR) was not needed.
 
-Until then, the three routes remain **unregistered** in Rust. The Go server continues
-to serve them; `--web-engine rust` will 404 on these paths (SPA fallback), which is
-the correct behavior (no stub returning wrong data).
+**Outcome:** all three routes are now **registered and byte-parity verified**
+under `--web-engine rust` (14/14 in `git_parity.rs`). They no longer fall
+through to the SPA catch-all.
 
 ---
 
@@ -308,7 +323,7 @@ POST-create / DELETE-delete operations are deliberately NOT tested for parity.
 - `crates/ctx-testinsights/src/lib.rs` — new crate: port of `internal/testinsights` (Wave 2)
 - `crates/ctx-testinsights/Cargo.toml` — new crate manifest (tree-sitter-go pinned)
 - `crates/ctx-web/src/handlers/tests.rs` — new handler: `GET /api/tests` (Wave 2)
-- `crates/ctx-web/src/router.rs` — `/api/tests` now registered; git routes absent; mix GET routes registered
+- `crates/ctx-web/src/router.rs` — `/api/tests` now registered; git routes **now registered + byte-parity verified** (see `git_parity.rs` / `GIT_ORACLE.md`); mix GET routes registered
 - `crates/ctx-web/src/handlers/mix.rs` — mix read-side handler (GET list + GET by id); POST/DELETE return a deliberate 405 sentinel that DIVERGES from Go (Go=201/204) and blocks cutover
 - `crates/ctx-web/tests/fixtures/gocode/add.go` + `add_test.go` — simple Go source+test fixture (`GocodeUniqueSum`, unique name to avoid cross-fixture identifier collisions)
 - `crates/ctx-web/tests/fixtures/symbols/extractor.go` + `extractor_test.go` + `lookup.go` — REAL `internal/symbols` files copied verbatim; regression #1 lock (test uses local `out`)
