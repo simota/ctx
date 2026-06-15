@@ -4,10 +4,13 @@
   import { navigate, toFileHash, toDirHash, toTreeHash, route } from '../lib/router.svelte';
   import { treeState, setExpanded, reloadTree } from '../lib/tree-state.svelte';
   import { setRepoRoot } from '../lib/repo.svelte';
-  import { view } from '../lib/view.svelte';
+  import { view, toggleTree } from '../lib/view.svelte';
   import TreeNode from './TreeNode.svelte';
 
-  let { selectedPath = '' } = $props<{ selectedPath?: string }>();
+  let { selectedPath = '', onCollapse } = $props<{
+    selectedPath?: string;
+    onCollapse?: () => void;
+  }>();
 
   let tree = $state<TreeNodeT | null>(null);
   let total = $state(0);
@@ -481,6 +484,15 @@
     >
       <span class="refresh-glyph" aria-hidden="true">↻</span>
     </button>
+    <button
+      type="button"
+      class="collapse"
+      onclick={() => (onCollapse ?? toggleTree)()}
+      aria-label="Hide file tree"
+      title="Hide file tree (⌘B / Ctrl+B)"
+    >
+      <span aria-hidden="true">«</span>
+    </button>
   </header>
 
   <div class="tree-filter-row">
@@ -615,11 +627,21 @@
     margin-left: auto;
   }
   .refresh,
-  .git-filter {
+  .git-filter,
+  .collapse {
     padding: 4px 8px;
     line-height: 1;
     border: 0;
     transition: background-color var(--motion-quick) ease-out;
+  }
+  .collapse {
+    color: var(--ctx-fg-dim);
+    background: transparent;
+    cursor: pointer;
+  }
+  .collapse:hover {
+    color: var(--ctx-fg);
+    background: var(--ctx-bg-panel);
   }
   .git-filter.active {
     color: var(--ctx-git-modified);

@@ -226,8 +226,7 @@
     if (mod && !e.shiftKey && !e.altKey && (e.key === 'b' || e.key === 'B')) {
       if (isTextInputFocused()) return;
       e.preventDefault();
-      toggleTree();
-      announce(view.showTree ? 'File tree shown' : 'File tree hidden');
+      toggleTreeWithAnnounce();
       return;
     }
     // Cmd-\ / Ctrl-\ — toggle right pane (file route + non-mobile only).
@@ -364,6 +363,15 @@
     setFocused('right');
   }
 
+  // Toggle the file-tree sidebar and announce the resulting state. Shared by
+  // the top-nav button, the in-sidebar collapse button, and the collapsed-rail
+  // expand button so all entry points behave identically (the keyboard path at
+  // ⌘B/Ctrl+B uses the same flip+announce sequence).
+  function toggleTreeWithAnnounce() {
+    toggleTree();
+    announce(view.showTree ? 'File tree shown' : 'File tree hidden');
+  }
+
   // Eagerly load the roots registry on mount so the header subtitle can
   // resolve the current root's pretty name without waiting for the picker
   // to open. untrack: loadRoots reads/writes roots.loading internally;
@@ -437,7 +445,7 @@
         aria-pressed={view.showTree}
         aria-label="Toggle file tree"
         title="Toggle file tree (⌘B / Ctrl+B)"
-        onclick={toggleTree}
+        onclick={toggleTreeWithAnnounce}
       >
         <span aria-hidden="true">▤</span>
       </button>
@@ -478,7 +486,7 @@
     </nav>
   </header>
 
-  <main class="content" class:two-pane={twoPane} class:no-tree={!view.showTree && route.name !== 'gitlog'}>
+  <main class="content" class:two-pane={twoPane} class:tree-collapsed={!view.showTree && route.name !== 'gitlog'}>
     {#if route.name === 'gitlog'}
       <aside class="pane left gitlog-side" aria-label="git log commits">
         <GitRefsPanel />
@@ -486,7 +494,22 @@
       </aside>
     {:else if view.showTree}
       <aside class="pane left" aria-label="file tree">
-        <TreeView selectedPath={selectedPath} />
+        <TreeView selectedPath={selectedPath} onCollapse={toggleTreeWithAnnounce} />
+      </aside>
+    {:else}
+      <!-- Collapsed rail: keeps an in-place affordance to reopen the tree so
+           the user never has to reach for the top-nav button after collapsing
+           via the in-sidebar « button. -->
+      <aside class="rail left-rail" aria-label="file tree (collapsed)">
+        <button
+          type="button"
+          class="rail-expand"
+          aria-label="Show file tree"
+          title="Show file tree (⌘B / Ctrl+B)"
+          onclick={toggleTreeWithAnnounce}
+        >
+          <span aria-hidden="true">»</span>
+        </button>
       </aside>
     {/if}
 
@@ -696,8 +719,36 @@
     grid-template-columns: minmax(260px, 360px) 1fr;
     min-height: 0;
   }
-  .content.no-tree {
-    grid-template-columns: 1fr;
+  .content.tree-collapsed {
+    grid-template-columns: 36px 1fr;
+  }
+  /* Collapsed file-tree rail — a slim vertical strip hosting the reopen (»)
+     button so the tree can be expanded again in place. */
+  .rail.left-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 6px;
+    border-right: 1px solid var(--ctx-border);
+    background: var(--ctx-bg-panel);
+    overflow: hidden;
+  }
+  .rail-expand {
+    padding: 6px 0;
+    width: 100%;
+    line-height: 1;
+    border: 0;
+    color: var(--ctx-fg-dim);
+    background: transparent;
+    cursor: pointer;
+  }
+  .rail-expand:hover {
+    color: var(--ctx-fg);
+    background: var(--ctx-bg-elev);
+  }
+  .rail-expand:focus-visible {
+    outline: 2px solid var(--ctx-accent);
+    outline-offset: -2px;
   }
   .pane {
     overflow: auto;
