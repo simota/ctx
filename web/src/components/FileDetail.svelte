@@ -82,6 +82,7 @@
   import RelationsPanel from './RelationsPanel.svelte';
   import TestInsightsPanel from './TestInsightsPanel.svelte';
   import EvidencePanel from './EvidencePanel.svelte';
+  import HexView from './HexView.svelte';
 
   // Slug generator matching the one used to build TOC entries. Keeps Latin
   // and Unicode letters/numbers (so Japanese headings keep their text),
@@ -192,7 +193,7 @@
 
   // viewer controls
   let wrap = $state(readWrapPref());
-  let previewView = $state<'rendered' | 'source'>(readPreviewViewPref());
+  let previewView = $state<'rendered' | 'source' | 'hex'>(readPreviewViewPref());
   // diff view — toggled by the Diff button when the file has uncommitted
   // changes. Diff mode takes precedence over the rendered preview so the user
   // sees the actual change set, not the SVG/Markdown render.
@@ -262,14 +263,16 @@
       // ignore
     }
   }
-  function readPreviewViewPref(): 'rendered' | 'source' {
+  function readPreviewViewPref(): 'rendered' | 'source' | 'hex' {
     try {
-      return localStorage.getItem('ctx-viewer-preview') === 'source' ? 'source' : 'rendered';
+      const v = localStorage.getItem('ctx-viewer-preview');
+      if (v === 'source' || v === 'hex') return v;
+      return 'rendered'; // unknown/legacy → rendered
     } catch {
       return 'rendered';
     }
   }
-  function writePreviewViewPref(v: 'rendered' | 'source') {
+  function writePreviewViewPref(v: 'rendered' | 'source' | 'hex') {
     try {
       localStorage.setItem('ctx-viewer-preview', v);
     } catch {
@@ -676,10 +679,67 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     return true;
   });
   function togglePreviewView() {
+    // When hex is active, toggling Rendered/Source exits hex first → rendered
     previewView = previewView === 'rendered' ? 'source' : 'rendered';
     writePreviewViewPref(previewView);
     announce(`Preview: ${previewView}`);
   }
+
+  // ---------------------------------------------------------------------------
+  // Hex view state
+  // ---------------------------------------------------------------------------
+  const HEX_SIZE_LIMIT = 8 * 1024 * 1024; // 8 MiB
+
+  let hexBytes = $state<Uint8Array | null>(null);
+  let hexLoading = $state(false);
+  let hexError = $state<string | null>(null);
+  /** Whether /raw has been fetched for the current path (avoid refetch on toggle) */
+  let hexFetchedPath = $state('');
+
+  function loadHexBytes(url: string, currentPath: string) {
+    if (hexFetchedPath === currentPath && hexBytes !== null) return; // already loaded
+    hexLoading = true;
+    hexError = null;
+    hexBytes = null;
+    fetch(url)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.arrayBuffer();
+      })
+      .then((buf) => {
+        hexBytes = new Uint8Array(buf);
+        hexFetchedPath = currentPath;
+      })
+      .catch((e: unknown) => {
+        hexError = e instanceof Error ? e.message : String(e);
+      })
+      .finally(() => {
+        hexLoading = false;
+      });
+  }
+
+  function toggleHex() {
+    if (previewView === 'hex') {
+      // Exit hex — restore prior rendered/source pref from storage (never 'hex')
+      const stored = readPreviewViewPref();
+      previewView = stored !== 'hex' ? stored : 'rendered';
+      writePreviewViewPref(previewView);
+      announce(`Preview: ${previewView}`);
+    } else {
+      previewView = 'hex';
+      writePreviewViewPref('hex');
+      announce('Preview: hex');
+      // Trigger fetch only if within size limit
+      if (data && data.size <= HEX_SIZE_LIMIT) {
+        loadHexBytes(rawUrl, path);
+      }
+    }
+  }
+
+  /** True if file content looks binary (contains replacement char from utf8_lossy). */
+  let isBinaryContent = $derived(
+    !!data && data.size > 0 && (data.content ?? '').includes('�'),
+  );
 
   // Has the current file got working-tree changes git can diff against?
   // The /api/file response carries git status as a single-letter string
@@ -887,6 +947,11 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     commitDiffError = null;
     historyLoading = false;
     historyError = null;
+    // Reset hex state for the new path.
+    hexBytes = null;
+    hexError = null;
+    hexLoading = false;
+    hexFetchedPath = '';
     fetchFile(p, { symbols: true })
       .then((r) => {
         if (epoch !== loadEpoch) return;
@@ -903,6 +968,28 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
 
   $effect(() => {
     load(path);
+  });
+
+  // Default non-media binary files to hex view (without persisting to localStorage,
+  // so the user's global rendered/source pref is preserved for normal text files).
+  // image/pdf keep their own preview; only content-detected binary triggers hex.
+  // Apply the binary→hex default ONCE per loaded file (keyed on data.path, like
+  // appliedRouteModeKey below). Without this guard the effect re-runs on every
+  // previewView change and forces hex back on — trapping the user in hex
+  // whenever they click Source on a binary file.
+  let appliedHexDefaultPath = '';
+  $effect(() => {
+    if (!data) return;
+    if (isBinaryView) return; // image/pdf — handled by their own preview
+    if (data.path === appliedHexDefaultPath) return; // already decided for this file
+    appliedHexDefaultPath = data.path;
+    if (isBinaryContent && previewView !== 'hex') {
+      previewView = 'hex';
+      // Auto-fetch if within size limit
+      if (data.size <= HEX_SIZE_LIMIT) {
+        loadHexBytes(rawUrl, path);
+      }
+    }
   });
 
   let appliedRouteModeKey = '';
@@ -2215,6 +2302,14 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
           onclick={copyAll}
           disabled={!data || isBinaryView}
         >{copyLabel}</button>
+        <button
+          type="button"
+          class="action"
+          aria-label={previewView === 'hex' ? 'Exit hex view' : 'View file as hex dump'}
+          aria-pressed={previewView === 'hex'}
+          onclick={toggleHex}
+          disabled={!data || diffMode || historyMode}
+        >Hex{previewView === 'hex' ? ': on' : ''}</button>
         {#if isPreviewable}
           <button
             type="button"
@@ -2222,7 +2317,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
             aria-label="Toggle preview between rendered output and source"
             aria-pressed={previewView === 'rendered'}
             onclick={togglePreviewView}
-            disabled={!data || diffMode}
+            disabled={!data || diffMode || previewView === 'hex'}
           >View: {previewView === 'rendered' ? 'Rendered' : 'Source'}</button>
         {/if}
         {#if diffActionAvailable}
@@ -2482,6 +2577,47 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
                   data-diff-line={row.idx}
                 ><span class="gutter diff-gutter" aria-hidden="true"><span class="diff-old-num">{row.ln.oldNum || ''}</span><span class="diff-new-num">{row.ln.newNum || ''}</span><span class="diff-sign">{row.ln.type === 'add' ? '+' : row.ln.type === 'del' ? '-' : ' '}</span></span><span class="ln-content">{@html row.ln.html || '&nbsp;'}</span></div>{/if}{/each}{#if diffData.truncated}<div class="diff-meta">Diff truncated — use the CLI for the full diff.</div>{/if}</code></pre>
           {/if}
+        {/if}
+      {:else if previewView === 'hex'}
+        {#if data && data.size > HEX_SIZE_LIMIT}
+          <div class="hex-gate">
+            <p class="muted">File is {formatSize(data.size)} — hex fetch is on demand.</p>
+            {#if hexLoading}
+              <div class="loading" aria-busy="true">
+                <span class="skel" style="width: 60%; height: 12px;"></span>
+                <span class="skel" style="width: 40%; height: 12px;"></span>
+              </div>
+            {:else if hexError}
+              <div class="error">
+                <p>Failed to load hex bytes.</p>
+                <code class="mono">{hexError}</code>
+                <button onclick={() => loadHexBytes(rawUrl, path)}>Retry</button>
+              </div>
+            {:else if hexBytes}
+              <HexView bytes={hexBytes} {path} />
+            {:else}
+              <button class="action" onclick={() => loadHexBytes(rawUrl, path)}>
+                Load hex ({formatSize(data.size)})
+              </button>
+            {/if}
+          </div>
+        {:else if hexLoading}
+          <div class="loading" aria-busy="true">
+            <span class="skel" style="width: 60%; height: 12px;"></span>
+            <span class="skel" style="width: 40%; height: 12px;"></span>
+          </div>
+        {:else if hexError}
+          <div class="error">
+            <p>Failed to load hex bytes.</p>
+            <code class="mono">{hexError}</code>
+            <button onclick={() => loadHexBytes(rawUrl, path)}>Retry</button>
+          </div>
+        {:else if hexBytes}
+          <HexView bytes={hexBytes} {path} />
+        {:else}
+          <div class="loading" aria-busy="true">
+            <span class="skel" style="width: 60%; height: 12px;"></span>
+          </div>
         {/if}
       {:else if isImage}
         <div class="img-preview" role="img" aria-label={`Image preview of ${path}`}>
@@ -2973,6 +3109,17 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     color: var(--ctx-err);
     word-break: break-all;
     font-size: 11px;
+  }
+
+  /* hex view gate (oversized file prompt) */
+  .hex-gate {
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .hex-gate p {
+    margin: 0;
   }
 
   /* code viewer lines */
