@@ -2159,18 +2159,24 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
       e.preventDefault();
       closeFind();
     }
-    // Diff hunk navigation: `n`/`p` when diff mode is on and no input has
-    // focus. Guarded against modifier keys so it doesn't collide with the
-    // browser's own ctrl/cmd+n. Hidden behind an explicit `data-diff-mode`
-    // check so the source viewer stays unaffected.
-    if (diffMode && !mod && !e.shiftKey && !e.altKey) {
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      if (e.key === 'n' || e.key === 'j') {
+    // Diff hunk navigation: bare `n`/`p`/`j`/`k` plus Shift+Arrow keys when
+    // diff mode is on and find/input focus is not active. Guarded against
+    // ctrl/cmd/alt so browser shortcuts and normal viewer modes stay unaffected.
+    if (diffMode && !mod && !e.altKey) {
+      if (findOpen || isTextInputFocused()) return;
+      if (!e.shiftKey && (e.key === 'n' || e.key === 'j')) {
         if (diffHunks.length === 0) return;
         e.preventDefault();
         jumpDiff(1);
-      } else if (e.key === 'p' || e.key === 'k') {
+      } else if (!e.shiftKey && (e.key === 'p' || e.key === 'k')) {
+        if (diffHunks.length === 0) return;
+        e.preventDefault();
+        jumpDiff(-1);
+      } else if (e.shiftKey && e.key === 'ArrowDown') {
+        if (diffHunks.length === 0) return;
+        e.preventDefault();
+        jumpDiff(1);
+      } else if (e.shiftKey && e.key === 'ArrowUp') {
         if (diffHunks.length === 0) return;
         e.preventDefault();
         jumpDiff(-1);
@@ -2345,16 +2351,16 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
             <button
               type="button"
               class="action"
-              aria-label="Previous hunk (p)"
-              title="Previous hunk (p / k)"
+              aria-label="Previous hunk (p, k, or Shift+ArrowUp)"
+              title="Previous hunk (p / k / Shift+ArrowUp)"
               onclick={() => jumpDiff(-1)}
             >‹</button>
             <span class="hunk-count muted" aria-live="polite">{currentHunk + 1}/{diffHunks.length}</span>
             <button
               type="button"
               class="action"
-              aria-label="Next hunk (n)"
-              title="Next hunk (n / j)"
+              aria-label="Next hunk (n, j, or Shift+ArrowDown)"
+              title="Next hunk (n / j / Shift+ArrowDown)"
               onclick={() => jumpDiff(1)}
             >›</button>
           </div>
