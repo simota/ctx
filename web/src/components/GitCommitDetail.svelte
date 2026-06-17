@@ -33,9 +33,24 @@
     return s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
   }
 
+  function isDiffHunkStart(lines: GitDiffResponse['lines'], idx: number): boolean {
+    const type = lines[idx]?.type;
+    if (type !== 'add' && type !== 'del') return false;
+    const prev = lines[idx - 1]?.type;
+    return prev !== 'add' && prev !== 'del';
+  }
+
+  function isTextInputFocused(): boolean {
+    const active = document.activeElement as HTMLElement | null;
+    if (!active) return false;
+    const tag = active.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || active.isContentEditable;
+  }
+
   let files = $state<CommitFileEntry[]>([]);
   let filesLoading = $state(false);
   let filesError = $state<string | null>(null);
+  let rootEl: HTMLElement | null = $state(null);
 
   // Per-file lazy-loaded diffs, keyed by path (within the current commit).
   let openDiff = $state<Set<string>>(new Set());
@@ -125,9 +140,59 @@
   function statusGlyph(s: string): string {
     return s === 'added' ? 'A' : s === 'deleted' ? 'D' : 'M';
   }
+
+  function visibleDiffHunks(): HTMLElement[] {
+    if (!rootEl) return [];
+    return Array.from(rootEl.querySelectorAll<HTMLElement>('[data-commit-diff-hunk]'));
+  }
+
+  function jumpDiff(delta: 1 | -1): void {
+    if (!rootEl) return;
+    const hunks = visibleDiffHunks();
+    if (hunks.length === 0) return;
+    const rootRect = rootEl.getBoundingClientRect();
+    const anchor = rootRect.top + rootEl.clientHeight / 2;
+    const hunkCenter = (el: HTMLElement) => {
+      const rect = el.getBoundingClientRect();
+      return rect.top + rect.height / 2;
+    };
+    let target = -1;
+    if (delta > 0) {
+      target = hunks.findIndex((el) => hunkCenter(el) > anchor + 1);
+      if (target === -1) target = 0;
+    } else {
+      for (let i = hunks.length - 1; i >= 0; i--) {
+        if (hunkCenter(hunks[i]) < anchor - 1) {
+          target = i;
+          break;
+        }
+      }
+      if (target === -1) target = hunks.length - 1;
+    }
+    hunks[target]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function onGlobalKey(e: KeyboardEvent): void {
+    if (!e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (isTextInputFocused()) return;
+    if (e.key === 'ArrowDown') {
+      if (visibleDiffHunks().length === 0) return;
+      e.preventDefault();
+      jumpDiff(1);
+    } else if (e.key === 'ArrowUp') {
+      if (visibleDiffHunks().length === 0) return;
+      e.preventDefault();
+      jumpDiff(-1);
+    }
+  }
+
+  $effect(() => {
+    window.addEventListener('keydown', onGlobalKey);
+    return () => window.removeEventListener('keydown', onGlobalKey);
+  });
 </script>
 
-<section class="commit-detail" aria-label="commit detail">
+<section class="commit-detail" aria-label="commit detail" bind:this={rootEl}>
   {#if !hash}
     <div class="placeholder">
       <h2>Git Log</h2>
@@ -210,7 +275,7 @@
               {:else if diffByPath[f.path].no_change && !diffByPath[f.path].added && !diffByPath[f.path].deleted}
                 <p class="muted note">No textual changes.</p>
               {:else}
-                <pre class="diff" class:wrap><code class="hljs">{#if diffByPath[f.path].added}<div class="diff-meta">New file</div>{/if}{#if diffByPath[f.path].deleted}<div class="diff-meta">File deleted</div>{/if}{#each diffByPath[f.path].lines as ln (ln)}<div class="diff-line diff-{ln.type}"><span class="gutter" aria-hidden="true"><span class="g-old">{ln.old_num || ''}</span><span class="g-new">{ln.new_num || ''}</span><span class="g-sign">{ln.type === 'add' ? '+' : ln.type === 'del' ? '-' : ' '}</span></span><span class="ln-text">{@html hl(ln.text, f.path) || ' '}</span></div>{/each}{#if diffByPath[f.path].truncated}<div class="diff-meta">Diff truncated — use the CLI for the full diff.</div>{/if}</code></pre>
+                <pre class="diff" class:wrap><code class="hljs">{#if diffByPath[f.path].added}<div class="diff-meta">New file</div>{/if}{#if diffByPath[f.path].deleted}<div class="diff-meta">File deleted</div>{/if}{#each diffByPath[f.path].lines as ln, i (ln)}<div class="diff-line diff-{ln.type}" data-commit-diff-hunk={isDiffHunkStart(diffByPath[f.path].lines, i) ? 'true' : undefined}><span class="gutter" aria-hidden="true"><span class="g-old">{ln.old_num || ''}</span><span class="g-new">{ln.new_num || ''}</span><span class="g-sign">{ln.type === 'add' ? '+' : ln.type === 'del' ? '-' : ' '}</span></span><span class="ln-text">{@html hl(ln.text, f.path) || ' '}</span></div>{/each}{#if diffByPath[f.path].truncated}<div class="diff-meta">Diff truncated — use the CLI for the full diff.</div>{/if}</code></pre>
               {/if}
             {/if}
           </li>
