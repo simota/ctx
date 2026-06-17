@@ -33,13 +33,6 @@
     return s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
   }
 
-  function isDiffHunkStart(lines: GitDiffResponse['lines'], idx: number): boolean {
-    const type = lines[idx]?.type;
-    if (type !== 'add' && type !== 'del') return false;
-    const prev = lines[idx - 1]?.type;
-    return prev !== 'add' && prev !== 'del';
-  }
-
   function isTextInputFocused(): boolean {
     const active = document.activeElement as HTMLElement | null;
     if (!active) return false;
@@ -141,46 +134,46 @@
     return s === 'added' ? 'A' : s === 'deleted' ? 'D' : 'M';
   }
 
-  function visibleDiffHunks(): HTMLElement[] {
+  function visibleDiffTargets(): HTMLElement[] {
     if (!rootEl) return [];
-    return Array.from(rootEl.querySelectorAll<HTMLElement>('[data-commit-diff-hunk]'));
+    return Array.from(rootEl.querySelectorAll<HTMLElement>('[data-commit-diff-target]'));
   }
 
   function jumpDiff(delta: 1 | -1): void {
     if (!rootEl) return;
-    const hunks = visibleDiffHunks();
-    if (hunks.length === 0) return;
+    const targets = visibleDiffTargets();
+    if (targets.length === 0) return;
     const rootRect = rootEl.getBoundingClientRect();
     const anchor = rootRect.top + rootEl.clientHeight / 2;
-    const hunkCenter = (el: HTMLElement) => {
+    const targetCenter = (el: HTMLElement) => {
       const rect = el.getBoundingClientRect();
       return rect.top + rect.height / 2;
     };
     let target = -1;
     if (delta > 0) {
-      target = hunks.findIndex((el) => hunkCenter(el) > anchor + 1);
+      target = targets.findIndex((el) => targetCenter(el) > anchor + 1);
       if (target === -1) target = 0;
     } else {
-      for (let i = hunks.length - 1; i >= 0; i--) {
-        if (hunkCenter(hunks[i]) < anchor - 1) {
+      for (let i = targets.length - 1; i >= 0; i--) {
+        if (targetCenter(targets[i]) < anchor - 1) {
           target = i;
           break;
         }
       }
-      if (target === -1) target = hunks.length - 1;
+      if (target === -1) target = targets.length - 1;
     }
-    hunks[target]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    targets[target]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function onGlobalKey(e: KeyboardEvent): void {
     if (!e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
     if (isTextInputFocused()) return;
     if (e.key === 'ArrowDown') {
-      if (visibleDiffHunks().length === 0) return;
+      if (visibleDiffTargets().length === 0) return;
       e.preventDefault();
       jumpDiff(1);
     } else if (e.key === 'ArrowUp') {
-      if (visibleDiffHunks().length === 0) return;
+      if (visibleDiffTargets().length === 0) return;
       e.preventDefault();
       jumpDiff(-1);
     }
@@ -236,7 +229,7 @@
       </div>
       <ul class="files" role="list">
         {#each files as f (f.path)}
-          <li class="file">
+          <li class="file" data-commit-diff-target>
             <div class="file-row">
               <button
                 type="button"
@@ -275,7 +268,7 @@
               {:else if diffByPath[f.path].no_change && !diffByPath[f.path].added && !diffByPath[f.path].deleted}
                 <p class="muted note">No textual changes.</p>
               {:else}
-                <pre class="diff" class:wrap><code class="hljs">{#if diffByPath[f.path].added}<div class="diff-meta">New file</div>{/if}{#if diffByPath[f.path].deleted}<div class="diff-meta">File deleted</div>{/if}{#each diffByPath[f.path].lines as ln, i (ln)}<div class="diff-line diff-{ln.type}" data-commit-diff-hunk={isDiffHunkStart(diffByPath[f.path].lines, i) ? 'true' : undefined}><span class="gutter" aria-hidden="true"><span class="g-old">{ln.old_num || ''}</span><span class="g-new">{ln.new_num || ''}</span><span class="g-sign">{ln.type === 'add' ? '+' : ln.type === 'del' ? '-' : ' '}</span></span><span class="ln-text">{@html hl(ln.text, f.path) || ' '}</span></div>{/each}{#if diffByPath[f.path].truncated}<div class="diff-meta">Diff truncated — use the CLI for the full diff.</div>{/if}</code></pre>
+                <pre class="diff" class:wrap><code class="hljs">{#if diffByPath[f.path].added}<div class="diff-meta">New file</div>{/if}{#if diffByPath[f.path].deleted}<div class="diff-meta">File deleted</div>{/if}{#each diffByPath[f.path].lines as ln (ln)}<div class="diff-line diff-{ln.type}"><span class="gutter" aria-hidden="true"><span class="g-old">{ln.old_num || ''}</span><span class="g-new">{ln.new_num || ''}</span><span class="g-sign">{ln.type === 'add' ? '+' : ln.type === 'del' ? '-' : ' '}</span></span><span class="ln-text">{@html hl(ln.text, f.path) || ' '}</span></div>{/each}{#if diffByPath[f.path].truncated}<div class="diff-meta">Diff truncated — use the CLI for the full diff.</div>{/if}</code></pre>
               {/if}
             {/if}
           </li>
