@@ -522,6 +522,244 @@ pub fn file_churn(
     Ok(churn)
 }
 
+/// Co-change graph node: one repo-relative, '/'-separated path that changed
+/// within the scanned window. `commits` / `last_commit_time` are the same
+/// per-file churn quantities `file_churn` reports, gathered in the same pass.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CoChangeNode {
+    pub path: String,
+    pub commits: u32,
+    pub last_commit_time: i64,
+    /// Line count of the worktree file (`b'\n'` count), or 0 if unreadable/absent.
+    pub lines: u32,
+}
+
+/// Co-change graph edge between two nodes. `source`/`target` index into the
+/// `CoChangeGraph::nodes` vector; `weight` is the number of commits that
+/// touched both endpoints together.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CoChangeEdge {
+    pub source: usize,
+    pub target: usize,
+    pub weight: u32,
+}
+
+/// Co-change graph for a window of history.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CoChangeGraph {
+    pub nodes: Vec<CoChangeNode>,
+    pub edges: Vec<CoChangeEdge>,
+    /// Number of commits actually folded into the aggregation (≤ `limit`).
+    pub commits_scanned: u32,
+    /// True when history exceeded `limit` and the older commits were dropped.
+    pub truncated: bool,
+}
+
+/// Commits whose change set is larger than this are treated as bulk edits
+/// (mass reformat, vendoring, generated-file regen) and excluded from
+/// pairwise edge aggregation, since every pair in such a commit is a false
+/// co-change signal. The files still count toward per-node churn.
+const MAX_FILES_PER_COMMIT: usize = 50;
+
+/// Builds a co-change graph from a single `git log` pass: files changed in the
+/// same commit get an edge whose weight is how often they co-changed. Edges
+/// expose the implicit coupling (an API and its test, source and its snapshot,
+/// a config and its loader) that the commit graph's time axis cannot show.
+/// Paths are repo-relative and '/'-separated (`core.quotepath=false` keeps
+/// non-ASCII names literal), matching the worktree layout and `file_churn`.
+///
+/// `limit` caps the number of commits aggregated (a probe of `limit + 1` sets
+/// `truncated`); `since` is a git approxidate (e.g. `"90d"`) windowing the log
+/// when `Some`; `min_weight` drops edges seen fewer than that many times.
+/// Nodes that end up with no surviving edge are omitted to shrink the payload,
+/// so every returned node is incident to at least one edge. Returns an empty
+/// graph on an unborn branch (no commits yet).
+pub fn co_change_graph(
+    repo_root: impl AsRef<Path>,
+    limit: usize,
+    since: Option<&str>,
+    min_weight: u32,
+) -> Result<CoChangeGraph> {
+    let git_dir = git_dir(repo_root.as_ref());
+    if read_head_oid(&git_dir)?.is_none() {
+        return Ok(CoChangeGraph::default());
+    }
+
+    // Same 1-pass shape as `file_churn`, but probe one extra commit so we can
+    // tell whether history was truncated, and bound the scan with `-n`.
+    let mut args: Vec<String> = vec![
+        "-c".into(),
+        "core.quotepath=false".into(),
+        "log".into(),
+        "--no-renames".into(),
+        "--name-only".into(),
+        "--format=%x00%ct".into(),
+        format!("-n{}", limit.saturating_add(1)),
+    ];
+    if let Some(since) = since.filter(|s| !s.is_empty()) {
+        args.push(format!("--since={since}"));
+    }
+    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let output = git_output(&git_dir, &arg_refs)?;
+    let text = String::from_utf8_lossy(&output);
+
+    // Intern paths to dense ids; per-id churn accumulates alongside, indexed
+    // by id. `paths` is the reverse map (id -> path) for the final node build.
+    let mut ids: HashMap<String, usize> = HashMap::new();
+    let mut paths: Vec<String> = Vec::new();
+    let mut churn: Vec<ChurnStat> = Vec::new();
+    let mut pair_weights: HashMap<(usize, usize), u32> = HashMap::new();
+
+    let mut commit_time = 0i64;
+    let mut current: Vec<usize> = Vec::new();
+    let mut seen: std::collections::HashSet<usize> = std::collections::HashSet::new();
+    let mut commits_scanned: u32 = 0;
+    let mut truncated = false;
+    let mut commit_open = false;
+
+    for line in text.lines() {
+        if let Some(rest) = line.strip_prefix('\0') {
+            // A commit boundary closes the previous commit (if any).
+            if commit_open {
+                if commits_scanned as usize >= limit {
+                    // The just-finished commit is the probe beyond `limit`;
+                    // drop it and stop — older history is truncated.
+                    truncated = true;
+                    break;
+                }
+                fold_commit(&current, commit_time, &mut churn, &mut pair_weights);
+                commits_scanned += 1;
+            }
+            commit_open = true;
+            current.clear();
+            seen.clear();
+            commit_time = rest.trim().parse::<i64>().unwrap_or(0);
+            continue;
+        }
+        if line.is_empty() {
+            continue;
+        }
+        let id = *ids.entry(line.to_string()).or_insert_with(|| {
+            let id = paths.len();
+            paths.push(line.to_string());
+            churn.push(ChurnStat::default());
+            id
+        });
+        // Dedupe paths within a commit so a file listed twice counts once.
+        if seen.insert(id) {
+            current.push(id);
+        }
+    }
+    // Fold the final commit (the log ends without a trailing `\0`), unless it
+    // is the probe commit beyond `limit`.
+    if commit_open {
+        if commits_scanned as usize >= limit {
+            truncated = true;
+        } else {
+            fold_commit(&current, commit_time, &mut churn, &mut pair_weights);
+            commits_scanned += 1;
+        }
+    }
+
+    // Keep edges at or above the weight floor, then compact node ids so the
+    // returned nodes are exactly the surviving edges' endpoints (isolated
+    // nodes are dropped to shrink the payload).
+    let mut compact: HashMap<usize, usize> = HashMap::new();
+    let mut nodes: Vec<CoChangeNode> = Vec::new();
+    let mut edges: Vec<CoChangeEdge> = Vec::new();
+    for (&(a, b), &weight) in &pair_weights {
+        if weight < min_weight {
+            continue;
+        }
+        let source = intern_node(
+            repo_root.as_ref(),
+            a,
+            &paths,
+            &churn,
+            &mut compact,
+            &mut nodes,
+        );
+        let target = intern_node(
+            repo_root.as_ref(),
+            b,
+            &paths,
+            &churn,
+            &mut compact,
+            &mut nodes,
+        );
+        edges.push(CoChangeEdge {
+            source,
+            target,
+            weight,
+        });
+    }
+
+    Ok(CoChangeGraph {
+        nodes,
+        edges,
+        commits_scanned,
+        truncated,
+    })
+}
+
+/// Folds one commit's deduped file id set into per-id churn and pairwise
+/// co-change weights. Bulk commits (> `MAX_FILES_PER_COMMIT`) still count
+/// toward churn but are excluded from pairwise weights to avoid false signal.
+fn fold_commit(
+    current: &[usize],
+    commit_time: i64,
+    churn: &mut [ChurnStat],
+    pair_weights: &mut HashMap<(usize, usize), u32>,
+) {
+    for &id in current {
+        let stat = &mut churn[id];
+        stat.commits = stat.commits.saturating_add(1);
+        if commit_time > stat.last_commit_time {
+            stat.last_commit_time = commit_time;
+        }
+    }
+    if current.len() > MAX_FILES_PER_COMMIT {
+        return;
+    }
+    for i in 0..current.len() {
+        for j in (i + 1)..current.len() {
+            let (a, b) = (current[i], current[j]);
+            let key = if a < b { (a, b) } else { (b, a) };
+            let w = pair_weights.entry(key).or_insert(0);
+            *w = w.saturating_add(1);
+        }
+    }
+}
+
+/// Maps a churn id to its compacted node index, inserting the node on first
+/// sight so the node vector only carries paths incident to a surviving edge.
+fn intern_node(
+    repo_root: &Path,
+    id: usize,
+    paths: &[String],
+    churn: &[ChurnStat],
+    compact: &mut HashMap<usize, usize>,
+    nodes: &mut Vec<CoChangeNode>,
+) -> usize {
+    if let Some(&idx) = compact.get(&id) {
+        return idx;
+    }
+    let idx = nodes.len();
+    let path = &paths[id];
+    // Count newlines in the worktree file; absent/unreadable files report 0.
+    let lines = fs::read(repo_root.join(path))
+        .map(|bytes| bytes.iter().filter(|&&b| b == b'\n').count() as u32)
+        .unwrap_or(0);
+    nodes.push(CoChangeNode {
+        path: path.clone(),
+        commits: churn[id].commits,
+        last_commit_time: churn[id].last_commit_time,
+        lines,
+    });
+    compact.insert(id, idx);
+    idx
+}
+
 pub fn file_log(
     repo_root: impl AsRef<Path>,
     slash_path: &str,
@@ -1521,6 +1759,83 @@ mod tests {
         // Most recent commit time wins (second commit's committer date).
         let hot = churn.get("hot.txt").expect("hot stat");
         assert_eq!(hot.last_commit_time, 1623053350);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn co_change_graph_counts_pairwise_changes() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+
+        // api.rs + api_test.rs co-change three times; solo.rs changes alone.
+        for i in 0..3 {
+            fs::write(root.join("api.rs"), format!("v{i}\n")).expect("write api");
+            fs::write(root.join("api_test.rs"), format!("t{i}\n")).expect("write test");
+            commit_all(&root, "touch api + test", "2020-01-02T03:04:05+00:00");
+        }
+        // A commit touching only one of the pair: bumps churn, not the edge.
+        fs::write(root.join("api.rs"), "lone\n").expect("write api");
+        commit_all(&root, "touch api alone", "2020-01-03T03:04:05+00:00");
+        // An unrelated file pair that co-changes only once (below min_weight=2).
+        fs::write(root.join("solo_a.rs"), "a\n").expect("write solo_a");
+        fs::write(root.join("solo_b.rs"), "b\n").expect("write solo_b");
+        commit_all(&root, "touch solo pair once", "2020-01-04T03:04:05+00:00");
+
+        let graph = co_change_graph(&root, 100, None, 2).expect("co-change graph");
+        assert!(!graph.truncated);
+        assert_eq!(graph.commits_scanned, 5);
+
+        // Exactly one edge survives min_weight=2: api.rs <-> api_test.rs (w=3).
+        assert_eq!(graph.edges.len(), 1);
+        let edge = &graph.edges[0];
+        assert_eq!(edge.weight, 3);
+        let endpoints: std::collections::HashSet<&str> = [
+            graph.nodes[edge.source].path.as_str(),
+            graph.nodes[edge.target].path.as_str(),
+        ]
+        .into_iter()
+        .collect();
+        assert!(endpoints.contains("api.rs"));
+        assert!(endpoints.contains("api_test.rs"));
+
+        // Only the two edge endpoints are emitted; the solo pair is cut.
+        assert_eq!(graph.nodes.len(), 2);
+        let api_node = graph
+            .nodes
+            .iter()
+            .find(|n| n.path == "api.rs")
+            .expect("api node");
+        assert_eq!(api_node.commits, 4); // 3 paired + 1 solo
+                                         // Worktree `api.rs` is "lone\n" (one newline) after the solo commit.
+        assert_eq!(api_node.lines, 1);
+
+        // Raising min_weight above the surviving weight empties the graph.
+        let strict = co_change_graph(&root, 100, None, 4).expect("strict graph");
+        assert!(strict.edges.is_empty());
+        assert!(strict.nodes.is_empty());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn co_change_graph_empty_for_unborn_branch() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+
+        let graph = co_change_graph(&root, 100, None, 2).expect("co-change graph");
+        assert!(graph.nodes.is_empty());
+        assert!(graph.edges.is_empty());
+        assert_eq!(graph.commits_scanned, 0);
+        assert!(!graph.truncated);
 
         let _ = fs::remove_dir_all(root);
     }

@@ -42,6 +42,18 @@ pub struct DiffCacheEntry {
 /// path. Shared across requests via [`AppState`].
 pub type DiffCache = Arc<RwLock<HashMap<PathBuf, DiffCacheEntry>>>;
 
+/// A memoized `/api/git/co-change` body plus the HEAD oid that validates it.
+/// The co-change graph is a pure function of (HEAD history, params), so the
+/// body is stale only when HEAD moves; the cache key folds the params in.
+pub struct CoChangeCacheEntry {
+    head_oid: Option<String>,
+    body: Arc<Vec<u8>>,
+}
+
+/// Process-lifetime cache for `/api/git/co-change` bodies, keyed by a string
+/// of the request params (`limit|since|min_weight`). Shared via [`AppState`].
+pub type CoChangeCache = Arc<RwLock<HashMap<String, CoChangeCacheEntry>>>;
+
 #[derive(Deserialize)]
 pub struct GitDiffParams {
     #[serde(default)]
@@ -132,6 +144,40 @@ struct RepoLogResponse {
 pub struct CommitFilesParams {
     #[serde(default)]
     hash: String,
+}
+
+#[derive(Deserialize)]
+pub struct CoChangeParams {
+    #[serde(default)]
+    limit: String,
+    #[serde(default)]
+    since: String,
+    #[serde(default)]
+    min_weight: String,
+}
+
+#[derive(Serialize)]
+struct CoChangeNodeResp {
+    path: String,
+    commits: u32,
+    last_commit_time: i64,
+    #[serde(skip_serializing_if = "is_zero_u32")]
+    lines: u32,
+}
+
+#[derive(Serialize)]
+struct CoChangeEdgeResp {
+    source: usize,
+    target: usize,
+    weight: u32,
+}
+
+#[derive(Serialize)]
+struct CoChangeResponse {
+    nodes: Vec<CoChangeNodeResp>,
+    edges: Vec<CoChangeEdgeResp>,
+    commits_scanned: u32,
+    truncated: bool,
 }
 
 #[derive(Serialize)]
@@ -535,6 +581,101 @@ fn handle_commit_files_sync(state: AppState, params: CommitFilesParams) -> Respo
             &err.to_string(),
         ),
     }
+}
+
+pub async fn handle_co_change(
+    State(state): State<AppState>,
+    Query(params): Query<CoChangeParams>,
+) -> Response {
+    crate::blocking::run(move || handle_co_change_sync(state, params)).await
+}
+
+fn handle_co_change_sync(state: AppState, params: CoChangeParams) -> Response {
+    let git_root = git_root_only(&state.root);
+
+    // Co-change wants a wide window, so the limit cap is larger than the
+    // commit-log handler's; default 500, default min_weight 2 drops one-off
+    // accidental pairs server-side.
+    let limit = params.limit.parse::<i32>().unwrap_or(500).clamp(1, 2000) as usize;
+    let min_weight = params.min_weight.parse::<u32>().unwrap_or(2);
+    let since = if params.since.is_empty() {
+        None
+    } else {
+        Some(params.since.as_str())
+    };
+
+    // Cache key folds the params; the entry is validated against HEAD oid so
+    // a moved HEAD invalidates without an explicit purge.
+    let cache_key = format!("{limit}|{}|{min_weight}", params.since);
+    let head_oid = ctx_git::head_oid(&git_root).ok().flatten();
+    if let Some(body) = co_change_cache_get(&state.co_change_cache, &cache_key, &head_oid) {
+        return response::json_bytes(StatusCode::OK, body.as_ref().clone());
+    }
+
+    match ctx_git::co_change_graph(&git_root, limit, since, min_weight) {
+        Ok(graph) => {
+            let response = CoChangeResponse {
+                nodes: graph
+                    .nodes
+                    .into_iter()
+                    .map(|n| CoChangeNodeResp {
+                        path: n.path,
+                        commits: n.commits,
+                        last_commit_time: n.last_commit_time,
+                        lines: n.lines,
+                    })
+                    .collect(),
+                edges: graph
+                    .edges
+                    .into_iter()
+                    .map(|e| CoChangeEdgeResp {
+                        source: e.source,
+                        target: e.target,
+                        weight: e.weight,
+                    })
+                    .collect(),
+                commits_scanned: graph.commits_scanned,
+                truncated: graph.truncated,
+            };
+            let body = Arc::new(response::to_json_bytes(&response));
+            co_change_cache_put(
+                &state.co_change_cache,
+                cache_key,
+                head_oid,
+                Arc::clone(&body),
+            );
+            response::json_bytes(StatusCode::OK, body.as_ref().clone())
+        }
+        Err(err) => response::error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "git_co_change",
+            &err.to_string(),
+        ),
+    }
+}
+
+/// Return the cached co-change body if its stored params key and HEAD oid match.
+fn co_change_cache_get(
+    cache: &CoChangeCache,
+    key: &str,
+    head_oid: &Option<String>,
+) -> Option<Arc<Vec<u8>>> {
+    let guard = cache.read().ok()?;
+    let entry = guard.get(key)?;
+    (entry.head_oid == *head_oid).then(|| Arc::clone(&entry.body))
+}
+
+/// Store `body` under `key`, refreshing any existing entry for the same params.
+fn co_change_cache_put(
+    cache: &CoChangeCache,
+    key: String,
+    head_oid: Option<String>,
+    body: Arc<Vec<u8>>,
+) {
+    let Ok(mut guard) = cache.write() else {
+        return;
+    };
+    guard.insert(key, CoChangeCacheEntry { head_oid, body });
 }
 
 pub async fn handle_commit_diff(
