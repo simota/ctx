@@ -106,6 +106,24 @@
     {#if commits.length > 0}
       <span class="muted count">({commits.length}{truncated ? '+' : ''})</span>
     {/if}
+    <div class="view-seg" role="tablist" aria-label="Git log view">
+      <button
+        type="button"
+        role="tab"
+        class="seg"
+        class:active={route.path !== 'relations'}
+        aria-selected={route.path !== 'relations'}
+        onclick={() => navigate(toGitLogHash())}
+      >Commits</button>
+      <button
+        type="button"
+        role="tab"
+        class="seg"
+        class:active={route.path === 'relations'}
+        aria-selected={route.path === 'relations'}
+        onclick={() => navigate('#/gitlog/relations')}
+      >Relations</button>
+    </div>
     {#if branches.length > 0 || worktrees.length > 0}
       <select
         class="ref-select"
@@ -217,6 +235,29 @@
   }
   .count {
     font-size: 0.82em;
+  }
+  .view-seg {
+    display: inline-flex;
+    margin-left: 8px;
+    border: 1px solid var(--ctx-border);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .seg {
+    font-size: 0.76em;
+    color: var(--ctx-fg-dim);
+    background: var(--ctx-bg-elev, var(--ctx-bg));
+    border: 0;
+    padding: 2px 8px;
+    cursor: pointer;
+  }
+  .seg + .seg {
+    border-left: 1px solid var(--ctx-border);
+  }
+  .seg.active {
+    color: var(--ctx-fg);
+    background: var(--ctx-accent-soft, var(--ctx-bg-panel, var(--ctx-bg)));
+    box-shadow: inset 0 -2px 0 var(--ctx-accent);
   }
   .ref-select {
     margin-left: auto;
