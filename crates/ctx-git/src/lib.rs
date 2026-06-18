@@ -299,9 +299,19 @@ pub struct CommitFile {
 /// Returns at most `limit` entries plus a `truncated` flag that is true when
 /// more history exists beyond the window. Empty (and not truncated) on an
 /// unborn branch.
-pub fn repo_log(repo_root: impl AsRef<Path>, limit: usize) -> Result<(Vec<RepoLogEntry>, bool)> {
+///
+/// `ref_name` selects the starting point (a branch, worktree HEAD, or commit
+/// hash); `None` walks the default HEAD and keeps the git invocation identical
+/// to the historic byte-for-byte behaviour.
+pub fn repo_log(
+    repo_root: impl AsRef<Path>,
+    limit: usize,
+    ref_name: Option<&str>,
+) -> Result<(Vec<RepoLogEntry>, bool)> {
     let git_dir = git_dir(repo_root.as_ref());
-    if read_head_oid(&git_dir)?.is_none() {
+    // The unborn-HEAD shortcut only applies to the default HEAD; with an
+    // explicit ref we defer to git, which reports an invalid ref as an error.
+    if ref_name.is_none() && read_head_oid(&git_dir)?.is_none() {
         return Ok((Vec::new(), false));
     }
 
@@ -311,15 +321,17 @@ pub fn repo_log(repo_root: impl AsRef<Path>, limit: usize) -> Result<(Vec<RepoLo
     // \x1f (unit separator) cannot appear in a hash/email/timestamp and is
     // stripped from subjects by git's %s (first line only), so it is a safe
     // field delimiter — far safer than whitespace for author names.
-    let output = git_output(
-        &git_dir,
-        &[
-            "log",
-            "--no-color",
-            &n,
-            "--format=%H\x1f%h\x1f%an\x1f%ae\x1f%ct\x1f%P\x1f%s",
-        ],
-    )?;
+    let mut args = vec![
+        "log",
+        "--no-color",
+        &n,
+        "--format=%H\x1f%h\x1f%an\x1f%ae\x1f%ct\x1f%P\x1f%s",
+    ];
+    // Append the ref only when given so the default-HEAD arg list is unchanged.
+    if let Some(ref_name) = ref_name {
+        args.push(ref_name);
+    }
+    let output = git_output(&git_dir, &args)?;
     let text = String::from_utf8_lossy(&output);
 
     let mut entries = Vec::with_capacity(limit.min(probe));
@@ -1541,7 +1553,7 @@ mod tests {
         fs::write(root.join("b.txt"), "2\n").expect("write b");
         commit_all(&root, "second commit", "2021-06-07T08:09:10+00:00");
 
-        let (all, truncated) = repo_log(&root, 50).expect("repo log");
+        let (all, truncated) = repo_log(&root, 50, None).expect("repo log");
         assert_eq!(all.len(), 2);
         assert!(!truncated);
         assert_eq!(all[0].subject, "second commit");
@@ -1553,10 +1565,36 @@ mod tests {
         assert_eq!(all[0].parents, vec![all[1].hash_full.clone()]);
         assert!(all[1].parents.is_empty());
 
-        let (one, truncated) = repo_log(&root, 1).expect("repo log limit 1");
+        let (one, truncated) = repo_log(&root, 1, None).expect("repo log limit 1");
         assert_eq!(one.len(), 1);
         assert!(truncated);
         assert_eq!(one[0].subject, "second commit");
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn repo_log_walks_an_explicit_ref() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("a.txt"), "1\n").expect("write a");
+        commit_all(&root, "main commit", "2020-01-02T03:04:05+00:00");
+        // A second branch with its own commit on top of main.
+        git(&root, &["checkout", "-q", "-b", "feature"]);
+        fs::write(root.join("b.txt"), "2\n").expect("write b");
+        commit_all(&root, "feature commit", "2021-06-07T08:09:10+00:00");
+        // Move HEAD back to main so the ref (not HEAD) drives the result.
+        git(&root, &["checkout", "-q", "main"]);
+
+        let (entries, truncated) = repo_log(&root, 50, Some("feature")).expect("repo log ref");
+        assert!(!truncated);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].subject, "feature commit");
+        assert_eq!(entries[1].subject, "main commit");
 
         let _ = fs::remove_dir_all(root);
     }

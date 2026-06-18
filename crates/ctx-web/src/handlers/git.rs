@@ -118,6 +118,8 @@ struct FileLogResponse {
 pub struct RepoLogParams {
     #[serde(default)]
     limit: String,
+    #[serde(default, rename = "ref")]
+    ref_name: String,
 }
 
 #[derive(Serialize)]
@@ -349,6 +351,15 @@ fn handle_file_log_sync(state: AppState, params: FileLogParams) -> Response {
     }
 }
 
+/// A ref is accepted when it does not start with `-` (which git would read as
+/// an option) and every character is from the conservative branch/hash/tag set.
+fn is_valid_ref(ref_name: &str) -> bool {
+    !ref_name.starts_with('-')
+        && ref_name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '/' | '@' | '-'))
+}
+
 pub async fn handle_repo_log(
     State(state): State<AppState>,
     Query(params): Query<RepoLogParams>,
@@ -361,7 +372,17 @@ fn handle_repo_log_sync(state: AppState, params: RepoLogParams) -> Response {
     let mut limit = params.limit.parse::<i32>().unwrap_or(50);
     limit = limit.clamp(1, 200);
 
-    match ctx_git::repo_log(&git_root, limit as usize) {
+    // Empty ref keeps the default-HEAD behaviour; a non-empty ref is validated
+    // before it reaches git so a leading dash can't smuggle in an option.
+    let ref_opt = if params.ref_name.is_empty() {
+        None
+    } else if is_valid_ref(&params.ref_name) {
+        Some(params.ref_name.as_str())
+    } else {
+        return response::error(StatusCode::BAD_REQUEST, "bad_request", "invalid ref");
+    };
+
+    match ctx_git::repo_log(&git_root, limit as usize, ref_opt) {
         Ok((entries, truncated)) => response::json(
             StatusCode::OK,
             &RepoLogResponse {

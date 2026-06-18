@@ -1,9 +1,15 @@
 <script lang="ts">
-  import { formatRelative } from '../lib/format';
+  import { formatRelative, basename } from '../lib/format';
   import { announce } from '../lib/announce.svelte';
   import { route, navigate, toGitLogHash } from '../lib/router.svelte';
   import { gitlog, loadGitLog } from '../lib/gitlog.svelte';
   import { computeGraph, type GraphEdge } from '../lib/git-graph';
+  import {
+    fetchBranches,
+    fetchWorktrees,
+    type BranchEntry,
+    type WorktreeEntry,
+  } from '../lib/api';
 
   const LIMIT = 100;
   const ROW_H = 46; // fixed row height so graph rails align across rows
@@ -37,9 +43,47 @@
     return `M${x1} ${y1} C${x1} ${my} ${x2} ${my} ${x2} ${y2}`;
   }
 
+  // Ref selector: branches + worktrees a user can re-base the log on. Fetch
+  // failures just hide the selector — they never block the default HEAD log.
+  let branches = $state<BranchEntry[]>([]);
+  let worktrees = $state<WorktreeEntry[]>([]);
+  let selectedRef = $state('');
+
   $effect(() => {
     void loadGitLog(LIMIT);
   });
+
+  $effect(() => {
+    void (async () => {
+      try {
+        const [b, w] = await Promise.all([fetchBranches(), fetchWorktrees()]);
+        branches = b.branches;
+        worktrees = w.worktrees.filter((wt) => !wt.bare);
+      } catch {
+        branches = [];
+        worktrees = [];
+      }
+    })();
+  });
+
+  // value (=ref) for a worktree: its branch, else the detached short hash.
+  function worktreeRef(w: WorktreeEntry): string {
+    return w.branch ?? w.head ?? '';
+  }
+  function worktreeLabel(w: WorktreeEntry): string {
+    const name = basename(w.path);
+    const at = w.branch ?? (w.head ? `${w.head} (detached)` : 'detached');
+    return `${name} — ${at}`;
+  }
+
+  async function onRefChange(): Promise<void> {
+    await loadGitLog(LIMIT, selectedRef || null, true);
+    // The previously selected hash may not exist on the new ref; re-select the
+    // newest commit so the detail pane never points at a stale hash.
+    if (gitlog.commits.length > 0) {
+      navigate(toGitLogHash(gitlog.commits[0].hash_full));
+    }
+  }
 
   // Announce once after load; auto-select the newest commit when none is
   // selected (e.g. opened via the nav, not a deep link).
@@ -61,6 +105,30 @@
     <h2>Git Log</h2>
     {#if commits.length > 0}
       <span class="muted count">({commits.length}{truncated ? '+' : ''})</span>
+    {/if}
+    {#if branches.length > 0 || worktrees.length > 0}
+      <select
+        class="ref-select"
+        aria-label="Show log for"
+        bind:value={selectedRef}
+        onchange={onRefChange}
+      >
+        <option value="">HEAD (default)</option>
+        {#if branches.length > 0}
+          <optgroup label="Branches">
+            {#each branches as b (b.name)}
+              <option value={b.name}>{b.name}{b.current ? ' ●' : ''}</option>
+            {/each}
+          </optgroup>
+        {/if}
+        {#if worktrees.length > 1}
+          <optgroup label="Worktrees">
+            {#each worktrees as w (w.path)}
+              <option value={worktreeRef(w)}>{worktreeLabel(w)}</option>
+            {/each}
+          </optgroup>
+        {/if}
+      </select>
     {/if}
   </header>
 
@@ -149,6 +217,17 @@
   }
   .count {
     font-size: 0.82em;
+  }
+  .ref-select {
+    margin-left: auto;
+    max-width: 16ch;
+    font-size: 0.78em;
+    color: var(--ctx-fg);
+    background: var(--ctx-bg-elev, var(--ctx-bg));
+    border: 1px solid var(--ctx-border);
+    border-radius: 4px;
+    padding: 2px 4px;
+    cursor: pointer;
   }
   .note {
     padding: 8px 12px;

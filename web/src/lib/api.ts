@@ -521,8 +521,8 @@ export interface RepoLogResponse {
   truncated: boolean;
 }
 
-export function fetchGitLog(limit?: number): Promise<RepoLogResponse> {
-  return getJSON<RepoLogResponse>(`/api/git/log${qs({ limit })}`);
+export function fetchGitLog(limit?: number, ref?: string): Promise<RepoLogResponse> {
+  return getJSON<RepoLogResponse>(`/api/git/log${qs({ limit, ref })}`);
 }
 
 // git commit files — paths changed by a single commit, with status.
