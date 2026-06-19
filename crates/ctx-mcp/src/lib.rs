@@ -80,7 +80,26 @@ pub fn serve<R: BufRead, W: Write>(
                 if req.id.is_none() {
                     continue;
                 }
-                server.handle(req)
+                // Isolate handler panics so one malformed request cannot crash the
+                // whole stdio server; reply with -32603 (internal error) instead.
+                // The handler holds only `&Server` (read-only), so there is no
+                // shared mutable state to be left poisoned by an unwind.
+                let id = req.id.clone();
+                match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    server.handle(req)
+                })) {
+                    Ok(response) => response,
+                    Err(_) => Response {
+                        jsonrpc: "2.0",
+                        id,
+                        result: None,
+                        error: Some(RpcError {
+                            code: -32603,
+                            message: "internal error".to_string(),
+                            data: None,
+                        }),
+                    },
+                }
             }
             Err(err) => Response {
                 jsonrpc: "2.0",
