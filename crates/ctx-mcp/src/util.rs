@@ -16,10 +16,15 @@ pub(crate) fn digest_since_days(since: &str) -> Result<i64, RpcError> {
             let value = num.parse::<i64>().map_err(|_| {
                 tool_error(format!("parsing duration {since:?}: invalid numeric part"))
             })?;
+            // Saturate on overflow so an absurdly large duration (e.g.
+            // "100000000000000000y", which fits in MAX_SINCE_LEN) becomes i64::MAX and
+            // is rejected by the `> 5 * 365` bound check in run_digest, rather than
+            // panicking (debug builds) or wrapping to a negative day count that slips
+            // past the bound (release builds).
             return Ok(if suffix == "h" {
-                (value + 23) / 24
+                value.saturating_add(23) / 24
             } else {
-                value * multiplier
+                value.saturating_mul(multiplier)
             });
         }
     }
@@ -130,4 +135,56 @@ pub(crate) fn canonicalize_for_compare(path: &Path) -> Option<PathBuf> {
     }
     let abs = absolute(path);
     Some(std::fs::canonicalize(&abs).unwrap_or(abs))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // `RpcError` intentionally has no `Debug` impl, so unwrap the success side via
+    // `.ok()` (Option::unwrap needs no Debug bound on the error type).
+
+    #[test]
+    fn digest_since_days_normal_units() {
+        assert_eq!(digest_since_days("7d").ok(), Some(7));
+        assert_eq!(digest_since_days("2w").ok(), Some(14));
+        assert_eq!(digest_since_days("1mo").ok(), Some(30));
+        assert_eq!(digest_since_days("1y").ok(), Some(365));
+        // hours round up to whole days: ceil(48/24)=2, ceil(1/24)=1.
+        assert_eq!(digest_since_days("48h").ok(), Some(2));
+        assert_eq!(digest_since_days("1h").ok(), Some(1));
+        // no recognised suffix -> 0 (unchanged behaviour).
+        assert_eq!(digest_since_days("30").ok(), Some(0));
+    }
+
+    #[test]
+    fn digest_since_days_invalid_numeric_part_is_err() {
+        assert!(digest_since_days("d").is_err());
+        assert!(digest_since_days("-5d").is_err());
+    }
+
+    #[test]
+    fn digest_since_days_overflow_saturates_and_does_not_panic() {
+        // These fit within MAX_SINCE_LEN and previously overflowed i64:
+        // a panic in debug, a negative (bound-bypassing) value in release.
+        // They must now saturate to a large positive count that the
+        // `> 5 * 365` bound check in run_digest rejects.
+        let bound = 5 * 365;
+
+        // Every multiplier suffix that can overflow saturates to a positive value.
+        for since in [
+            "100000000000000000y",  // *365
+            "1000000000000000000mo", // *30
+            "9000000000000000000w",  // *7
+        ] {
+            let days = digest_since_days(since).ok().unwrap();
+            assert_eq!(days, i64::MAX, "{since} should saturate to i64::MAX");
+            assert!(days > bound);
+        }
+
+        // The "h" ceil path adds before dividing; saturate the add, never wrap negative.
+        let add = digest_since_days("9223372036854775807h").ok().unwrap();
+        assert!(add > bound);
+        assert!(add > 0);
+    }
 }
