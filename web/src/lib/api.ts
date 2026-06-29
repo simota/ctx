@@ -521,8 +521,39 @@ export interface RepoLogResponse {
   truncated: boolean;
 }
 
-export function fetchGitLog(limit?: number): Promise<RepoLogResponse> {
-  return getJSON<RepoLogResponse>(`/api/git/log${qs({ limit })}`);
+export function fetchGitLog(limit?: number, ref?: string): Promise<RepoLogResponse> {
+  return getJSON<RepoLogResponse>(`/api/git/log${qs({ limit, ref })}`);
+}
+
+// git co-change — file-relationship network. `nodes` are the files that
+// co-changed; `edges[*].source`/`target` are indices into `nodes`. The server
+// already drops isolated nodes, so every node is an edge endpoint.
+export interface CoChangeNode {
+  path: string;
+  commits: number;
+  last_commit_time: number;
+  lines?: number;
+}
+export interface CoChangeEdge {
+  source: number;
+  target: number;
+  weight: number;
+}
+export interface CoChangeResponse {
+  nodes: CoChangeNode[];
+  edges: CoChangeEdge[];
+  commits_scanned: number;
+  truncated: boolean;
+}
+
+export function fetchCoChange(
+  limit?: number,
+  since?: string,
+  minWeight?: number,
+): Promise<CoChangeResponse> {
+  return getJSON<CoChangeResponse>(
+    `/api/git/co-change${qs({ limit, since, min_weight: minWeight })}`,
+  );
 }
 
 // git commit files — paths changed by a single commit, with status.

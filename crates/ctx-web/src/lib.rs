@@ -47,6 +47,11 @@ pub struct AppState {
     /// a pure performance layer — a hit returns the exact bytes a fresh
     /// `worktree_diff` would produce.
     pub diff_cache: handlers::git::DiffCache,
+    /// Memoizes `/api/git/co-change` response bodies, keyed by the request
+    /// params and validated by HEAD oid. Like [`diff_cache`] it is a pure
+    /// performance layer — a hit returns the bytes a fresh aggregation
+    /// would produce.
+    pub co_change_cache: handlers::git::CoChangeCache,
 }
 
 /// Hosts the embedded browser UI + API — analogue of `web.Server`.
@@ -102,6 +107,7 @@ impl Server {
             audit: self.audit,
             file_cache: handlers::file::FileCache::default(),
             diff_cache: handlers::git::DiffCache::default(),
+            co_change_cache: handlers::git::CoChangeCache::default(),
         };
         let app = router::build(state);
         axum::serve(listener, app)

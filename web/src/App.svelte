@@ -21,6 +21,7 @@
   import LargestFiles from './components/LargestFiles.svelte';
   import GitRefsPanel from './components/GitRefsPanel.svelte';
   import GitCommitDetail from './components/GitCommitDetail.svelte';
+  import GitCoChangeGraph from './components/GitCoChangeGraph.svelte';
   import PaneSplitter from './components/PaneSplitter.svelte';
   import { announceState, announce } from './lib/announce.svelte';
   import { toggleCheatsheet, cheatsheet } from './lib/cheatsheet.svelte';
@@ -522,7 +523,11 @@
         {:else if rightTab === 'dir'}
           <DirOverview path={route.path} />
         {:else if rightTab === 'gitlog'}
-          <GitCommitDetail hash={route.path} />
+          {#if route.path === 'relations'}
+            <GitCoChangeGraph />
+          {:else}
+            <GitCommitDetail hash={route.path} />
+          {/if}
         {:else if rightTab === 'largest'}
           <LargestFiles />
         {/if}
