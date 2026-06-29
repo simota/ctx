@@ -194,6 +194,7 @@ export function langFromPath(path: string): string {
     js: 'javascript',
     jsx: 'javascript',
     svelte: 'svelte',
+    vue: 'vue',
     html: 'xml',
     css: 'css',
     json: 'json',

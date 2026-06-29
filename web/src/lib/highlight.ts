@@ -20,4 +20,11 @@ hljs.registerLanguage('dockerfile', hljsDockerfile);
 // JavaScript/CSS automatically by the definition).
 hljsSvelte(hljs);
 
+// Vue single-file components: highlight.js ships no `vue` grammar, and the
+// file API labels `.vue` sources as lang "vue". Alias it to `xml` so the HTML
+// grammar drives it — that sub-highlights <template> (HTML), <script>
+// (JavaScript) and <style> (CSS) blocks, mirroring how `.html` resolves to
+// `xml` in lib/format's langFromPath.
+hljs.registerAliases('vue', { languageName: 'xml' });
+
 export default hljs;
