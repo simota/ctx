@@ -627,9 +627,32 @@ impl GitStatusMap {
 
     fn status_for(&self, rel: &str, is_dir: bool) -> String {
         if !is_dir {
-            return self.by_path.get(rel).cloned().unwrap_or_default();
+            if let Some(s) = self.by_path.get(rel) {
+                return s.clone();
+            }
+            // `git status --porcelain` collapses a wholly-untracked directory to
+            // a single "<dir>/" entry and omits the files inside it. Those files
+            // are still walked from disk, so without this they'd carry no status
+            // and the changed-only tree filter would hide them. Inherit the
+            // nearest untracked-ancestor's status so they surface.
+            return self.untracked_ancestor_status(rel);
         }
         self.aggregate_dir(rel)
+    }
+
+    /// Status of the nearest ancestor directory recorded as untracked
+    /// (`"<dir>/"` in porcelain output), or empty if none. Walks ancestor
+    /// prefixes shallow→deep so the closest match wins.
+    fn untracked_ancestor_status(&self, rel: &str) -> String {
+        let mut idx = 0;
+        while let Some(pos) = rel[idx..].find('/') {
+            let end = idx + pos;
+            if let Some(status) = self.by_path.get(&rel[..=end]) {
+                return status.clone();
+            }
+            idx = end + 1;
+        }
+        String::new()
     }
 
     fn aggregate_dir(&self, rel: &str) -> String {
@@ -1036,5 +1059,30 @@ mod tests {
         assert!(dirs.contains(&"sub"), "depth-cutoff dir must be retained; got {dirs:?}");
 
         let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn git_status_propagates_untracked_dir_to_contained_files() {
+        // `git status --porcelain` collapses a wholly-untracked directory to a
+        // single "notes/" entry; the files inside it are never listed. Without
+        // ancestor propagation those files get no status and the changed-only
+        // tree filter hides them (the reported bug).
+        let status = GitStatusMap {
+            by_path: BTreeMap::from([
+                ("notes/".to_string(), "?".to_string()),
+                ("docs/guide/intro.md".to_string(), "M".to_string()),
+            ]),
+        };
+
+        // Files inside the untracked dir inherit "?" (any depth).
+        assert_eq!(status.status_for("notes/todo.md", false), "?");
+        assert_eq!(status.status_for("notes/sub/deep.md", false), "?");
+        // The untracked dir node itself still aggregates to "?".
+        assert_eq!(status.status_for("notes", true), "?");
+        // A tracked, individually-listed file keeps its own status.
+        assert_eq!(status.status_for("docs/guide/intro.md", false), "M");
+        // A file with no status and no untracked ancestor stays empty.
+        assert_eq!(status.status_for("docs/guide/other.md", false), "");
+        assert_eq!(status.status_for("README.md", false), "");
     }
 }
