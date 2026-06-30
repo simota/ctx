@@ -39,11 +39,18 @@ default). The native server prints the same
 `ctx browse: serving <path> at http://<addr>/` line the Go server emits, so
 the browser-launcher parent parses the URL unchanged.
 
-## Ported routes (this slice)
+## Ported routes
 
-- `GET /api/file?path=…` — file metadata + content (reuses `ctx-tokens`).
-- `GET|HEAD /raw/<path>` — raw byte serving + security headers + secret deny.
-- SPA static (`/`, assets, unknown → `index.html` fallback).
+- Core browse APIs: `/api/file`, `/api/tree`, `/api/dir`, `/api/where`,
+  `/api/relations`, `/api/symbols`, `/api/definition`, `/api/budget`,
+  `/api/tests`, `/api/roots`, `/api/evidence`, and `/api/evidence/verify`.
+- Git and replay APIs: `/api/git/diff`, `/api/git/log`,
+  `/api/git/co-change`, `/api/git/branches`, `/api/git/tags`,
+  `/api/git/worktrees`, `/api/git/file-log`, `/api/git/commit-files`,
+  `/api/git/commit-diff`, `/api/replay/list`, `/api/replay/show`,
+  `/api/replay/diff`, and `/api/replay/verify`.
+- Mix read APIs: `GET /api/mix` and `GET /api/mix/<id>`.
+- Static serving: `GET|HEAD /raw/<path>` and SPA static fallback.
 
 ## Adding a route
 
@@ -77,17 +84,20 @@ on demand with `go build`. If Go is unavailable the test SKIPs with a notice.
   added, give its case a `Norm::FloatTol(eps)` variant (≤ 1e-12, per the
   `echo` BM25 lesson — Go `math.Log` vs Rust `f64::ln` can differ by ≤ 1 ULP).
 
-## Deferred to later Wave 2 slices
+## Deferred / known compatibility gaps
 
-- The other 21 `/api/*` routes (`/api/tree`, `/api/dir`, `/api/symbols`,
-  `/api/where`, `/api/relations`, `/api/git/*`, `/api/replay/*`, `/api/mix*`,
-  `/api/roots*`, `/api/budget`, `/api/evidence*`, `/api/tests`,
-  `/api/definition`).
-- The `/api/file` `symbols` field — blocked on the `ctx-symbols` tree-sitter
-  port (ADR-0005 Wave 2). Tested only on non-code files where Go also emits no
-  symbols, so omitting the field is byte-identical today.
-- The `/api/file` / `/api/tree` `git` field — blocked on the git crate swap.
+- `/api/mix` mutations (`POST /api/mix`, `DELETE /api/mix/<id>`) still return
+  a deliberate Rust 405 sentinel; Go performs create/delete. This blocks full
+  cutover until deterministic write fixtures, id injection, and clock injection
+  exist.
+- `/api/file` is ported but not currently byte-identical: Rust emits optional
+  fs metadata fields used by the Svelte file detail view, while the Go oracle
+  omits them.
+- `/api/tests?profile=...` coverage-profile byte parity lacks a deterministic
+  coverprofile fixture.
 - The audit sink (`Server.WithAuditSink` / `auditMiddleware`).
+- Full `.gitignore` / `.ctxignore` fidelity is not yet shared by every Rust
+  walker. See `DEFERRED_ROUTES.md` for the route-by-route details.
 - Full gitignore-glob fidelity in the `/raw/` secret-deny matcher (current
   matcher is basename/suffix/dir-anchored, faithful for the static
   `SecretDenyPatterns` list).

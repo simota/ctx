@@ -1,4 +1,4 @@
-# Deferred Web Routes (not yet ported to Rust)
+# Deferred Web Routes and Compatibility Gaps
 
 These `/api/*` routes are intentionally **unregistered** in
 `crates/ctx-web/src/router.rs`. Under `--web-engine rust` they fall through to
@@ -22,6 +22,14 @@ rows that formerly filled this table are ported (see below)._
 > deliberate **405 sentinel** for those methods, which **diverges** from Go
 > (Go performs the create/delete: 201/204). See the `/api/mix` mutations
 > section below — this divergence blocks cutover.
+
+> **Note:** `/api/file` is registered and functionally ported, but the Rust
+> handler currently emits fs metadata fields (`modified_at`, `created_at`,
+> `mode`, `owner`, `group`) added for the Svelte file detail view. The Go
+> oracle does not emit those fields, so the exact byte-parity case remains RED
+> until the contract decision is made: either port those fields to the Go
+> oracle, remove them from the Rust response, or normalize the intentional
+> extension in the parity harness.
 
 ---
 

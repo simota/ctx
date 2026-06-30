@@ -12,9 +12,11 @@
 //!   handlers/     — one module per `/api/*` (and `/raw/*`) route
 //!   lib.rs        — `Server` (`New`/`Listen`/`Addr`/`Start`)
 //!
-//! PORTED routes: `/api/file`, `/raw/<path>`, SPA static. The other 21 routes,
-//! the audit sink, and git/symbols-dependent fields are DEFERRED to later
-//! Wave 2 slices (see crate README / ADR-0005).
+//! PORTED routes now include the file/tree/dir/where/relations/symbols/budget,
+//! evidence, tests, roots, replay, git, mix-read, `/raw/*`, and SPA surfaces.
+//! Remaining known deferrals are documented in `DEFERRED_ROUTES.md`: notably
+//! `/api/mix` mutations, coverage-profile parity, the audit sink, and the
+//! Rust-only `/api/file` fs metadata extension.
 
 use std::io;
 use std::net::SocketAddr;

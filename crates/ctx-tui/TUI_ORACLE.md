@@ -89,7 +89,7 @@ Within a golden file, frames are separated by a delimiter line:
 `<n>` is the step index (0 = initial). Everything between one delimiter and
 the next (or EOF) is the ANSI-stripped frame body.
 
-## Rust oracle (RED)
+## Rust oracle
 
 `crates/ctx-tui` — ratatui crate, `src/lib.rs` + `tests/snapshot.rs`.
 
@@ -100,17 +100,16 @@ line, drop trailing blank lines — same normalisation applied to the
 goldens), and asserts byte-equality with each golden frame. One
 `#[test]` per session so a port loop can count green/red.
 
-### Current status: RED (scaffold)
+### Current status: active snapshot oracle
 
-`ctx_tui::render()` and `Model::update()` are explicit **STUBS** (render
-emits an empty buffer). The snapshot tests therefore fail with a real
-content mismatch (blank grid vs golden content), **not** a compile error.
+`ctx_tui::render()` and `Model::update()` are implemented and exercised by the
+snapshot tests. A mismatch is a real content/layout regression against the
+frozen Go reference, not a scaffold placeholder.
 
-The Wave 4 ratatui port loop implements `render()` / `update()` (and any
-model behaviour the goldens require — inclusion set, open/collapse, cursor,
-viewport scrolling, token totals) until every session goes green. **Do not
-edit the goldens to match a partial port** — the goldens are the frozen Go
-reference.
+Future TUI changes must preserve the golden contract unless the intended
+content/layout change is explicitly recaptured from the reference model. **Do
+not edit the goldens to hide a partial or accidental port regression** — the
+goldens are the frozen Go reference.
 
 ```
 cargo test --manifest-path crates/ctx-tui/Cargo.toml --test snapshot

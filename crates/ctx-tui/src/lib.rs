@@ -10,11 +10,9 @@
 // Go tui with ANSI escape codes stripped — we assert CONTENT + LAYOUT
 // (the cell text grid), NOT visual styling/colours. See TUI_ORACLE.md.
 //
-// STATUS: ORACLE SCAFFOLD ONLY. The real ratatui rendering is NOT
-// implemented here — `render()` is an explicit empty-frame STUB so the
-// snapshot oracle compiles and runs RED. The Wave 4 port loop fills in
-// `render()` (and any model behaviour the goldens require) until the
-// snapshot test goes green.
+// STATUS: ACTIVE PORT. `render()` and `Model::update()` are verified by the
+// frame-snapshot oracle; failures in that suite are content/layout regressions,
+// not scaffold placeholders.
 
 use std::collections::HashSet;
 use std::io;
@@ -119,8 +117,8 @@ struct Row {
 
 impl Model {
     /// Mirror of tui.New(root): all files start included, the root starts
-    /// open. (Behaviour is the port loop's responsibility; this scaffold
-    /// only stores the tree so the oracle compiles.)
+    /// open. Behaviour is snapshot-oracle-backed so the model stays aligned
+    /// with the frozen Go tui content/layout reference.
     pub fn new(root: FileInfo) -> Self {
         let mut included = HashSet::new();
         collect_files(&root, &mut |file| {
@@ -331,11 +329,8 @@ impl Model {
 
 /// render draws the model into the ratatui frame.
 ///
-/// STUB: intentionally renders nothing, so the snapshot oracle stays RED
-/// (an empty cell grid vs the golden content) rather than failing to
-/// compile. The Wave 4 ratatui port replaces this body with the real
-/// header / tree / help rendering. Do NOT treat the empty output as
-/// correct.
+/// Rendering is content/layout checked by `tests/snapshot.rs`; styling and
+/// ANSI colour parity remain intentionally out of scope.
 pub fn render(model: &Model, frame: &mut Frame) {
     let text = Text::raw(model.view_text());
     frame.render_widget(Paragraph::new(text), frame.area());

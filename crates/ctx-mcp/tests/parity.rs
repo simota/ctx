@@ -57,12 +57,11 @@
 //! cases via a `OnceLock`; each test still boots its own isolated server pair.
 //!
 //! ## What "RED" means here
-//! The Rust draft implements only `initialize`, `tools/list` (2 of 9 tools),
-//! and `tools/call` for `ctx_where` + `ctx_symbols`. Every other method/tool/
-//! error path produces a DIFFERENT response on the Rust side (method-not-found,
-//! unknown-tool, or wrong key order). Those tests are EXPECTED to fail until the
-//! migration loop ports them. Today exactly 3 pass (parity_tool_ctx_where,
-//! parity_tool_ctx_symbols, parity_err_unknown_method); the rest are red.
+//! The Rust server now dispatches the full tool set in this matrix, but parity
+//! can still fail for concrete reasons: incomplete native behavior, formatter
+//! differences, parser wording, or key ordering. A RED case is expected during
+//! migration only when its documented reason still applies; an unexpected RED is
+//! a regression or drift in this parity contract.
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -175,25 +174,25 @@ fn cases() -> Vec<Case> {
             &[r#"{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"ctx_symbols","arguments":{"path":"."}}}"#],
             Norm::Exact,
         ),
-        // ctx_pack: unknown tool in Rust. Timestamp norm strips the Generated line.
+        // ctx_pack: implemented in Rust. Timestamp norm strips the Generated line.
         single(
             "tool_ctx_pack",
             &[r#"{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"ctx_pack","arguments":{"path":".","budget":50000,"format":"markdown"}}}"#],
             Norm::Timestamp,
         ),
-        // ctx_budget: unknown tool in Rust.
+        // ctx_budget: implemented in Rust.
         single(
             "tool_ctx_budget",
             &[r#"{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"ctx_budget","arguments":{"path":".","budget":10000}}}"#],
             Norm::Exact,
         ),
-        // ctx_skim: unknown tool in Rust. AbsPath norm: header embeds the abs path.
+        // ctx_skim: implemented in Rust. AbsPath norm: header embeds the abs path.
         single(
             "tool_ctx_skim",
             &[r#"{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"ctx_skim","arguments":{"path":"main.go","budget":500}}}"#],
             Norm::AbsPath,
         ),
-        // ctx_tree: unknown tool in Rust. Determinism note: Go enriches each
+        // ctx_tree: implemented in Rust. Determinism note: Go enriches each
         // entry with per-file git_status, but the served --root is the fixtures
         // SUBDIR, not a repo root. `git status --porcelain` keys are
         // repo-root-relative (`crates/ctx-mcp/tests/fixtures/main.go`) while the
@@ -207,28 +206,28 @@ fn cases() -> Vec<Case> {
             &[r#"{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"ctx_tree","arguments":{"path":"."}}}"#],
             Norm::Exact,
         ),
-        // ctx_focus: unknown tool in Rust.
+        // ctx_focus: implemented in Rust.
         single(
             "tool_ctx_focus",
             &[r#"{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"ctx_focus","arguments":{"anchor":"RateLimit"}}}"#],
             Norm::Exact,
         ),
-        // ctx_digest: unknown tool in Rust. (Go requires a git repo; on the
-        // non-repo fixture it returns a tool error envelope — still a concrete,
-        // deterministic body that Rust's unknown-tool error must NOT match.)
+        // ctx_digest: implemented in Rust. Go requires a git repo; on the
+        // non-repo fixture both sides should return the deterministic tool-error
+        // envelope.
         single(
             "tool_ctx_digest",
             &[r#"{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"ctx_digest","arguments":{"path":".","since":"7d"}}}"#],
             Norm::Exact,
         ),
-        // ctx_roots_list: unknown tool in Rust today. The body is deterministic
+        // ctx_roots_list: implemented in Rust. The body is deterministic
         // because BOTH servers read the SAME registry via the CTX_ROOTS_FILE
         // env var (Go: internal/config/roots.go:29; the Rust ecosystem already
         // honors it — ctx-cli/src/main.rs:2860, ctx-web/handlers/roots.rs:142 —
-        // so the ported tool will too). The fixture roots.toml bakes absolute
+        // too). The fixture roots.toml bakes absolute
         // /tmp literals with no last_opened, so LAST_OPENED renders "-" and the
         // CURRENT marker is empty (no registered path equals the served root).
-        // Fully satisfiable; currently RED only because the tool is unported.
+        // Fully satisfiable; any failure is a real formatter or registry drift.
         single(
             "tool_ctx_roots_list",
             &[r#"{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"ctx_roots_list"}}"#],
@@ -385,10 +384,9 @@ fn expect_contains(name: &str) -> &'static [&'static str] {
             r#"### main.go"#,
             r#"func RateLimit() {}"#,
         ],
-        // ctx_digest: on the non-repo fixture Go produces a deterministic tool
-        // error envelope (isError:true) whose text names a git failure. We
-        // assert the envelope shape so a both-unknown-tool false PASS cannot
-        // sneak through (Rust returns a JSON-RPC error, not this envelope).
+        // ctx_digest: on the non-repo fixture both sides produce a deterministic
+        // tool-error envelope (isError:true). We assert the envelope shape so a
+        // dispatcher fallback false PASS cannot sneak through.
         "tool_ctx_digest" => &[r#""isError":true"#, r#""content":"#],
         // ctx_roots_list: pinned registry → alpha/beta rows, tab-aligned table.
         "tool_ctx_roots_list" => &[

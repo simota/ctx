@@ -3,7 +3,7 @@ name = "ctx-cli"
 version = "0.1.0"
 edition = "2021"
 publish = false
-description = "Experimental Rust entrypoint for ctx CLI with Go subprocess delegation"
+description = "Pure-Rust ctx CLI entrypoint"
 license = "MIT"
 
 [[bin]]

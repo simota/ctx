@@ -19,10 +19,8 @@
 // CONTENT-ONLY CARVE-OUT: we compare cell text (content + layout), NOT
 // colour/style. See ../TUI_ORACLE.md.
 //
-// RED STATUS: ctx_tui::render() is an empty STUB, so every rendered frame
-// is blank and these assertions FAIL with a real content mismatch (not a
-// compile error). The Wave 4 port loop implements render()/update() until
-// every session goes green.
+// CURRENT STATUS: the snapshot oracle is active. A mismatch here is a real
+// content/layout regression against the frozen Go tui reference.
 
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;

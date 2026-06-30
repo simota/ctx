@@ -69,9 +69,10 @@ expected response. This is fully parity-able and is compared byte-exact.
   equal the served fixture root → no `*`). Go reads this var at
   `internal/config/roots.go:29`; the Rust ecosystem already honors the SAME var
   (`crates/ctx-cli/src/main.rs:2860`, `crates/ctx-web/src/handlers/roots.rs:142`),
-  so the ported `ctx_roots_list` tool will read the identical file. With the
-  registry pinned the output is a fixed literal and is compared **byte-exact**.
-  Currently RED only because the tool is unported in the draft.
+  so `ctx_roots_list` reads the identical file. With the registry pinned the
+  output is a fixed literal and is compared **byte-exact**. The Rust tool is now
+  implemented; any future failure is a real parity regression or formatter
+  mismatch, not an unported-tool placeholder.
 
 ### 4b. `ctx_tree` / `ctx_budget` git-status — structurally empty
 - Go enriches `ctx_tree` entries with per-file `git_status` and walks the tree
