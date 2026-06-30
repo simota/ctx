@@ -18,6 +18,7 @@ use crate::commands::digest::run_digest_command;
 use crate::commands::doctor::run_doctor;
 use crate::commands::echo::run_echo_command;
 use crate::commands::focus::run_focus_command;
+use crate::commands::log::run_log_command;
 use crate::commands::map::run_map_command;
 use crate::commands::noise::run_noise_command;
 use crate::commands::onboarding::run_onboarding_command;
@@ -37,6 +38,7 @@ const COMMANDS: &[(&str, &str)] = &[
         "where",
         "Find files and symbols matching a natural-language query",
     ),
+    ("log", "Inspect git history and diffs"),
     ("mcp", "Run MCP server operations"),
     ("deps", "Show dependencies for a file"),
     ("impact", "Show import impact for a file"),
@@ -105,8 +107,7 @@ fn try_run_native(args: &[OsString]) -> Option<ExitCode> {
     if args.len() >= 2 && args[0] == OsStr::new("contract") && args[1] == OsStr::new("verify") {
         return run_contract_verify(&args[2..]);
     }
-    if args.first().is_some_and(|arg| arg == OsStr::new("pack"))
-        || flag_then_command(args, "pack")
+    if args.first().is_some_and(|arg| arg == OsStr::new("pack")) || flag_then_command(args, "pack")
     {
         return run_pack_command(args);
     }
@@ -130,9 +131,10 @@ fn try_run_native(args: &[OsString]) -> Option<ExitCode> {
     {
         return run_where_command(args);
     }
-    if args.first().is_some_and(|arg| arg == OsStr::new("map"))
-        || flag_then_command(args, "map")
-    {
+    if args.first().is_some_and(|arg| arg == OsStr::new("log")) || flag_then_command(args, "log") {
+        return run_log_command(args);
+    }
+    if args.first().is_some_and(|arg| arg == OsStr::new("map")) || flag_then_command(args, "map") {
         return run_map_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("focus"))
@@ -140,8 +142,7 @@ fn try_run_native(args: &[OsString]) -> Option<ExitCode> {
     {
         return run_focus_command(args);
     }
-    if args.first().is_some_and(|arg| arg == OsStr::new("echo"))
-        || flag_then_command(args, "echo")
+    if args.first().is_some_and(|arg| arg == OsStr::new("echo")) || flag_then_command(args, "echo")
     {
         return run_echo_command(args);
     }
@@ -160,8 +161,7 @@ fn try_run_native(args: &[OsString]) -> Option<ExitCode> {
     {
         return run_digest_command(args);
     }
-    if args.first().is_some_and(|arg| arg == OsStr::new("skim"))
-        || flag_then_command(args, "skim")
+    if args.first().is_some_and(|arg| arg == OsStr::new("skim")) || flag_then_command(args, "skim")
     {
         return run_skim_command(args);
     }
@@ -360,6 +360,7 @@ mod tests {
             .map(|cmd| cmd.get_name().to_string())
             .collect();
         assert!(names.contains(&"pack".to_string()));
+        assert!(names.contains(&"log".to_string()));
         assert!(names.contains(&"contract".to_string()));
         assert!(names.contains(&"braid".to_string()));
     }

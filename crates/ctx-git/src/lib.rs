@@ -799,6 +799,79 @@ pub fn file_log(
     Ok((entries, truncated))
 }
 
+/// Per-file commit history starting from an optional ref.
+///
+/// The default-HEAD case delegates to [`file_log`] to preserve the existing
+/// object-walk behavior. An explicit ref uses `git log <ref> -- <path>`, giving
+/// CLI callers a bounded path-history query without exposing raw git process
+/// invocation at the command layer.
+pub fn file_log_ref(
+    repo_root: impl AsRef<Path>,
+    slash_path: &str,
+    limit: usize,
+    ref_name: Option<&str>,
+) -> Result<(Vec<FileLogEntry>, bool)> {
+    let Some(ref_name) = ref_name else {
+        return file_log(repo_root, slash_path, limit);
+    };
+    if slash_path.is_empty() {
+        return Err(GitError::new("path is required"));
+    }
+
+    let git_dir = git_dir(repo_root.as_ref());
+    let probe = limit.saturating_add(1);
+    let n = format!("-n{probe}");
+    let args = [
+        "-c",
+        "core.quotepath=false",
+        "log",
+        "--no-color",
+        &n,
+        "--format=%H\x1f%h\x1f%an\x1f%ae\x1f%ct\x1f%s",
+        ref_name,
+        "--",
+        slash_path,
+    ];
+    let output = git_output(&git_dir, &args)?;
+    let text = String::from_utf8_lossy(&output);
+
+    let mut entries = Vec::with_capacity(limit.min(probe));
+    for line in text.lines() {
+        if line.is_empty() {
+            continue;
+        }
+        let mut fields = line.splitn(6, '\x1f');
+        let hash_full = fields.next().unwrap_or("").to_string();
+        let hash = fields.next().unwrap_or("").to_string();
+        let author = truncate_chars(fields.next().unwrap_or(""), MAX_AUTHOR_RUNES);
+        let author_email = truncate_chars(fields.next().unwrap_or(""), MAX_AUTHOR_RUNES);
+        let date = fields
+            .next()
+            .unwrap_or("")
+            .trim()
+            .parse::<i64>()
+            .unwrap_or(0);
+        let subject = truncate_chars(fields.next().unwrap_or(""), MAX_SUBJECT_RUNES);
+        if hash_full.is_empty() {
+            continue;
+        }
+        entries.push(FileLogEntry {
+            hash,
+            hash_full,
+            author,
+            author_email,
+            subject,
+            date,
+        });
+    }
+
+    let truncated = entries.len() > limit;
+    if truncated {
+        entries.truncate(limit);
+    }
+    Ok((entries, truncated))
+}
+
 pub fn worktree_diff(repo_root: impl AsRef<Path>, slash_path: &str) -> Result<WorktreeFileDiff> {
     if slash_path.is_empty() {
         return Err(GitError::new("path is required"));

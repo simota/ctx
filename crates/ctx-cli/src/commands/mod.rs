@@ -6,6 +6,7 @@ pub(crate) mod digest;
 pub(crate) mod doctor;
 pub(crate) mod echo;
 pub(crate) mod focus;
+pub(crate) mod log;
 pub(crate) mod map;
 pub(crate) mod noise;
 pub(crate) mod onboarding;

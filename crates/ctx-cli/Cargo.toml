@@ -19,6 +19,8 @@ strip = "symbols"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
+crossterm = "0.28"
+ratatui = "0.29"
 ctx-contract = { path = "../ctx-contract" }
 ctx-braid = { path = "../ctx-braid" }
 ctx-echo = { path = "../ctx-echo" }
