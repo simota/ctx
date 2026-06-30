@@ -21,6 +21,7 @@ use crate::common::{flag_value, is_option};
 
 const DEFAULT_LIMIT: usize = 100;
 const MAX_LIMIT: usize = 500;
+const DIFF_COLUMN_HEADER: &str = "   old  new | code";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum OutputMode {
@@ -705,11 +706,14 @@ fn build_commit_detail(
         lines.push(format!("diff -- {}", file.path));
         lines.push(format_file_stat(file));
         match ctx_git::commit_diff(root, &from, &commit.hash_full, &file.path) {
-            Ok(diff) if diff.binary => lines.push("  Binary file changed".to_string()),
-            Ok(diff) if diff.no_change => lines.push("  No textual change".to_string()),
+            Ok(diff) if diff.binary => lines.push("  [binary] file changed".to_string()),
+            Ok(diff) if diff.no_change => lines.push("  [no text changes]".to_string()),
             Ok(diff) => {
                 if diff.truncated {
                     lines.push("  [diff truncated]".to_string());
+                }
+                if !diff.lines.is_empty() {
+                    lines.push(DIFF_COLUMN_HEADER.to_string());
                 }
                 for line in diff.lines {
                     lines.push(format_diff_line(&line));
@@ -937,7 +941,8 @@ fn render_detail_panel(frame: &mut Frame, state: &LogState, area: Rect) {
 }
 
 fn render_footer(frame: &mut Frame, state: &LogState, area: Rect) {
-    let paragraph = Paragraph::new(footer_text(state)).style(Style::default().fg(Color::DarkGray));
+    let paragraph =
+        Paragraph::new(footer_text(state, area.width)).style(Style::default().fg(Color::DarkGray));
     frame.render_widget(paragraph, area);
 }
 
@@ -1042,9 +1047,11 @@ enum DetailLineKind {
     FileStatAdd,
     FileStatDelete,
     FileStatModify,
+    DiffColumnHeader,
     Add,
     Delete,
     Context,
+    Notice,
     Hint,
     Warning,
     Error,
@@ -1074,34 +1081,51 @@ fn styled_detail_line(line: &str) -> Line<'static> {
 
 fn styled_file_stat_line(line: &str, kind: DetailLineKind) -> Line<'static> {
     let style = detail_line_style(kind);
-    let trimmed = line.trim_start();
-    let (status, rest) = trimmed.split_once(' ').unwrap_or((trimmed, ""));
-    Line::from(vec![
-        Span::styled(format!("{} ", status), style.add_modifier(Modifier::BOLD)),
-        Span::styled(rest.to_string(), style),
-    ])
+    if line.len() >= 15 {
+        return Line::from(vec![
+            Span::raw(" "),
+            Span::styled(line[1..2].to_string(), style.add_modifier(Modifier::BOLD)),
+            Span::styled(" ".to_string(), Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                line[3..8].to_string(),
+                Style::default().fg(Color::LightGreen),
+            ),
+            Span::styled(" ".to_string(), Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                line[9..14].to_string(),
+                Style::default().fg(Color::LightRed),
+            ),
+            Span::styled(" ".to_string(), Style::default().fg(Color::DarkGray)),
+            Span::styled(line[15..].to_string(), style),
+        ]);
+    }
+
+    Line::styled(line.to_string(), style)
 }
 
 fn styled_diff_body_line(line: &str, kind: DetailLineKind) -> Line<'static> {
-    let style = detail_line_style(kind);
+    let marker_style = detail_line_style(kind).add_modifier(Modifier::BOLD);
+    let body_style = diff_body_style(kind);
     let Some((head, text)) = line.split_once(" | ") else {
-        return Line::styled(line.to_string(), style);
+        return Line::styled(line.to_string(), body_style);
     };
     if head.is_empty() {
-        return Line::styled(line.to_string(), style);
+        return Line::styled(line.to_string(), body_style);
     }
     let (marker, numbers) = head.split_at(1);
     Line::from(vec![
-        Span::styled(marker.to_string(), style.add_modifier(Modifier::BOLD)),
+        Span::styled(marker.to_string(), marker_style),
         Span::styled(numbers.to_string(), Style::default().fg(Color::DarkGray)),
         Span::styled(" | ", Style::default().fg(Color::DarkGray)),
-        Span::styled(text.to_string(), style),
+        Span::styled(text.to_string(), body_style),
     ])
 }
 
 fn classify_detail_line(line: &str) -> DetailLineKind {
     if line.is_empty() {
         DetailLineKind::Blank
+    } else if line == DIFF_COLUMN_HEADER {
+        DetailLineKind::DiffColumnHeader
     } else if line.starts_with('+') && line.contains(" | ") {
         DetailLineKind::Add
     } else if line.starts_with('-') && line.contains(" | ") {
@@ -1118,6 +1142,8 @@ fn classify_detail_line(line: &str) -> DetailLineKind {
         DetailLineKind::FileStatModify
     } else if line.contains("[diff truncated]") {
         DetailLineKind::Warning
+    } else if line.contains("[binary]") || line.contains("[no text changes]") {
+        DetailLineKind::Notice
     } else if line.contains("diff unavailable") {
         DetailLineKind::Error
     } else if line == "diff body not loaded for faster navigation"
@@ -1158,7 +1184,11 @@ fn detail_line_style(kind: DetailLineKind) -> Style {
         DetailLineKind::FileStatModify | DetailLineKind::Warning => {
             Style::default().fg(Color::LightYellow)
         }
+        DetailLineKind::DiffColumnHeader => Style::default()
+            .fg(Color::DarkGray)
+            .add_modifier(Modifier::BOLD),
         DetailLineKind::Context => Style::default().fg(Color::Gray),
+        DetailLineKind::Notice => Style::default().fg(Color::LightMagenta),
         DetailLineKind::Hint => Style::default().fg(Color::LightYellow),
         DetailLineKind::Error => Style::default()
             .fg(Color::LightRed)
@@ -1167,7 +1197,19 @@ fn detail_line_style(kind: DetailLineKind) -> Style {
     }
 }
 
-fn footer_text(state: &LogState) -> String {
+fn diff_body_style(kind: DetailLineKind) -> Style {
+    match kind {
+        DetailLineKind::Add => Style::default()
+            .fg(Color::LightGreen)
+            .bg(Color::Rgb(0, 32, 0)),
+        DetailLineKind::Delete => Style::default()
+            .fg(Color::LightRed)
+            .bg(Color::Rgb(48, 0, 0)),
+        _ => detail_line_style(kind),
+    }
+}
+
+fn footer_text(state: &LogState, width: u16) -> String {
     let position = commit_position_label(state.selected_commit, state.data.commits.len());
     let detail_mode = if state.diff_loading {
         "loading"
@@ -1183,6 +1225,12 @@ fn footer_text(state: &LogState) -> String {
     } else {
         "d load"
     };
+    if width < 88 {
+        return format!(
+            "commit {position} | {} | {primary_action} | left/right focus | j/k | q",
+            state.active_panel.label()
+        );
+    }
     format!(
         "commit {position} | focus {} | {detail_mode} | {primary_action} | left/right focus | j/k move/scroll | f/b page | n/p file | q",
         state.active_panel.label()
@@ -1458,6 +1506,10 @@ mod tests {
             DetailLineKind::Context
         );
         assert_eq!(
+            classify_detail_line(DIFF_COLUMN_HEADER),
+            DetailLineKind::DiffColumnHeader
+        );
+        assert_eq!(
             classify_detail_line("diff -- src/main.rs"),
             DetailLineKind::FileHeader
         );
@@ -1472,6 +1524,14 @@ mod tests {
         assert_eq!(
             classify_detail_line(" M    2+    1- src/lib.rs"),
             DetailLineKind::FileStatModify
+        );
+        assert_eq!(
+            classify_detail_line("  [binary] file changed"),
+            DetailLineKind::Notice
+        );
+        assert_eq!(
+            classify_detail_line("  [no text changes]"),
+            DetailLineKind::Notice
         );
         assert_eq!(classify_detail_line("    subject"), DetailLineKind::Subject);
     }
@@ -1494,6 +1554,32 @@ mod tests {
             detail_line_style(DetailLineKind::FileStatModify).fg,
             Some(Color::LightYellow)
         );
+        assert_eq!(
+            detail_line_style(DetailLineKind::DiffColumnHeader).fg,
+            Some(Color::DarkGray)
+        );
+        assert_eq!(
+            detail_line_style(DetailLineKind::Notice).fg,
+            Some(Color::LightMagenta)
+        );
+        assert_eq!(
+            diff_body_style(DetailLineKind::Add).bg,
+            Some(Color::Rgb(0, 32, 0))
+        );
+        assert_eq!(
+            diff_body_style(DetailLineKind::Delete).bg,
+            Some(Color::Rgb(48, 0, 0))
+        );
+    }
+
+    #[test]
+    fn file_stat_line_colors_additions_and_deletions_separately() {
+        let line =
+            styled_file_stat_line(" M    2+    1- src/lib.rs", DetailLineKind::FileStatModify);
+        assert_eq!(line.spans[3].content.as_ref(), "   2+");
+        assert_eq!(line.spans[3].style.fg, Some(Color::LightGreen));
+        assert_eq!(line.spans[5].content.as_ref(), "   1-");
+        assert_eq!(line.spans[5].style.fg, Some(Color::LightRed));
     }
 
     #[test]
@@ -1547,6 +1633,7 @@ mod tests {
                     String::new(),
                     "diff -- src/lib.rs".to_string(),
                     " M    1+    0- src/lib.rs".to_string(),
+                    DIFF_COLUMN_HEADER.to_string(),
                     diff_line.clone(),
                 ],
                 diff_loaded: true,
@@ -1566,6 +1653,7 @@ mod tests {
         assert!(rendered.contains("ctx log"));
         assert!(rendered.contains("clean diff rendering"));
         assert!(rendered.contains("file src/lib.rs"));
+        assert!(rendered.contains(DIFF_COLUMN_HEADER));
         assert!(rendered.contains(&diff_line));
         assert!(rendered.contains("[focus]"));
     }
@@ -1589,6 +1677,18 @@ mod tests {
 
         state.move_active_up();
         assert_eq!(state.selected_commit, 0);
+    }
+
+    #[test]
+    fn footer_text_shortens_for_narrow_terminals() {
+        let state = test_log_state();
+        let narrow = footer_text(&state, 60);
+        assert!(narrow.contains("left/right focus"));
+        assert!(!narrow.contains("f/b page"));
+
+        let wide = footer_text(&state, 120);
+        assert!(wide.contains("f/b page"));
+        assert!(wide.contains("n/p file"));
     }
 
     #[test]

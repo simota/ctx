@@ -129,6 +129,7 @@ A user can complete the critical loop in under one minute:
 
 - Footer MUST show the primary keymap for the current mode.
 - The base keymap MUST include commit movement, detail scrolling, file jumping, diff loading, and quit.
+- Narrow terminals SHOULD use a shortened footer that keeps focus, movement, diff loading, and quit visible.
 - `Ctrl+C` and `q` MUST both exit and restore the terminal.
 - Repeated keys MUST not panic at list boundaries.
 
@@ -138,7 +139,9 @@ A user can complete the critical loop in under one minute:
 - Deleted lines and deleted files MUST render red when color is available.
 - Modified files and truncation warnings MUST render yellow when color is available.
 - Diff file headers MUST render cyan when color is available.
+- Changed-file stat rows SHOULD color the addition and deletion counts independently.
 - Diff body rows SHOULD include old and new line-number columns before the text.
+- Diff body sections SHOULD include an `old/new/code` column header before textual hunks.
 - The content MUST remain understandable without color.
 
 ### `REQ-TUI-008`: Empty, error, and truncated states are designed
@@ -146,6 +149,7 @@ A user can complete the critical loop in under one minute:
 - No-commit results MUST show an empty state in the commit pane.
 - Detail pane with no selected commit MUST show a "select a commit" style message.
 - Errors from commit detail or diff loading MUST appear in the global status area.
+- Binary files and no-text-change states SHOULD be labeled inline instead of appearing as generic gray text.
 - Truncated history MUST be labeled as limit-driven, not data loss.
 
 ### `REQ-TUI-009`: Scroll behavior keeps information dense
@@ -189,11 +193,12 @@ left pane: commits                    right pane: files/loading/diff
 + commits 3/100 +                    + diff a1b2c3d 1-20/104 | 12 files +
 | > a1b2c3d subject |                 | file src/lib.rs                     |
 |   b2c3d4e subject |                 | M    2+    1- src/lib.rs            |
+                                      |    old  new | code                  |
 |   c3d4e5f subject |                 | -   42      | old line             |
                                       | +        42 | new line             |
                                       |     43   43 | context              |
 
-last row: commit 3/100 | files | d load | j/k commits | f/b scroll | n/p file | q
+last row: commit 3/100 | focus diff | diff | d top | left/right focus | j/k move/scroll | f/b page | n/p file | q
 ```
 
 Narrow layout, width < 96:
@@ -258,9 +263,11 @@ last row: compact footer
   - Deleted line or deleted file: red.
   - Modified file or truncation marker: yellow.
   - `diff --` file header: cyan.
+- Changed-file stat rows color `+` counts green and `-` counts red even when the row status is modified.
 - Diff body line format uses marker + old line + new line + text:
   `+ <old> <new> | <text>`, `- <old> <new> | <text>`, or
   `  <old> <new> | <text>`.
+- Textual diff sections include an `old/new/code` header so the line-number columns are readable without color.
 - Color MUST be additive; text must still carry meaning without color.
 
 ### State Model
@@ -389,6 +396,7 @@ Given rendered diff content
 When color output is available  
 Then added content is green, deleted content is red, modified/truncated content is yellow, and file headers are cyan  
 And diff body rows expose old and new line-number columns before the text  
+And textual hunks include an old/new/code header
 And the same content remains understandable without color.
 
 ### `AC-TUI-011`: empty state is explicit
