@@ -65,6 +65,8 @@ struct LogCommit {
     date: i64,
     parents: Vec<String>,
     matched_paths: Vec<String>,
+    #[serde(skip)]
+    is_worktree: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -306,13 +308,17 @@ fn clean_relative_path(path: &Path) -> Option<String> {
 }
 
 fn load_log_data(args: &LogArgs) -> Result<LogData, String> {
-    if let Some(query) = &args.query {
-        return load_query_log(args, query);
+    let mut data = if let Some(query) = &args.query {
+        load_query_log(args, query)?
+    } else if let Some(path) = &args.path {
+        load_path_log(args, path)?
+    } else {
+        load_repo_log(args)?
+    };
+    if args.output_mode == OutputMode::Tui && args.ref_name.is_none() {
+        prepend_worktree_commit(args, &mut data)?;
     }
-    if let Some(path) = &args.path {
-        return load_path_log(args, path);
-    }
-    load_repo_log(args)
+    Ok(data)
 }
 
 fn load_repo_log(args: &LogArgs) -> Result<LogData, String> {
@@ -403,6 +409,45 @@ fn push_unique(values: &mut Vec<String>, value: String) {
     }
 }
 
+fn prepend_worktree_commit(args: &LogArgs, data: &mut LogData) -> Result<(), String> {
+    let files = filtered_worktree_files(args, &data.source.matched_paths)?;
+    if files.is_empty() {
+        return Ok(());
+    }
+    let matched_paths = if args.query.is_some() {
+        files.iter().map(|file| file.path.clone()).collect()
+    } else {
+        args.path.iter().cloned().collect()
+    };
+    data.commits
+        .insert(0, LogCommit::from_worktree(files.len(), matched_paths));
+    Ok(())
+}
+
+fn filtered_worktree_files(
+    args: &LogArgs,
+    matched_paths: &[String],
+) -> Result<Vec<ctx_git::CommitFile>, String> {
+    let mut files = ctx_git::worktree_files(&args.root).map_err(|err| err.to_string())?;
+    if let Some(path) = &args.path {
+        files.retain(|file| path_matches_filter(&file.path, path));
+    } else if args.query.is_some() {
+        files.retain(|file| {
+            matched_paths
+                .iter()
+                .any(|path| path_matches_filter(&file.path, path))
+        });
+    }
+    Ok(files)
+}
+
+fn path_matches_filter(path: &str, filter: &str) -> bool {
+    path == filter
+        || path
+            .strip_prefix(filter)
+            .is_some_and(|tail| tail.starts_with('/'))
+}
+
 impl LogCommit {
     fn from_repo(entry: ctx_git::RepoLogEntry) -> Self {
         Self {
@@ -414,6 +459,7 @@ impl LogCommit {
             date: entry.date,
             parents: entry.parents,
             matched_paths: Vec::new(),
+            is_worktree: false,
         }
     }
 
@@ -427,6 +473,21 @@ impl LogCommit {
             date: entry.date,
             parents: Vec::new(),
             matched_paths,
+            is_worktree: false,
+        }
+    }
+
+    fn from_worktree(file_count: usize, matched_paths: Vec<String>) -> Self {
+        Self {
+            hash: "worktree".to_string(),
+            hash_full: "worktree".to_string(),
+            author: "working tree".to_string(),
+            author_email: "".to_string(),
+            subject: format!("uncommitted changes ({file_count} files)"),
+            date: 0,
+            parents: Vec::new(),
+            matched_paths,
+            is_worktree: true,
         }
     }
 }
@@ -674,6 +735,10 @@ fn build_commit_detail(
     commit: &LogCommit,
     include_diff: bool,
 ) -> Result<CommitDetail, String> {
+    if commit.is_worktree {
+        return build_worktree_detail(root, commit, include_diff);
+    }
+
     let files = ctx_git::commit_files(root, &commit.hash_full).map_err(|err| err.to_string())?;
     let mut lines = Vec::new();
     lines.push(format!("commit {}", commit.hash_full));
@@ -706,6 +771,73 @@ fn build_commit_detail(
         lines.push(format!("diff -- {}", file.path));
         lines.push(format_file_stat(file));
         match ctx_git::commit_diff(root, &from, &commit.hash_full, &file.path) {
+            Ok(diff) if diff.binary => lines.push("  [binary] file changed".to_string()),
+            Ok(diff) if diff.no_change => lines.push("  [no text changes]".to_string()),
+            Ok(diff) => {
+                if diff.truncated {
+                    lines.push("  [diff truncated]".to_string());
+                }
+                if !diff.lines.is_empty() {
+                    lines.push(DIFF_COLUMN_HEADER.to_string());
+                }
+                for line in diff.lines {
+                    lines.push(format_diff_line(&line));
+                }
+            }
+            Err(err) => lines.push(format!("  diff unavailable: {err}")),
+        }
+        lines.push(String::new());
+    }
+
+    Ok(CommitDetail {
+        files,
+        lines,
+        diff_loaded: true,
+    })
+}
+
+fn build_worktree_detail(
+    root: &Path,
+    commit: &LogCommit,
+    include_diff: bool,
+) -> Result<CommitDetail, String> {
+    let mut files = ctx_git::worktree_files(root).map_err(|err| err.to_string())?;
+    if !commit.matched_paths.is_empty() {
+        files.retain(|file| {
+            commit
+                .matched_paths
+                .iter()
+                .any(|path| path_matches_filter(&file.path, path))
+        });
+    }
+
+    let mut lines = Vec::new();
+    lines.push("commit worktree".to_string());
+    lines.push("Author: working tree".to_string());
+    lines.push("Date:   uncommitted".to_string());
+    lines.push(String::new());
+    lines.push(format!("    {}", commit.subject));
+    lines.push(String::new());
+    lines.push(format!("{} file(s) changed", files.len()));
+    for file in &files {
+        lines.push(format_file_stat(file));
+    }
+    lines.push(String::new());
+
+    if !include_diff {
+        lines.push("diff body not loaded for faster navigation".to_string());
+        lines.push("press Enter or d to load the selected commit diff".to_string());
+        return Ok(CommitDetail {
+            files,
+            lines,
+            diff_loaded: false,
+        });
+    }
+
+    for file in &files {
+        lines.push(format!("diff -- {}", file.path));
+        lines.push(format_file_stat(file));
+        match ctx_git::worktree_diff(root, &file.path) {
             Ok(diff) if diff.binary => lines.push("  [binary] file changed".to_string()),
             Ok(diff) if diff.no_change => lines.push("  [no text changes]".to_string()),
             Ok(diff) => {
@@ -1350,6 +1482,9 @@ mod tests {
     use super::*;
     use ratatui::backend::TestBackend;
     use ratatui::buffer::Buffer;
+    use std::fs;
+    use std::process::Command;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn os_args(args: &[&str]) -> Vec<OsString> {
         args.iter().map(OsString::from).collect()
@@ -1381,6 +1516,7 @@ mod tests {
             date: 1,
             parents: vec!["parent".to_string()],
             matched_paths: Vec::new(),
+            is_worktree: false,
         }
     }
 
@@ -1415,6 +1551,50 @@ mod tests {
             error: None,
             active_panel: ActivePanel::Commits,
         }
+    }
+
+    fn unique_temp_dir() -> PathBuf {
+        static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "ctx_cli_log_test_{}_{}_{}",
+            std::process::id(),
+            nanos,
+            seq
+        ))
+    }
+
+    fn git(root: &Path, args: &[&str]) {
+        let mut cmd = Command::new("git");
+        cmd.args(args).current_dir(root);
+        pin_git_env(&mut cmd);
+        assert!(cmd.status().expect("git").success(), "git {args:?}");
+    }
+
+    fn commit_all(root: &Path, message: &str) {
+        git(root, &["add", "-A"]);
+        let mut commit = Command::new("git");
+        commit
+            .args(["commit", "-q", "-m", message])
+            .current_dir(root);
+        pin_git_env(&mut commit);
+        assert!(commit.status().expect("git commit").success());
+    }
+
+    fn pin_git_env(cmd: &mut Command) {
+        cmd.env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_SYSTEM", "/dev/null")
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .env("GIT_AUTHOR_NAME", "Log Test")
+            .env("GIT_AUTHOR_EMAIL", "log@example.com")
+            .env("GIT_COMMITTER_NAME", "Log Test")
+            .env("GIT_COMMITTER_EMAIL", "log@example.com")
+            .env("GIT_AUTHOR_DATE", "2020-01-02T03:04:05+00:00")
+            .env("GIT_COMMITTER_DATE", "2020-01-02T03:04:05+00:00");
     }
 
     #[test]
@@ -1456,6 +1636,67 @@ mod tests {
         assert!(!is_valid_ref("-n1"));
         assert!(!is_valid_ref("bad ref"));
         assert!(!is_valid_ref(""));
+    }
+
+    #[test]
+    fn tui_log_prepends_worktree_entry_for_dirty_files() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("tracked.txt"), "one\n").expect("write tracked");
+        commit_all(&root, "initial");
+        fs::write(root.join("tracked.txt"), "one\ntwo\n").expect("modify tracked");
+
+        let args = LogArgs {
+            root: root.clone(),
+            limit: 10,
+            ref_name: None,
+            path: None,
+            query: None,
+            output_mode: OutputMode::Tui,
+        };
+        let data = load_log_data(&args).expect("load log data");
+        assert!(data.commits[0].is_worktree);
+        assert_eq!(data.commits[0].hash, "worktree");
+
+        let detail = build_commit_detail(&root, &data.commits[0], true).expect("worktree detail");
+        let body = detail.lines.join("\n");
+        assert!(body.contains("commit worktree"));
+        assert!(body.contains(" M    1+    0- tracked.txt"));
+        assert!(body.contains(DIFF_COLUMN_HEADER));
+        assert!(body.contains("two"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn plain_log_does_not_include_worktree_entry() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("tracked.txt"), "one\n").expect("write tracked");
+        commit_all(&root, "initial");
+        fs::write(root.join("tracked.txt"), "one\ntwo\n").expect("modify tracked");
+
+        let args = LogArgs {
+            root: root.clone(),
+            limit: 10,
+            ref_name: None,
+            path: None,
+            query: None,
+            output_mode: OutputMode::Plain,
+        };
+        let data = load_log_data(&args).expect("load log data");
+        assert!(!data.commits[0].is_worktree);
+        assert_eq!(data.commits[0].subject, "initial");
+
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
@@ -1608,6 +1849,7 @@ mod tests {
                     date: 1,
                     parents: vec!["parent".to_string()],
                     matched_paths: Vec::new(),
+                    is_worktree: false,
                 }],
                 truncated: false,
             },

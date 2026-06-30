@@ -107,6 +107,7 @@ A user can complete the critical loop in under one minute:
 - The commit pane MUST show selected position as `current/total`.
 - The selected row MUST be visibly distinct.
 - Each row SHOULD include a marker, short hash, subject, and matched paths when applicable.
+- When the default `HEAD` log has uncommitted worktree changes, the commit pane SHOULD show a synthetic `worktree` row before committed history.
 - Empty history MUST render a clear empty state.
 
 ### `REQ-TUI-004`: Detail pane has explicit modes
@@ -117,6 +118,7 @@ A user can complete the critical loop in under one minute:
 - Files mode MUST state that full diff is not loaded and how to load it.
 - Loading mode MUST replace stale detail content with explicit loading text.
 - Diff mode MUST show full diff lines and keep the visible range accurate.
+- A `worktree` row MUST use the same files/loading/diff modes as committed rows, comparing current working files to `HEAD`.
 
 ### `REQ-TUI-005`: Full diff loading is explicit and lazy
 
@@ -227,6 +229,7 @@ last row: compact footer
 | `files` | initial load or commit move | `files <hash> <range> | <n> files | d diff` | `d`/`Enter` -> `loading`; commit move -> `files` |
 | `loading` | user requests full diff | `loading <hash> ... | wait` and loading body text | success -> `diff`; error -> `files` with error row |
 | `diff` | full diff loaded | `diff <hash> <range> | <n> files` | `d`/`Enter` -> top; commit move -> `files` |
+| `worktree` | dirty default `HEAD` worktree | synthetic `worktree` row with uncommitted file stats | clean worktree or explicit `--ref` omits it |
 | `empty` | no commits | `log [0/0]` and no-commit text | quit |
 | `error` | detail load fails | error row in global status | commit move or retry action |
 
@@ -361,6 +364,15 @@ When the viewer first renders the detail pane
 Then it shows changed-file summary lines  
 And it shows a prompt to load the full diff  
 And it does not compute full diff bodies.
+
+### `AC-TUI-005a`: uncommitted worktree changes are inspectable
+
+Given the default `HEAD` worktree has modified, deleted, or untracked files
+When the user opens `ctx log`
+Then a synthetic `worktree` row appears before committed history
+And selecting it shows changed-file stats
+And loading diff shows the working tree diff against `HEAD`
+And `ctx log --plain` and `ctx log --json` keep returning committed history only.
 
 ### `AC-TUI-006`: diff loading gives immediate feedback
 

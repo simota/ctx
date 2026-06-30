@@ -465,6 +465,64 @@ pub fn commit_files(repo_root: impl AsRef<Path>, hash: &str) -> Result<Vec<Commi
     Ok(files)
 }
 
+pub fn worktree_files(repo_root: impl AsRef<Path>) -> Result<Vec<CommitFile>> {
+    let repo_root = repo_root.as_ref();
+    let status_out = git_worktree_output(
+        repo_root,
+        &[
+            "-c",
+            "core.quotepath=false",
+            "status",
+            "--porcelain=v1",
+            "-z",
+            "--untracked-files=all",
+        ],
+    )?;
+
+    let mut files = Vec::new();
+    let mut records = status_out.split(|b| *b == 0);
+    while let Some(record) = records.next() {
+        if record.is_empty() || record.len() < 4 {
+            continue;
+        }
+        let index = record[0];
+        let worktree = record[1];
+        if index == b'!' && worktree == b'!' {
+            continue;
+        }
+        let path = String::from_utf8_lossy(&record[3..]).into_owned();
+        if path.is_empty() {
+            continue;
+        }
+        if matches!(index, b'R' | b'C') {
+            let _ = records.next();
+        }
+
+        let diff = worktree_diff(repo_root, &path)?;
+        let additions = diff.lines.iter().filter(|line| line.typ == "add").count() as u32;
+        let deletions = diff.lines.iter().filter(|line| line.typ == "del").count() as u32;
+        files.push(CommitFile {
+            status: worktree_status(index, worktree).to_string(),
+            path,
+            additions,
+            deletions,
+            binary: diff.binary,
+        });
+    }
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(files)
+}
+
+fn worktree_status(index: u8, worktree: u8) -> &'static str {
+    if index == b'?' && worktree == b'?' || index == b'A' {
+        "added"
+    } else if index == b'D' || worktree == b'D' {
+        "deleted"
+    } else {
+        "modified"
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ChurnStat {
     /// Number of commits that touched this path within the window.
@@ -1375,6 +1433,24 @@ fn git_output(git_dir: &Path, args: &[&str]) -> Result<Vec<u8>> {
     }
 }
 
+fn git_worktree_output(repo_root: &Path, args: &[&str]) -> Result<Vec<u8>> {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(repo_root)
+        .output()
+        .map_err(|err| GitError::new(err.to_string()))?;
+    if output.status.success() {
+        return Ok(output.stdout);
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let message = stderr.trim();
+    if message.is_empty() {
+        Err(GitError::new(format!("git {} failed", args.join(" "))))
+    } else {
+        Err(GitError::new(message.to_string()))
+    }
+}
+
 fn commit_tree_oid(commit: &[u8]) -> Result<String> {
     let text = std::str::from_utf8(commit).map_err(|err| GitError::new(err.to_string()))?;
     for line in text.lines() {
@@ -2082,6 +2158,54 @@ mod tests {
         // new.txt adds one (+1).
         let keep = by_path.get("keep.txt").expect("keep stat");
         assert_eq!((keep.additions, keep.deletions), (1, 1));
+        assert_eq!(
+            by_path.get("gone.txt").map(|f| (f.additions, f.deletions)),
+            Some((0, 1))
+        );
+        assert_eq!(
+            by_path.get("new.txt").map(|f| (f.additions, f.deletions)),
+            Some((1, 0))
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn worktree_files_lists_modified_deleted_and_untracked_paths() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("keep.txt"), "1\n").expect("write keep");
+        fs::write(root.join("gone.txt"), "x\n").expect("write gone");
+        commit_all(&root, "root commit", "2020-01-02T03:04:05+00:00");
+        fs::write(root.join("keep.txt"), "1\n2\n").expect("modify keep");
+        fs::remove_file(root.join("gone.txt")).expect("rm gone");
+        fs::write(root.join("new.txt"), "n\n").expect("write new");
+
+        let files = worktree_files(&root).expect("worktree files");
+        let by_path: std::collections::HashMap<&str, &CommitFile> =
+            files.iter().map(|f| (f.path.as_str(), f)).collect();
+        assert_eq!(
+            by_path.get("keep.txt").map(|f| f.status.as_str()),
+            Some("modified")
+        );
+        assert_eq!(
+            by_path.get("gone.txt").map(|f| f.status.as_str()),
+            Some("deleted")
+        );
+        assert_eq!(
+            by_path.get("new.txt").map(|f| f.status.as_str()),
+            Some("added")
+        );
+        assert_eq!(
+            by_path
+                .get("keep.txt")
+                .map(|f| (f.additions, f.deletions, f.binary)),
+            Some((1, 0, false))
+        );
         assert_eq!(
             by_path.get("gone.txt").map(|f| (f.additions, f.deletions)),
             Some((0, 1))
