@@ -8,10 +8,16 @@
 //! Symbols are DEFERRED. Git status is loaded from `git status --porcelain`
 //! when requested and aggregated up directories so the UI can filter changed
 //! files while preserving ancestor rows.
+//!
+//! `since`/`until` filter file nodes by mtime. Files modified before `since`
+//! or after `until` are omitted; directory nodes are always retained (CLI
+//! parity with `ctx-cli` mtime filtering). `use_mtime` is accepted so the
+//! route does not 400, but it has no effect: the web walk always uses mtime.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use axum::extract::rejection::QueryRejection;
 use axum::extract::{Query, State};
@@ -23,6 +29,106 @@ use crate::handlers::file::relative_to_root;
 use crate::response;
 use crate::safepath;
 use crate::AppState;
+
+// ---------------------------------------------------------------------------
+// Time-filter parser — ported from ctx-cli/src/commands/pack/timefilter.rs.
+// Only the pure (no-I/O) subset is included; the git-log GitTimeIndex is not.
+// Accepted formats: relative (Nd / Nw / Nmo / Ny / Nh / Nm / Ns) or
+// absolute YYYY-MM-DD (UTC midnight). Private to this module.
+// ---------------------------------------------------------------------------
+
+fn parse_pack_time_filter(input: &str, now: SystemTime) -> Result<SystemTime, String> {
+    if input.is_empty() {
+        return Err("time filter: empty string".to_string());
+    }
+    if let Some(t) = parse_yyyy_mm_dd_utc(input) {
+        return Ok(t);
+    }
+    let lower = input.to_ascii_lowercase();
+    let calendar_units = [
+        ("mo", 30_u64 * 24 * 60 * 60),
+        ("w", 7_u64 * 24 * 60 * 60),
+        ("d", 24_u64 * 60 * 60),
+        ("y", 365_u64 * 24 * 60 * 60),
+    ];
+    for (suffix, seconds) in calendar_units {
+        if lower.ends_with(suffix) {
+            let number = &input[..input.len() - suffix.len()];
+            let n = parse_positive_u64_filter(number, input)?;
+            return subtract_filter_duration(now, n, seconds, input);
+        }
+    }
+    let duration_units = [("h", 60_u64 * 60), ("m", 60_u64), ("s", 1_u64)];
+    for (suffix, seconds) in duration_units {
+        if lower.ends_with(suffix) {
+            let number = &input[..input.len() - suffix.len()];
+            let n = parse_positive_u64_filter(number, input)?;
+            return subtract_filter_duration(now, n, seconds, input);
+        }
+    }
+    Err(format!(
+        "time filter {input:?}: unrecognised format (expected YYYY-MM-DD or relative like 7d/2w/1mo/1y)"
+    ))
+}
+
+fn parse_positive_u64_filter(number: &str, original: &str) -> Result<u64, String> {
+    if number.is_empty() {
+        return Err(format!("time filter {original:?}: missing numeric part"));
+    }
+    if !number.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(format!(
+            "time filter {original:?}: invalid numeric part {number:?}"
+        ));
+    }
+    let value = number
+        .parse::<u64>()
+        .map_err(|err| format!("time filter {original:?}: {err}"))?;
+    if value == 0 {
+        return Err(format!(
+            "time filter {original:?}: value must be positive, got 0"
+        ));
+    }
+    Ok(value)
+}
+
+fn subtract_filter_duration(
+    now: SystemTime,
+    amount: u64,
+    unit_seconds: u64,
+    original: &str,
+) -> Result<SystemTime, String> {
+    let seconds = amount
+        .checked_mul(unit_seconds)
+        .ok_or_else(|| format!("time filter {original:?}: duration overflow"))?;
+    now.checked_sub(Duration::from_secs(seconds))
+        .ok_or_else(|| format!("time filter {original:?}: duration is before unix epoch"))
+}
+
+fn parse_yyyy_mm_dd_utc(input: &str) -> Option<SystemTime> {
+    let mut parts = input.split('-');
+    let year = parts.next()?.parse::<i64>().ok()?;
+    let month = parts.next()?.parse::<u32>().ok()?;
+    let day = parts.next()?.parse::<u32>().ok()?;
+    if parts.next().is_some() || !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return None;
+    }
+    let days = days_from_civil(year, month, day);
+    if days < 0 {
+        return None;
+    }
+    Some(UNIX_EPOCH + Duration::from_secs(days as u64 * 24 * 60 * 60))
+}
+
+fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
+    let year = year - i64::from(month <= 2);
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let yoe = year - era * 400;
+    let month = month as i64;
+    let day = day as i64;
+    let doy = (153 * (month + if month > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146097 + doe - 719468
+}
 
 // ---------------------------------------------------------------------------
 // Request / response types
@@ -48,15 +154,18 @@ pub struct TreeParams {
     // "Largest source files" view opts in via `gitignore=true`.
     #[serde(default)]
     gitignore: bool,
+    // Accepted so the route does not 400; has no effect — the web walk always
+    // filters by mtime regardless of this flag (no git-commit-time index).
     #[serde(default)]
-    _use_mtime: bool,
-    // since/until time-filter strings are accepted but DEFERRED (no git-log
-    // access); when provided the handler falls through to a plain walk with
-    // no time filtering — same file set, so parity holds for fixture paths.
+    use_mtime: bool,
+    // since/until time-filter strings. Empty → no filtering. Non-empty →
+    // parsed as relative (Nd/Nw/Nmo/Ny/Nh/Nm/Ns) or YYYY-MM-DD (UTC).
+    // Files whose mtime is outside [since, until] are excluded; directories
+    // are always retained (CLI parity).
     #[serde(default)]
-    _since: String,
+    since: String,
     #[serde(default)]
-    _until: String,
+    until: String,
 }
 
 /// Mirrors `web.TreeNode`. Field order matches Go struct.
@@ -148,16 +257,53 @@ fn handle_sync(state: AppState, params: TreeParams) -> Response {
         None
     };
 
-    let root_node = match walk_tree(
-        &state.root,
-        &target,
-        0,
+    // Parse since/until once. Empty string → None (no filtering).
+    // Invalid format → HTTP 400.
+    let now = SystemTime::now();
+    let since_time: Option<SystemTime> = if params.since.is_empty() {
+        None
+    } else {
+        match parse_pack_time_filter(&params.since, now) {
+            Ok(t) => Some(t),
+            Err(msg) => {
+                return response::error(StatusCode::BAD_REQUEST, "invalid_since", &msg)
+            }
+        }
+    };
+    let until_time: Option<SystemTime> = if params.until.is_empty() {
+        None
+    } else {
+        match parse_pack_time_filter(&params.until, now) {
+            Ok(t) => Some(t),
+            Err(msg) => {
+                return response::error(StatusCode::BAD_REQUEST, "invalid_until", &msg)
+            }
+        }
+    };
+    // use_mtime is accepted to avoid 400 but has no effect — filtering is
+    // always by mtime in the web walk (no git-commit-time index is built).
+    let _ = params.use_mtime;
+
+    let walk_opts = WalkOpts {
         max_depth,
-        params.tokens,
-        &git_status,
-        ignore.as_ref(),
-    ) {
-        Ok(n) => n,
+        with_tokens: params.tokens,
+        git_status: &git_status,
+        ignore: ignore.as_ref(),
+        since: since_time,
+        until: until_time,
+    };
+
+    let root_node = match walk_tree(&state.root, &target, 0, walk_opts) {
+        Ok(Some(n)) => n,
+        Ok(None) => {
+            // Root is always a directory and therefore always retained.
+            // Returning None here would be a logic error.
+            return response::error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "walk_init",
+                "root directory was unexpectedly filtered",
+            );
+        }
         Err(e) => {
             if e.kind() == std::io::ErrorKind::NotFound {
                 return response::error(
@@ -211,6 +357,18 @@ fn handle_sync(state: AppState, params: TreeParams) -> Response {
 // Walk implementation — mirrors Go walk.DefaultOptions + toTreeNode
 // ---------------------------------------------------------------------------
 
+/// Options threaded through the recursive walk to avoid an argument-count
+/// lint. All fields are cheap to copy.
+#[derive(Clone, Copy)]
+struct WalkOpts<'a> {
+    max_depth: usize,
+    with_tokens: bool,
+    git_status: &'a GitStatusMap,
+    ignore: Option<&'a ctx_gitignore::GitIgnore>,
+    since: Option<SystemTime>,
+    until: Option<SystemTime>,
+}
+
 /// Extra-ignore list from Go `walk.DefaultOptions().ExtraIgnore`.
 /// NOTE: Do NOT skip hidden dirs generally — Go only skips what the gitignore
 /// patterns and ExtraIgnore list cover. `.ctx` etc. are walked normally.
@@ -226,15 +384,16 @@ fn should_skip(name: &str) -> bool {
 /// Walk the tree rooted at `dir`, building TreeNode children sorted
 /// alphabetically (matching Go `os.ReadDir` which returns entries sorted by
 /// filename). `root_str` is the served root used for relative-path computation.
+///
+/// Returns `Ok(None)` for non-directory files that fall outside the
+/// `[since, until]` mtime window (CLI parity). Directory nodes always return
+/// `Ok(Some(..))` even when all their children were filtered out.
 fn walk_tree(
     root_str: &str,
     dir: &Path,
     depth: usize,
-    max_depth: usize,
-    with_tokens: bool,
-    git_status: &GitStatusMap,
-    ignore: Option<&ctx_gitignore::GitIgnore>,
-) -> std::io::Result<TreeNode> {
+    opts: WalkOpts<'_>,
+) -> std::io::Result<Option<TreeNode>> {
     let meta = std::fs::symlink_metadata(dir)?;
     // Follow symlinks only for the requested root; deeper symlinked dirs keep
     // their lstat metadata so the walk never recurses through them (cyclic
@@ -269,20 +428,32 @@ fn walk_tree(
     let size = meta.len() as i64;
 
     // updated_at: mtime as Unix timestamp (mirrors Go fileTime fallback to mtime).
-    let updated_at = if !is_dir {
-        use std::time::SystemTime;
-        meta.modified()
-            .ok()
-            .and_then(|mt| mt.duration_since(SystemTime::UNIX_EPOCH).ok())
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0)
-    } else {
-        0
-    };
+    let mtime: Option<SystemTime> = if !is_dir { meta.modified().ok() } else { None };
+    let updated_at = mtime
+        .and_then(|mt| mt.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+
+    // Mtime filter: drop non-directory files outside [since, until].
+    // Directory nodes are always retained (CLI parity).
+    if !is_dir && (opts.since.is_some() || opts.until.is_some()) {
+        if let Some(mt) = mtime {
+            if let Some(s) = opts.since {
+                if mt < s {
+                    return Ok(None);
+                }
+            }
+            if let Some(u) = opts.until {
+                if mt > u {
+                    return Ok(None);
+                }
+            }
+        }
+    }
 
     let (lines, tokens) = if !is_dir {
         let l = count_lines_file(dir);
-        let tok = if with_tokens {
+        let tok = if opts.with_tokens {
             cached_file_tokens(dir, &meta, size)
         } else {
             0
@@ -298,7 +469,7 @@ fn walk_tree(
         String::new()
     };
 
-    let git = git_status.status_for(&rel, is_dir);
+    let git = opts.git_status.status_for(&rel, is_dir);
     let mut node = TreeNode {
         path: rel,
         name,
@@ -313,7 +484,7 @@ fn walk_tree(
     };
 
     // Recurse into directory children (sorted; mirrors Go `os.ReadDir`).
-    if is_dir && (max_depth == 0 || depth < max_depth) {
+    if is_dir && (opts.max_depth == 0 || depth < opts.max_depth) {
         let mut entries: Vec<_> = match std::fs::read_dir(dir) {
             Ok(rd) => rd.flatten().collect(),
             Err(_) => vec![],
@@ -337,7 +508,7 @@ fn walk_tree(
             // Prune entries matched by the root `.gitignore` when active.
             // Directories are checked with a trailing "/" AND the bare path,
             // matching how the CLI walk applies `GitIgnore::matches_path`.
-            if let Some(ig) = ignore {
+            if let Some(ig) = opts.ignore {
                 let child_rel = relative_to_root(root_str, &child_path);
                 if !child_rel.is_empty() {
                     let dir_form = format!("{child_rel}/");
@@ -347,22 +518,15 @@ fn walk_tree(
                 }
             }
 
-            match walk_tree(
-                root_str,
-                &child_path,
-                depth + 1,
-                max_depth,
-                with_tokens,
-                git_status,
-                ignore,
-            ) {
-                Ok(child_node) => node.children.push(child_node),
+            match walk_tree(root_str, &child_path, depth + 1, opts) {
+                Ok(Some(child_node)) => node.children.push(child_node),
+                Ok(None) => continue, // filtered out by mtime
                 Err(_) => continue,
             }
         }
     }
 
-    Ok(node)
+    Ok(Some(node))
 }
 
 /// Exact tiktoken token count for `path`, memoized across requests. `/api/tree`
@@ -640,5 +804,145 @@ mod tests {
         assert_eq!(status.status_for("web", true), "A");
         assert_eq!(status.status_for(".", true), "A");
         assert_eq!(status.status_for("README.md", false), "");
+    }
+
+    // -----------------------------------------------------------------------
+    // Time-filter parser tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn time_filter_parser_relative_units() {
+        let now = SystemTime::now();
+        // 7d → 7 × 24 × 3600 seconds before now
+        let t = parse_pack_time_filter("7d", now).unwrap();
+        let expected = now.checked_sub(Duration::from_secs(7 * 24 * 3600)).unwrap();
+        assert_eq!(t, expected);
+
+        // 2w → 2 × 7 × 24 × 3600
+        let t2 = parse_pack_time_filter("2w", now).unwrap();
+        let expected2 = now.checked_sub(Duration::from_secs(2 * 7 * 24 * 3600)).unwrap();
+        assert_eq!(t2, expected2);
+
+        // 1mo → 30 × 24 × 3600
+        let t3 = parse_pack_time_filter("1mo", now).unwrap();
+        let expected3 = now.checked_sub(Duration::from_secs(30 * 24 * 3600)).unwrap();
+        assert_eq!(t3, expected3);
+    }
+
+    #[test]
+    fn time_filter_parser_absolute_date() {
+        let now = SystemTime::now();
+        let t = parse_pack_time_filter("2024-01-15", now).unwrap();
+        // 2024-01-15 UTC midnight
+        let days = days_from_civil(2024, 1, 15);
+        let expected = UNIX_EPOCH + Duration::from_secs(days as u64 * 24 * 3600);
+        assert_eq!(t, expected);
+    }
+
+    #[test]
+    fn time_filter_parser_invalid_returns_err() {
+        let now = SystemTime::now();
+        assert!(parse_pack_time_filter("notadate", now).is_err());
+        assert!(parse_pack_time_filter("", now).is_err());
+        assert!(parse_pack_time_filter("0d", now).is_err());
+        assert!(parse_pack_time_filter("-1d", now).is_err());
+    }
+
+    // -----------------------------------------------------------------------
+    // Walk mtime filter tests
+    // -----------------------------------------------------------------------
+
+    /// Create a temp dir with two files and assert that `since = now` excludes
+    /// them (they were created just before `now + epsilon`, so mtime < since).
+    /// Without a way to set mtime portably in std, we use two windows:
+    ///   - since = far future → both files excluded
+    ///   - until = far past  → both files excluded
+    ///   - no filter         → both files present (behaviour-preserving baseline)
+    #[test]
+    fn walk_tree_mtime_filter_excludes_old_files() {
+        use std::fs;
+
+        // Build a temp dir: <tmp>/ctx_tree_test_<pid>/
+        let tmp = std::env::temp_dir().join(format!(
+            "ctx_tree_mtime_{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+        fs::write(tmp.join("a.txt"), b"hello").unwrap();
+        fs::write(tmp.join("b.txt"), b"world").unwrap();
+
+        let git = GitStatusMap::default();
+
+        // Baseline: no filter → both files present.
+        let node = walk_tree(
+            tmp.to_str().unwrap(), &tmp, 0,
+            WalkOpts { max_depth: 0, with_tokens: false, git_status: &git, ignore: None, since: None, until: None },
+        ).unwrap().unwrap();
+        let names: Vec<&str> = node.children.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.contains(&"a.txt"), "baseline: a.txt must be present");
+        assert!(names.contains(&"b.txt"), "baseline: b.txt must be present");
+
+        // since = far future → all files excluded (mtime < since).
+        let far_future = SystemTime::now()
+            .checked_add(Duration::from_secs(365 * 24 * 3600))
+            .unwrap();
+        let node_ff = walk_tree(
+            tmp.to_str().unwrap(), &tmp, 0,
+            WalkOpts { max_depth: 0, with_tokens: false, git_status: &git, ignore: None, since: Some(far_future), until: None },
+        ).unwrap().unwrap();
+        assert!(
+            node_ff.children.is_empty(),
+            "since=far_future must exclude all file children; got {:?}",
+            node_ff.children.iter().map(|c| &c.name).collect::<Vec<_>>()
+        );
+        // Directory itself is retained (CLI parity).
+        assert!(node_ff.is_dir);
+
+        // until = far past → all files excluded (mtime > until).
+        let far_past = UNIX_EPOCH + Duration::from_secs(1);
+        let node_fp = walk_tree(
+            tmp.to_str().unwrap(), &tmp, 0,
+            WalkOpts { max_depth: 0, with_tokens: false, git_status: &git, ignore: None, since: None, until: Some(far_past) },
+        ).unwrap().unwrap();
+        assert!(
+            node_fp.children.is_empty(),
+            "until=far_past must exclude all file children"
+        );
+        assert!(node_fp.is_dir);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    /// `since = now - 1s` keeps recently-created files, `since = now + 1s`
+    /// drops them. This test verifies that the comparison direction is correct.
+    #[test]
+    fn walk_tree_mtime_filter_keeps_recent_files() {
+        use std::fs;
+
+        let tmp = std::env::temp_dir().join(format!(
+            "ctx_tree_recent_{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+        fs::write(tmp.join("new.txt"), b"new").unwrap();
+
+        let git = GitStatusMap::default();
+        let now = SystemTime::now();
+
+        // since = 1 second ago → file (just created) should be included.
+        let since_past = now.checked_sub(Duration::from_secs(1)).unwrap();
+        let node = walk_tree(
+            tmp.to_str().unwrap(), &tmp, 0,
+            WalkOpts { max_depth: 0, with_tokens: false, git_status: &git, ignore: None, since: Some(since_past), until: None },
+        ).unwrap().unwrap();
+        let names: Vec<&str> = node.children.iter().map(|c| c.name.as_str()).collect();
+        assert!(
+            names.contains(&"new.txt"),
+            "since=1s ago must keep a just-created file; got {:?}", names
+        );
+
+        let _ = fs::remove_dir_all(&tmp);
     }
 }
