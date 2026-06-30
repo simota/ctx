@@ -34,8 +34,12 @@
     };
   });
 
-  function openFile(path: string) {
-    navigate(toFileHash(path));
+  function firstMatchLine(result: WhereResponse['results'][number]): number | undefined {
+    return result.matches.find((m) => m.line > 0)?.line;
+  }
+
+  function openFile(result: WhereResponse['results'][number]) {
+    navigate(toFileHash(result.path, { line: firstMatchLine(result) }));
   }
 </script>
 
@@ -65,8 +69,10 @@
           <button
             class="hit"
             type="button"
-            onclick={() => openFile(r.path)}
-            aria-label="open {r.path}"
+            onclick={() => openFile(r)}
+            aria-label={firstMatchLine(r)
+              ? `open ${r.path} at line ${firstMatchLine(r)}`
+              : `open ${r.path}`}
           >
             <span class="path mono">{r.path}</span>
             <span class="score muted">score {r.score.toFixed(2)}</span>
