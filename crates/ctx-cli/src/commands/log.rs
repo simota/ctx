@@ -73,6 +73,21 @@ struct CommitDetail {
     diff_loaded: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ActivePanel {
+    Commits,
+    Detail,
+}
+
+impl ActivePanel {
+    fn label(self) -> &'static str {
+        match self {
+            ActivePanel::Commits => "commits",
+            ActivePanel::Detail => "diff",
+        }
+    }
+}
+
 struct LogState {
     root: PathBuf,
     data: LogData,
@@ -81,6 +96,7 @@ struct LogState {
     detail: CommitDetail,
     diff_loading: bool,
     error: Option<String>,
+    active_panel: ActivePanel,
 }
 
 pub(crate) fn run_log_command(args: &[OsString]) -> Option<ExitCode> {
@@ -482,15 +498,30 @@ fn run_viewer(root: PathBuf, data: LogData) -> Result<(), String> {
         }
         match key.code {
             KeyCode::Char('q') => break,
-            KeyCode::Down | KeyCode::Char('j') => state.move_commit(1),
-            KeyCode::Up | KeyCode::Char('k') => state.move_commit(-1),
-            KeyCode::PageDown | KeyCode::Char(' ') | KeyCode::Char('f') => state.scroll_diff(10),
-            KeyCode::PageUp | KeyCode::Char('b') => state.scroll_diff(-10),
-            KeyCode::Char('n') => state.jump_file(1),
-            KeyCode::Char('p') => state.jump_file(-1),
+            KeyCode::Left => state.focus_commits(),
+            KeyCode::Right => state.focus_detail(),
+            KeyCode::Down | KeyCode::Char('j') => state.move_active_down(),
+            KeyCode::Up | KeyCode::Char('k') => state.move_active_up(),
+            KeyCode::PageDown | KeyCode::Char(' ') | KeyCode::Char('f') => {
+                state.focus_detail();
+                state.scroll_diff(10);
+            }
+            KeyCode::PageUp | KeyCode::Char('b') => {
+                state.focus_detail();
+                state.scroll_diff(-10);
+            }
+            KeyCode::Char('n') => {
+                state.focus_detail();
+                state.jump_file(1);
+            }
+            KeyCode::Char('p') => {
+                state.focus_detail();
+                state.jump_file(-1);
+            }
             KeyCode::Home | KeyCode::Char('g') => state.move_home(),
             KeyCode::End | KeyCode::Char('G') => state.move_end(),
             KeyCode::Enter | KeyCode::Char('d') => {
+                state.focus_detail();
                 if !state.detail.diff_loaded {
                     state.mark_diff_loading();
                     terminal
@@ -515,9 +546,32 @@ impl LogState {
             detail: CommitDetail::default(),
             diff_loading: false,
             error: None,
+            active_panel: ActivePanel::Commits,
         };
         state.load_selected_summary();
         state
+    }
+
+    fn focus_commits(&mut self) {
+        self.active_panel = ActivePanel::Commits;
+    }
+
+    fn focus_detail(&mut self) {
+        self.active_panel = ActivePanel::Detail;
+    }
+
+    fn move_active_down(&mut self) {
+        match self.active_panel {
+            ActivePanel::Commits => self.move_commit(1),
+            ActivePanel::Detail => self.scroll_diff(1),
+        }
+    }
+
+    fn move_active_up(&mut self) {
+        match self.active_panel {
+            ActivePanel::Commits => self.move_commit(-1),
+            ActivePanel::Detail => self.scroll_diff(-1),
+        }
     }
 
     fn move_commit(&mut self, delta: isize) {
@@ -794,12 +848,14 @@ fn render_body(frame: &mut Frame, state: &LogState, area: Rect) {
 }
 
 fn render_commit_panel(frame: &mut Frame, state: &LogState, area: Rect) {
+    let active = state.active_panel == ActivePanel::Commits;
     let title = format!(
-        " commits {}{} ",
+        " commits {}{}{} ",
         commit_position_label(state.selected_commit, state.data.commits.len()),
-        if state.data.truncated { "+" } else { "" }
+        if state.data.truncated { "+" } else { "" },
+        if active { " [focus]" } else { "" }
     );
-    let block = panel_block(title);
+    let block = panel_block(title, active);
     if area.height <= 2 || area.width <= 2 {
         frame.render_widget(block, area);
         return;
@@ -825,16 +881,17 @@ fn render_commit_panel(frame: &mut Frame, state: &LogState, area: Rect) {
         .enumerate()
         .skip(start)
         .take(visible)
-        .map(|(idx, commit)| commit_item(idx, state.selected_commit, commit))
+        .map(|(idx, commit)| commit_item(idx, state.selected_commit, commit, active))
         .collect::<Vec<_>>();
 
     frame.render_widget(List::new(items).block(block), area);
 }
 
 fn render_detail_panel(frame: &mut Frame, state: &LogState, area: Rect) {
+    let active = state.active_panel == ActivePanel::Detail;
     let visible = area.height.saturating_sub(2) as usize;
-    let title = detail_title(state, visible);
-    let block = panel_block(title);
+    let title = detail_title(state, visible, active);
+    let block = panel_block(title, active);
 
     if area.height <= 2 || area.width <= 2 {
         frame.render_widget(block, area);
@@ -884,33 +941,46 @@ fn render_footer(frame: &mut Frame, state: &LogState, area: Rect) {
     frame.render_widget(paragraph, area);
 }
 
-fn panel_block(title: String) -> Block<'static> {
-    Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray))
-        .title(Line::from(Span::styled(
-            title,
-            Style::default()
-                .fg(Color::LightCyan)
-                .add_modifier(Modifier::BOLD),
-        )))
-}
-
-fn commit_item(idx: usize, selected: usize, commit: &LogCommit) -> ListItem<'static> {
-    let selected = idx == selected;
-    let base_style = if selected {
+fn panel_block(title: String, active: bool) -> Block<'static> {
+    let border_style = if active {
         Style::default()
-            .fg(Color::White)
-            .bg(Color::Blue)
+            .fg(Color::LightCyan)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    let title_style = if active {
+        Style::default()
+            .fg(Color::LightCyan)
             .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::Gray)
     };
+    Block::default()
+        .borders(Borders::ALL)
+        .border_style(border_style)
+        .title(Line::from(Span::styled(title, title_style)))
+}
+
+fn commit_item(idx: usize, selected: usize, commit: &LogCommit, active: bool) -> ListItem<'static> {
+    let selected = idx == selected;
+    let base_style = if selected {
+        if active {
+            Style::default()
+                .fg(Color::White)
+                .bg(Color::Blue)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default()
+                .fg(Color::White)
+                .bg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD)
+        }
+    } else {
+        Style::default().fg(Color::Gray)
+    };
     let hash_style = if selected {
-        Style::default()
-            .fg(Color::White)
-            .bg(Color::Blue)
-            .add_modifier(Modifier::BOLD)
+        base_style
     } else {
         Style::default().fg(Color::LightCyan)
     };
@@ -929,7 +999,7 @@ fn commit_item(idx: usize, selected: usize, commit: &LogCommit) -> ListItem<'sta
     .style(base_style)
 }
 
-fn detail_title(state: &LogState, visible: usize) -> String {
+fn detail_title(state: &LogState, visible: usize, active: bool) -> String {
     state
         .data
         .commits
@@ -952,9 +1022,10 @@ fn detail_title(state: &LogState, visible: usize) -> String {
                 " | d diff".to_string()
             };
             format!(
-                " {label} {} {range} | {} files{hint} ",
+                " {label} {} {range} | {} files{hint}{} ",
                 commit.hash,
                 state.detail.files.len(),
+                if active { " [focus]" } else { "" },
             )
         })
         .unwrap_or_else(|| " files | no commit selected ".to_string())
@@ -1112,7 +1183,10 @@ fn footer_text(state: &LogState) -> String {
     } else {
         "d load"
     };
-    format!("commit {position} | {detail_mode} | {primary_action} | j/k commits | f/b scroll | n/p file | q")
+    format!(
+        "commit {position} | focus {} | {detail_mode} | {primary_action} | left/right focus | j/k move/scroll | f/b page | n/p file | q",
+        state.active_panel.label()
+    )
 }
 
 fn commit_position_label(selected: usize, total: usize) -> String {
@@ -1247,6 +1321,52 @@ mod tests {
             lines.pop();
         }
         lines.join("\n")
+    }
+
+    fn test_commit(hash: &str, subject: &str) -> LogCommit {
+        LogCommit {
+            hash: hash.to_string(),
+            hash_full: format!("{hash}000"),
+            author: "Test".to_string(),
+            author_email: "test@example.com".to_string(),
+            subject: subject.to_string(),
+            date: 1,
+            parents: vec!["parent".to_string()],
+            matched_paths: Vec::new(),
+        }
+    }
+
+    fn test_log_state() -> LogState {
+        LogState {
+            root: PathBuf::from("."),
+            data: LogData {
+                root: ".".to_string(),
+                source: LogSource {
+                    kind: "repo".to_string(),
+                    label: "HEAD".to_string(),
+                    matched_paths: Vec::new(),
+                },
+                commits: vec![
+                    test_commit("a1b2c3d", "first"),
+                    test_commit("b2c3d4e", "second"),
+                ],
+                truncated: false,
+            },
+            selected_commit: 0,
+            diff_scroll: 0,
+            detail: CommitDetail {
+                files: Vec::new(),
+                lines: vec![
+                    "commit a1b2c3d000".to_string(),
+                    "diff -- src/lib.rs".to_string(),
+                    "+         1 | added".to_string(),
+                ],
+                diff_loaded: true,
+            },
+            diff_loading: false,
+            error: None,
+            active_panel: ActivePanel::Commits,
+        }
     }
 
     #[test]
@@ -1433,6 +1553,7 @@ mod tests {
             },
             diff_loading: false,
             error: None,
+            active_panel: ActivePanel::Detail,
         };
 
         let backend = TestBackend::new(100, 20);
@@ -1446,6 +1567,28 @@ mod tests {
         assert!(rendered.contains("clean diff rendering"));
         assert!(rendered.contains("file src/lib.rs"));
         assert!(rendered.contains(&diff_line));
+        assert!(rendered.contains("[focus]"));
+    }
+
+    #[test]
+    fn active_panel_switches_with_left_and_right_behavior() {
+        let mut state = test_log_state();
+        assert_eq!(state.active_panel, ActivePanel::Commits);
+
+        state.focus_detail();
+        state.move_active_down();
+        assert_eq!(state.diff_scroll, 1);
+        assert_eq!(state.selected_commit, 0);
+
+        state.move_active_up();
+        assert_eq!(state.diff_scroll, 0);
+
+        state.focus_commits();
+        state.move_active_down();
+        assert_eq!(state.selected_commit, 1);
+
+        state.move_active_up();
+        assert_eq!(state.selected_commit, 0);
     }
 
     #[test]

@@ -113,6 +113,7 @@ A user can complete the critical loop in under one minute:
 
 - The right pane MUST expose one of these modes in its title: `files`, `loading`, or `diff`.
 - The title MUST include short hash, visible line range, and changed-file count when a commit is selected.
+- The focused pane MUST be visible in the pane title or frame.
 - Files mode MUST state that full diff is not loaded and how to load it.
 - Loading mode MUST replace stale detail content with explicit loading text.
 - Diff mode MUST show full diff lines and keep the visible range accurate.
@@ -228,8 +229,12 @@ last row: compact footer
 
 | Key | State | Action |
 |-----|-------|--------|
-| `j`, `Down` | all | move to next commit |
-| `k`, `Up` | all | move to previous commit |
+| `Left` | all | focus commit pane |
+| `Right` | all | focus detail/diff pane |
+| `j`, `Down` | commit focus | move to next commit |
+| `k`, `Up` | commit focus | move to previous commit |
+| `j`, `Down` | detail/diff focus | scroll detail/diff down one line |
+| `k`, `Up` | detail/diff focus | scroll detail/diff up one line |
 | `f`, `Space`, `PageDown` | files/diff | scroll detail pane down |
 | `b`, `PageUp` | files/diff | scroll detail pane up |
 | `g`, `Home` | all | first commit |
@@ -247,6 +252,7 @@ last row: compact footer
 - Truncation and loading messages use yellow.
 - Errors use red.
 - Selected commit row uses a high-contrast highlighted row.
+- Focused pane uses a high-contrast frame/title plus `[focus]` text so focus is not color-only.
 - Diff semantics:
   - Added line or added file: green.
   - Deleted line or deleted file: red.
@@ -334,6 +340,13 @@ When a commit is selected
 Then the left pane title shows the selected position  
 And the selected row is visually distinct.
 
+### `AC-TUI-004A`: pane focus is visible and keyboard controlled
+
+Given the TUI is open  
+When the user presses `Left` or `Right`  
+Then focus moves between the commit pane and detail/diff pane  
+And the focused pane is visible without relying only on color.
+
 ### `AC-TUI-005`: files mode avoids full diff work
 
 Given a selected commit  
@@ -412,9 +425,9 @@ Then no git state or repository file is mutated.
 | `REQ-TUI-001` | `AC-TUI-001`, `AC-TUI-002` |
 | `REQ-TUI-002` | `AC-TUI-003`, `AC-TUI-012` |
 | `REQ-TUI-003` | `AC-TUI-004`, `AC-TUI-011` |
-| `REQ-TUI-004` | `AC-TUI-005`, `AC-TUI-006`, `AC-TUI-007` |
+| `REQ-TUI-004` | `AC-TUI-004A`, `AC-TUI-005`, `AC-TUI-006`, `AC-TUI-007` |
 | `REQ-TUI-005` | `AC-TUI-005`, `AC-TUI-006`, `AC-TUI-007` |
-| `REQ-TUI-006` | `AC-TUI-004`, `AC-TUI-006`, `AC-TUI-009`, `AC-TUI-013` |
+| `REQ-TUI-006` | `AC-TUI-004`, `AC-TUI-004A`, `AC-TUI-006`, `AC-TUI-009`, `AC-TUI-013` |
 | `REQ-TUI-007` | `AC-TUI-010` |
 | `REQ-TUI-008` | `AC-TUI-011`, `AC-TUI-012` |
 | `REQ-TUI-009` | `AC-TUI-008` |

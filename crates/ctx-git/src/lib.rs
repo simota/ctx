@@ -1034,6 +1034,9 @@ fn resolve_revision(git_dir: &Path, rev: &str) -> Result<String> {
         if let Some(oid) = resolve_loose_oid_prefix(git_dir, rev)? {
             return Ok(oid);
         }
+        if let Some(oid) = resolve_commit_prefix_via_git(git_dir, rev)? {
+            return Ok(oid);
+        }
     }
     let ref_name = if rev.starts_with("refs/") {
         rev.to_string()
@@ -1077,6 +1080,30 @@ fn resolve_loose_oid_prefix(git_dir: &Path, prefix: &str) -> Result<Option<Strin
         }
     }
     Ok(found)
+}
+
+fn resolve_commit_prefix_via_git(git_dir: &Path, prefix: &str) -> Result<Option<String>> {
+    let rev = format!("{prefix}^{{commit}}");
+    let output = Command::new("git")
+        .arg("--git-dir")
+        .arg(git_dir)
+        .args(["rev-parse", "--verify", &rev])
+        .output()
+        .map_err(|err| GitError::new(err.to_string()))?;
+    if output.status.success() {
+        let oid = String::from_utf8(output.stdout).map_err(|err| GitError::new(err.to_string()))?;
+        let oid = oid.trim();
+        if oid.len() == 40 && oid.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Ok(Some(oid.to_string()));
+        }
+        return Err(GitError::new("invalid resolved object id"));
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if stderr.contains("ambiguous") {
+        return Err(GitError::new("ambiguous revision"));
+    }
+    Ok(None)
 }
 
 fn read_ref(git_dir: &Path, reference: &str) -> Result<Option<String>> {
@@ -1801,6 +1828,38 @@ mod tests {
 
         let diff = commit_diff(&root, "HEAD^", "HEAD", "greeting.txt")
             .expect("root parent should behave like an empty before side");
+        assert!(diff.added);
+        assert!(!diff.deleted);
+        assert_eq!(diff.lines.len(), 1);
+        assert_eq!(diff.lines[0].typ, "add");
+        assert_eq!(diff.lines[0].text, "alpha");
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn commit_diff_resolves_packed_full_hash_parent_revision() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("greeting.txt"), "alpha\n").expect("write greeting");
+        git(&root, &["add", "greeting.txt"]);
+        let mut commit = Command::new("git");
+        commit
+            .args(["commit", "-q", "-m", "Add greeting"])
+            .current_dir(&root);
+        pin_git_env(&mut commit);
+        assert!(commit.status().expect("git commit").success());
+        let head = git_capture(&root, &["rev-parse", "HEAD"]);
+        let head = head.trim().to_string();
+        git(&root, &["gc", "--prune=now"]);
+
+        let from = format!("{head}^");
+        let diff = commit_diff(&root, &from, &head, "greeting.txt")
+            .expect("packed root parent should behave like an empty before side");
         assert!(diff.added);
         assert!(!diff.deleted);
         assert_eq!(diff.lines.len(), 1);
