@@ -230,6 +230,10 @@
     padding: 4px;
     list-style: none;
     min-width: 240px;
+    /* The list outgrew the viewport once the theme count climbed; cap height
+       and scroll. Themed scrollbar comes from the global ::-webkit-scrollbar. */
+    max-height: min(70vh, 520px);
+    overflow-y: auto;
     background: var(--ctx-bg-elev);
     border: 1px solid var(--ctx-border);
     border-radius: 6px;

@@ -750,6 +750,58 @@
   --hl-built-in: #d4c87a; /* sulfur smoke */
 }
 
+/* ascii — amber monochrome text terminal (DEC VT220 / IBM 3279 amber CRT).
+   Where crt is green P1 phosphor, ascii is P3 amber phosphor: a near-black
+   warm-brown background with amber foreground and a brighter saturated amber
+   signature accent. Like crt and eink it is monochrome — there is no second
+   hue — so every token disambiguates on a LIGHTNESS ladder, not by colour.
+   warn/err lean to the classic terminal amber-bright / red glow. */
+:root[data-theme='ascii'] {
+  color-scheme: dark;
+
+  --ctx-bg: #1a1206; /* near-black warm brown */
+  --ctx-bg-elev: #241a0c;
+  --ctx-bg-panel: #0f0a03;
+  --ctx-border: #3a2c10; /* decorative dividers — 1.4.11 exempt */
+  --ctx-border-strong: #8a6a2a; /* affordance borders: 3.69:1 — AA UI */
+  --ctx-fg: #ffcc66; /* amber phosphor: 12.4:1 — AAA */
+  --ctx-fg-dim: #c89a4a; /* dimmed amber: 7.2:1 — AAA */
+  --ctx-fg-strong: #ffe0a0;
+  --ctx-accent: #ffb000; /* bright P3 amber — signature: 10.1:1 — AAA */
+  --ctx-accent-dim: #cc8a00;
+  --ctx-link: #ffd480; /* pale amber — brightest rung of the ladder: 13.2:1 — AAA */
+  --ctx-warn: #ffaa33; /* bright amber — classic terminal warn: 9.8:1 — AAA */
+  --ctx-err: #ff6644; /* phosphor red glow: 6.4:1 — AA */
+
+  --ctx-git-added: #ffdd99; /* palest amber: 14.2:1 — AAA, top of ladder */
+  --ctx-git-modified: #ffaa33; /* bright amber — paired with warn */
+  --ctx-git-deleted: #ff6644; /* red glow — paired with err */
+  --ctx-git-untracked: #c89a4a; /* dimmed amber — mirrors fg-dim */
+
+  --ctx-skel-a: #241a0c;
+  --ctx-skel-b: #3a2c10;
+  --ctx-scroll-thumb: #5a4418;
+  --ctx-scroll-thumb-hover: #8a6a2a;
+
+  --ctx-line-target: rgba(255, 176, 0, 0.16); /* amber wash */
+  --ctx-line-find: rgba(255, 170, 51, 0.18);
+  --ctx-line-find-current: rgba(255, 170, 51, 0.38);
+
+  /* hljs palette — amber CRTs had no syntax colour; variation is held tight
+     to a single amber hue and spread across the lightness axis so highlighted
+     code still reads as one monochrome phosphor screen. */
+  --hl-fg: #ffcc66;
+  --hl-bg: #1a1206;
+  --hl-comment: #a07a3a; /* dim amber: 4.7:1 — AA */
+  --hl-keyword: #ffb000; /* bright phosphor — accent match */
+  --hl-name: #ffd480; /* pale amber */
+  --hl-literal: #ffaa33; /* mid amber */
+  --hl-string: #ffe0a0; /* palest amber — "everyday text" */
+  --hl-attr: #ffc04a; /* warm amber */
+  --hl-symbol: #ffb000; /* bright phosphor */
+  --hl-built-in: #ffd480; /* pale amber */
+}
+
 /* eink — Kindle / Sony Reader / Onyx Boox monochrome reading. The
    restraint category: zero chroma, every hex is R=G=B greyscale on
    paper-warm-grey. Token differentiation rides purely on lightness

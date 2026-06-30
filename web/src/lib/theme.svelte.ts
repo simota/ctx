@@ -48,6 +48,7 @@ export const THEMES = [
   { name: 'synthwave', label: 'Synthwave', description: '1985 Miami neon', swatch: '#ff6ec7', category: 'novelty' },
   { name: 'blueprint', label: 'Blueprint', description: 'Cyanotype drafting paper', swatch: '#7fd4ff', category: 'novelty' },
   { name: 'forge', label: 'Forge', description: "Blacksmith's hot workshop", swatch: '#ff8c2a', category: 'novelty' },
+  { name: 'ascii', label: 'ASCII', description: 'Amber phosphor text terminal', swatch: '#ffb000', category: 'novelty' },
   { name: 'eink', label: 'E-ink', description: 'Monochrome paper reading', swatch: '#1a1a1a', category: 'restraint' },
 ] as const satisfies readonly ThemeMeta[];
 
