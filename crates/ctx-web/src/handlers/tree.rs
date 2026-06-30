@@ -10,9 +10,10 @@
 //! files while preserving ancestor rows.
 //!
 //! `since`/`until` filter file nodes by mtime. Files modified before `since`
-//! or after `until` are omitted; directory nodes are always retained (CLI
-//! parity with `ctx-cli` mtime filtering). `use_mtime` is accepted so the
-//! route does not 400, but it has no effect: the web walk always uses mtime.
+//! or after `until` are omitted; a directory left with no surviving
+//! descendants is pruned too (the UI hides folders a filter emptied), except
+//! the root, which always renders. `use_mtime` is accepted so the route does
+//! not 400, but it has no effect: the web walk always uses mtime.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -386,8 +387,12 @@ fn should_skip(name: &str) -> bool {
 /// filename). `root_str` is the served root used for relative-path computation.
 ///
 /// Returns `Ok(None)` for non-directory files that fall outside the
-/// `[since, until]` mtime window (CLI parity). Directory nodes always return
-/// `Ok(Some(..))` even when all their children were filtered out.
+/// `[since, until]` mtime window. When a time filter is active, a non-root
+/// directory that ends up with no surviving descendants is also pruned
+/// (`Ok(None)`) so the UI never shows an empty folder for a filter that
+/// matched nothing inside it. The root and depth-cutoff directories are kept
+/// (their matches may simply be unexplored). With no filter, every directory
+/// is retained regardless of emptiness (behaviour-preserving).
 fn walk_tree(
     root_str: &str,
     dir: &Path,
@@ -520,9 +525,19 @@ fn walk_tree(
 
             match walk_tree(root_str, &child_path, depth + 1, opts) {
                 Ok(Some(child_node)) => node.children.push(child_node),
-                Ok(None) => continue, // filtered out by mtime
+                Ok(None) => continue, // filtered out (file out of window, or empty dir)
                 Err(_) => continue,
             }
+        }
+
+        // Prune a directory that the filter emptied: no file or sub-directory
+        // survived the [since, until] window, so the folder itself is hidden.
+        // Root (depth 0) is always kept so an all-filtered tree still renders.
+        // A dir cut off by max_depth never reaches here (the outer `if` is
+        // false), so unexplored subtrees are never mistaken for empty.
+        let filter_active = opts.since.is_some() || opts.until.is_some();
+        if filter_active && depth > 0 && node.children.is_empty() {
+            return Ok(None);
         }
     }
 
@@ -942,6 +957,83 @@ mod tests {
             names.contains(&"new.txt"),
             "since=1s ago must keep a just-created file; got {:?}", names
         );
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    /// A sub-directory whose only files fall outside the window is pruned from
+    /// the tree entirely (folder hidden), but a sibling sub-directory with a
+    /// surviving file is kept. The root is always retained.
+    #[test]
+    fn walk_tree_filter_prunes_emptied_directories() {
+        use std::fs;
+
+        let tmp = std::env::temp_dir().join(format!("ctx_tree_prune_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(tmp.join("keep")).unwrap();
+        fs::create_dir_all(tmp.join("drop")).unwrap();
+        fs::write(tmp.join("keep/a.txt"), b"a").unwrap();
+        fs::write(tmp.join("drop/b.txt"), b"b").unwrap();
+
+        let git = GitStatusMap::default();
+        let now = SystemTime::now();
+
+        // No filter → both dirs present (behaviour-preserving baseline).
+        let base = walk_tree(
+            tmp.to_str().unwrap(), &tmp, 0,
+            WalkOpts { max_depth: 0, with_tokens: false, git_status: &git, ignore: None, since: None, until: None },
+        ).unwrap().unwrap();
+        let base_dirs: Vec<&str> = base.children.iter().map(|c| c.name.as_str()).collect();
+        assert!(base_dirs.contains(&"keep") && base_dirs.contains(&"drop"), "baseline keeps both dirs; got {base_dirs:?}");
+
+        // since = far future → every file is out of window → BOTH dirs pruned,
+        // root retained but empty.
+        let far_future = now.checked_add(Duration::from_secs(365 * 24 * 3600)).unwrap();
+        let all_pruned = walk_tree(
+            tmp.to_str().unwrap(), &tmp, 0,
+            WalkOpts { max_depth: 0, with_tokens: false, git_status: &git, ignore: None, since: Some(far_future), until: None },
+        ).unwrap().unwrap();
+        assert!(all_pruned.is_dir, "root must always be retained");
+        assert!(
+            all_pruned.children.is_empty(),
+            "dirs whose files are all filtered out must be pruned; got {:?}",
+            all_pruned.children.iter().map(|c| &c.name).collect::<Vec<_>>()
+        );
+
+        // since = 1s ago → both files survive → both dirs kept.
+        let recent = now.checked_sub(Duration::from_secs(1)).unwrap();
+        let kept = walk_tree(
+            tmp.to_str().unwrap(), &tmp, 0,
+            WalkOpts { max_depth: 0, with_tokens: false, git_status: &git, ignore: None, since: Some(recent), until: None },
+        ).unwrap().unwrap();
+        let kept_dirs: Vec<&str> = kept.children.iter().map(|c| c.name.as_str()).collect();
+        assert!(kept_dirs.contains(&"keep") && kept_dirs.contains(&"drop"), "dirs with surviving files are kept; got {kept_dirs:?}");
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    /// A directory cut off by `max_depth` is NOT pruned even under an active
+    /// filter — its contents are unexplored, not empty.
+    #[test]
+    fn walk_tree_filter_keeps_depth_cutoff_directories() {
+        use std::fs;
+
+        let tmp = std::env::temp_dir().join(format!("ctx_tree_depth_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(tmp.join("sub")).unwrap();
+        fs::write(tmp.join("sub/deep.txt"), b"x").unwrap();
+
+        let git = GitStatusMap::default();
+        // max_depth = 1: root walks `sub` (depth 1) but `sub` does NOT walk its
+        // children. With a far-future filter, `sub` has empty children due to
+        // the cutoff — it must still be retained.
+        let far_future = SystemTime::now().checked_add(Duration::from_secs(365 * 24 * 3600)).unwrap();
+        let node = walk_tree(
+            tmp.to_str().unwrap(), &tmp, 0,
+            WalkOpts { max_depth: 1, with_tokens: false, git_status: &git, ignore: None, since: Some(far_future), until: None },
+        ).unwrap().unwrap();
+        let dirs: Vec<&str> = node.children.iter().map(|c| c.name.as_str()).collect();
+        assert!(dirs.contains(&"sub"), "depth-cutoff dir must be retained; got {dirs:?}");
 
         let _ = fs::remove_dir_all(&tmp);
     }
