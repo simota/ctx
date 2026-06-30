@@ -2200,6 +2200,24 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
   // hidden, and all copy actions funnel through one clipboard helper.
   // ---------------------------------------------------------------------------
   let rootEl: HTMLElement | null = $state(null);
+  const EVIDENCE_MAX_LINES = 200;
+  const EVIDENCE_MAX_BYTES = 20 * 1024;
+
+  interface EvidenceRange {
+    start: number;
+    end: number;
+  }
+
+  type EvidenceSnippetResult =
+    | { ok: true; text: string; range: EvidenceRange }
+    | { ok: false; message: string };
+  type EvidenceSelectionResult =
+    | { kind: 'none' }
+    | { kind: 'ok'; range: EvidenceRange }
+    | { kind: 'unmappable'; message: string };
+  type EvidenceContext =
+    | { available: true; range: EvidenceRange }
+    | { available: false; message: string };
 
   async function copyToClipboard(text: string, announceLabel: string) {
     if (!text) return;
@@ -2224,6 +2242,139 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     return sel.toString();
   }
 
+  function sourceLinesFromContent(): string[] {
+    if (!data) return [];
+    const arr = data.content.split('\n');
+    if (arr.length > 1 && arr[arr.length - 1] === '') arr.pop();
+    return arr;
+  }
+
+  function sourceLineElementFromNode(node: Node | null): HTMLElement | null {
+    if (!node || !codeEl) return null;
+    const el = node instanceof Element ? node : node.parentElement;
+    const line = el?.closest<HTMLElement>('.line[data-line]') ?? null;
+    return line && codeEl.contains(line) ? line : null;
+  }
+
+  function sourceLineNumber(line: HTMLElement | null): number | null {
+    const raw = line?.dataset.line;
+    const n = raw ? Number(raw) : NaN;
+    return Number.isInteger(n) && n > 0 ? n : null;
+  }
+
+  function selectionEvidenceRange(): EvidenceSelectionResult {
+    if (!rootEl || !codeEl) return { kind: 'none' };
+    const sel = document.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return { kind: 'none' };
+    const range = sel.getRangeAt(0);
+    if (!rootEl.contains(range.commonAncestorContainer)) return { kind: 'none' };
+    const startLine =
+      sourceLineElementFromNode(range.startContainer) ?? sourceLineElementFromNode(sel.anchorNode);
+    const endLine =
+      sourceLineElementFromNode(range.endContainer) ?? sourceLineElementFromNode(sel.focusNode);
+    const a = sourceLineNumber(startLine);
+    const b = sourceLineNumber(endLine);
+    if (!a || !b) {
+      return {
+        kind: 'unmappable',
+        message: 'Evidence snippet unavailable: selection is not fully inside Source lines.',
+      };
+    }
+    return { kind: 'ok', range: { start: Math.min(a, b), end: Math.max(a, b) } };
+  }
+
+  function contextEvidence(target: EventTarget | null): EvidenceContext | null {
+    const targetNode = target instanceof Node ? target : null;
+    if (!data || loading || error || diffMode || historyMode || previewView === 'hex') return null;
+    if (!codeEl || !targetNode || !codeEl.contains(targetNode)) return null;
+    const selected = selectionEvidenceRange();
+    if (selected.kind === 'ok') return { available: true, range: selected.range };
+    if (selected.kind === 'unmappable') return { available: false, message: selected.message };
+    const line = sourceLineElementFromNode(targetNode);
+    const n = sourceLineNumber(line);
+    return n
+      ? { available: true, range: { start: n, end: n } }
+      : { available: false, message: 'Evidence snippet unavailable: choose a Source line.' };
+  }
+
+  function evidenceRangeLabel(range: EvidenceRange): string {
+    return range.start === range.end ? `L${range.start}` : `L${range.start}-L${range.end}`;
+  }
+
+  function markdownFenceFor(text: string): string {
+    const runs = text.match(/`+/g) ?? [];
+    const longest = runs.reduce((max, run) => Math.max(max, run.length), 0);
+    return '`'.repeat(Math.max(3, longest + 1));
+  }
+
+  function evidenceLanguage(): string {
+    if (!data) return '';
+    const lang = data.lang || langFromPath(data.path);
+    return /^[A-Za-z0-9_+.#-]+$/.test(lang) ? lang : '';
+  }
+
+  function buildEvidenceSnippet(range: EvidenceRange): EvidenceSnippetResult {
+    if (!data) return { ok: false, message: 'Evidence snippet unavailable: no file loaded.' };
+    const src = sourceLinesFromContent();
+    if (range.start < 1 || range.end < range.start || range.end > src.length) {
+      return { ok: false, message: 'Evidence snippet unavailable: line range is not loaded.' };
+    }
+    const lineCount = range.end - range.start + 1;
+    if (lineCount > EVIDENCE_MAX_LINES) {
+      return { ok: false, message: 'Evidence snippet too large: select 200 lines or fewer.' };
+    }
+    const body = src
+      .slice(range.start - 1, range.end)
+      .map((line, i) => `${range.start + i} | ${line}`)
+      .join('\n');
+    const fence = markdownFenceFor(body);
+    const hash = toFileHash(data.path, {
+      line: range.start,
+      since: '',
+      until: '',
+      useMtime: false,
+    });
+    const gitStatus = data.git?.trim();
+    const linesOut = [
+      `Source: ${data.path}:${evidenceRangeLabel(range)}`,
+      `Link: ${location.origin}${location.pathname}${hash}`,
+      'Projection: source',
+    ];
+    if (gitStatus) linesOut.push(`Git status: ${gitStatus} (worktree status only)`);
+    linesOut.push(
+      'State caveat: bounded citation from the loaded worktree Source response; not commit-pinned.',
+    );
+    if (data.truncated) {
+      linesOut.push(
+        'Truncation caveat: file response was truncated; this snippet covers only loaded content.',
+      );
+    }
+    linesOut.push('', `${fence}${evidenceLanguage()}`, body, fence, '');
+    const text = linesOut.join('\n');
+    if (new TextEncoder().encode(text).length > EVIDENCE_MAX_BYTES) {
+      return { ok: false, message: 'Evidence snippet too large: Markdown exceeds 20 KB.' };
+    }
+    return { ok: true, text, range };
+  }
+
+  async function copyEvidenceSnippet(range: EvidenceRange | null) {
+    if (!range) {
+      announce('Evidence snippet unavailable: choose a Source line or selection.');
+      return;
+    }
+    const result = buildEvidenceSnippet(range);
+    if (!result.ok) {
+      announce(result.message);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(result.text);
+      announce(`Copied evidence snippet ${evidenceRangeLabel(result.range)}`);
+    } catch {
+      announce('Copy failed');
+    }
+  }
+
   function onContextMenu(e: MouseEvent) {
     if (!path) return;
     // Keep the native menu for text inputs (find bar) — spellcheck, paste, etc.
@@ -2232,6 +2383,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     e.preventDefault();
     // Snapshot the selection now: opening the menu can clear it before run().
     const selText = selectionText();
+    const evidence = contextEvidence(e.target);
     const items: ContextMenuItem[] = [
       {
         id: 'open-to-side',
@@ -2267,6 +2419,18 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
         disabled: selText === '',
         run: () => copyToClipboard(selText, 'selection'),
       },
+      ...(evidence
+        ? [
+            {
+              id: 'copy-evidence-snippet',
+              label: evidence.available
+                ? 'Copy Evidence Snippet'
+                : 'Copy Evidence Snippet (unavailable)',
+              run: () =>
+                evidence.available ? copyEvidenceSnippet(evidence.range) : announce(evidence.message),
+            },
+          ]
+        : []),
       {
         id: 'copy-link',
         label: 'Copy Link',
