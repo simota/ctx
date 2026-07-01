@@ -11,6 +11,7 @@
   let matchMode = $state<SearchMatchMode>(
     route.name === 'search' ? (route.searchMatch ?? 'all') : 'all',
   );
+  let exactMode = $state(route.name === 'search' ? (route.searchExact ?? false) : false);
   let inputEl: HTMLInputElement | null = $state(null);
 
   // sync external route changes into the input
@@ -18,6 +19,7 @@
     if (route.name === 'search') {
       value = route.query;
       matchMode = route.searchMatch ?? 'all';
+      exactMode = route.searchExact ?? false;
     }
   });
 
@@ -25,14 +27,22 @@
     e.preventDefault();
     const q = value.trim();
     if (!q) return;
-    navigate(toSearchHash(q, { match: matchMode }));
+    navigate(toSearchHash(q, { match: matchMode, exact: exactMode }));
   }
 
   function setMatchMode(mode: SearchMatchMode) {
     matchMode = mode;
     const q = value.trim();
     if (q && route.name === 'search') {
-      navigate(toSearchHash(q, { match: mode }));
+      navigate(toSearchHash(q, { match: mode, exact: exactMode }));
+    }
+  }
+
+  function setExactMode(next: boolean) {
+    exactMode = next;
+    const q = value.trim();
+    if (q && route.name === 'search') {
+      navigate(toSearchHash(q, { match: matchMode, exact: next }));
     }
   }
 
@@ -76,7 +86,7 @@
     autocomplete="off"
     spellcheck="false"
   />
-  <div class="match-mode" role="group" aria-label="Search match mode">
+  <div class="match-mode" role="group" aria-label="Search options">
     <button
       class="mode-button"
       class:active={matchMode === 'all'}
@@ -94,6 +104,15 @@
       onclick={() => setMatchMode('any')}
     >
       Any
+    </button>
+    <button
+      class="mode-button"
+      class:active={exactMode}
+      type="button"
+      aria-pressed={exactMode}
+      onclick={() => setExactMode(!exactMode)}
+    >
+      Exact
     </button>
   </div>
   <button class="submit" type="submit" aria-label="run search">Go</button>

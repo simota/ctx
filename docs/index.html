@@ -405,11 +405,13 @@ Included (<span class="t-num">24</span> files)
               basename / path / symbol / content の 4 シグナル合成スコアで
               関連ファイルをランキング。ゼロヒット時は Levenshtein 距離で
               typo 候補を提示。<code>--all</code> で AND セマンティクス、
-              <code>--regex</code> で Rust regex フィルタも組み合わせ可能。
+              <code>--regex</code> で Rust regex フィルタ、<code>--literal</code>
+              で正規化なしの exact パターンも組み合わせ可能。
             </p>
             <div class="code-block">
               <pre><span class="t-flag">ctx where</span> <span class="t-sym">"ログイン処理"</span>
-<span class="t-flag">ctx where</span> <span class="t-sym">"AuthMiddleware"</span> <span class="t-flag">--format</span> json</pre>
+<span class="t-flag">ctx where</span> <span class="t-sym">"AuthMiddleware"</span> <span class="t-flag">--format</span> json
+<span class="t-flag">ctx where</span> <span class="t-sym">"ABテスト"</span> <span class="t-flag">--literal</span> <span class="t-sym">"ABテスト"</span></pre>
             </div>
           </div>
 

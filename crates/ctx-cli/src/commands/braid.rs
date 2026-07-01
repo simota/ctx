@@ -472,6 +472,7 @@ pub(crate) fn exec_braid_where(
     let (query, flags) = parse_strand_positional_then_flags(args)?;
     let mut limit = 50_i64;
     let mut regex = String::new();
+    let mut literal = String::new();
     let mut require_all = false;
     let mut context_n = 0_i64;
     let mut i = 0;
@@ -508,6 +509,16 @@ pub(crate) fn exec_braid_where(
             regex = flags.get(i).cloned().ok_or_else(|| {
                 format!(
                     "braid: strand {:?}: parse strand source flags: flag needs an argument: --regex",
+                    strand.name
+                )
+            })?;
+        } else if let Some(value) = string_flag_value(arg, "--literal") {
+            literal = value.to_string();
+        } else if arg == "--literal" {
+            i += 1;
+            literal = flags.get(i).cloned().ok_or_else(|| {
+                format!(
+                    "braid: strand {:?}: parse strand source flags: flag needs an argument: --literal",
                     strand.name
                 )
             })?;
@@ -567,6 +578,7 @@ pub(crate) fn exec_braid_where(
             context_n,
             require_all,
             regex,
+            literal,
             synonyms: Default::default(),
             explain: false,
         },

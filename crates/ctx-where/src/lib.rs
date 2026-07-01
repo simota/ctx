@@ -19,16 +19,18 @@
 //                     part we expect to win on).
 //   ffi.rs          — extern "C" surface used by internal/where/rustbridge.
 
-pub mod types;
+pub mod ffi;
 pub mod levenshtein;
 pub mod score;
 pub mod search;
-pub mod ffi;
+pub mod types;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
 pub use crate::levenshtein::levenshtein;
-pub use crate::score::{extract_keywords, split_identifier, score_file, score_file_with_sets};
+pub use crate::score::{
+    extract_keywords, score_file, score_file_literal, score_file_with_sets, split_identifier,
+};
 pub use crate::search::{search_with_options, suggest_similar, FileInput, Options, SymbolInput};
 pub use crate::types::{KeywordSet, Match, Result as SearchResult, ScoreBreakdown, Suggestion};

@@ -206,6 +206,7 @@ export interface FetchWhereOpts {
   limit?: number;
   path?: string;
   all?: boolean;
+  literal?: string;
 }
 
 export function fetchWhere(query: string, opts: FetchWhereOpts = {}): Promise<WhereResponse> {

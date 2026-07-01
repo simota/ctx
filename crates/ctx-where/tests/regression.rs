@@ -59,6 +59,11 @@ fn extract_keywords_handles_japanese() {
 }
 
 #[test]
+fn extract_keywords_splits_ascii_cjk_mixed_query() {
+    assert_eq!(extract_keywords("ABテスト"), vec!["ab", "テスト"]);
+}
+
+#[test]
 fn search_respects_limit() {
     let files = vec![
         mkfile("a/pack.go", vec!["package a"], vec![]),
@@ -103,9 +108,53 @@ fn search_context_n_attaches_lines() {
     };
     let r = search_with_options(&files, "alpha", &opts);
     assert!(!r.is_empty());
-    let m = r[0].matches.iter().find(|m| m.kind == "content").expect("content match");
+    let m = r[0]
+        .matches
+        .iter()
+        .find(|m| m.kind == "content")
+        .expect("content match");
     assert_eq!(m.before.len(), 1);
     assert_eq!(m.after.len(), 1);
+}
+
+#[test]
+fn search_literal_filters_without_normalizing_mixed_ascii_cjk() {
+    let files = vec![
+        mkfile("docs/normalized.md", vec!["ab テスト"], vec![]),
+        mkfile("docs/ABテスト.md", vec!["feature notes"], vec![]),
+        mkfile("docs/content.md", vec!["ABテスト rollout"], vec![]),
+    ];
+    let opts = Options {
+        limit: 10,
+        literal: "ABテスト".into(),
+        ..Default::default()
+    };
+    let r = search_with_options(&files, "ABテスト", &opts);
+    let paths: Vec<&str> = r.iter().map(|result| result.path.as_str()).collect();
+    assert_eq!(paths, vec!["docs/ABテスト.md", "docs/content.md"]);
+    assert!(r
+        .iter()
+        .all(|result| result.reason.contains("literal match: ABテスト")));
+    assert!(r.iter().all(|result| result
+        .score_breakdown
+        .as_ref()
+        .is_some_and(|b| b.literal > 0)));
+}
+
+#[test]
+fn search_literal_only_does_not_fall_back_to_empty_query_matches_all() {
+    let files = vec![
+        mkfile("docs/normalized.md", vec!["ab テスト"], vec![]),
+        mkfile("docs/content.md", vec!["ABテスト rollout"], vec![]),
+    ];
+    let opts = Options {
+        limit: 10,
+        literal: "ABテスト".into(),
+        ..Default::default()
+    };
+    let r = search_with_options(&files, "", &opts);
+    let paths: Vec<&str> = r.iter().map(|result| result.path.as_str()).collect();
+    assert_eq!(paths, vec!["docs/content.md"]);
 }
 
 #[test]

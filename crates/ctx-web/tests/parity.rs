@@ -67,18 +67,42 @@ struct Case {
 
 impl Case {
     const fn get(name: &'static str, path: &'static str, norm: Norm) -> Self {
-        Case { name, method: "GET", path, norm, body: None }
+        Case {
+            name,
+            method: "GET",
+            path,
+            norm,
+            body: None,
+        }
     }
     const fn head(name: &'static str, path: &'static str, norm: Norm) -> Self {
-        Case { name, method: "HEAD", path, norm, body: None }
+        Case {
+            name,
+            method: "HEAD",
+            path,
+            norm,
+            body: None,
+        }
     }
     const fn post(name: &'static str, path: &'static str, norm: Norm, body: &'static str) -> Self {
-        Case { name, method: "POST", path, norm, body: Some(body) }
+        Case {
+            name,
+            method: "POST",
+            path,
+            norm,
+            body: Some(body),
+        }
     }
     /// A PUT case (no body). Used to exercise genuine default-405 paths where
     /// Go does NOT route the method to a handler (so both servers 405 alike).
     const fn put(name: &'static str, path: &'static str, norm: Norm) -> Self {
-        Case { name, method: "PUT", path, norm, body: None }
+        Case {
+            name,
+            method: "PUT",
+            path,
+            norm,
+            body: None,
+        }
     }
 }
 
@@ -113,30 +137,66 @@ fn cases() -> Vec<Case> {
         // Missing path param → bad_request.
         Case::get("evidence_missing_path", "/api/evidence", Norm::Exact),
         // Not-found file → 404.
-        Case::get("evidence_notfound", "/api/evidence?path=nope.txt", Norm::AbsPath),
+        Case::get(
+            "evidence_notfound",
+            "/api/evidence?path=nope.txt",
+            Norm::AbsPath,
+        ),
         // Directory path → not_a_file.
         Case::get("evidence_isdir", "/api/evidence?path=.", Norm::Exact),
         // Traversal rejected.
-        Case::get("evidence_traversal", "/api/evidence?path=../etc/x", Norm::Exact),
+        Case::get(
+            "evidence_traversal",
+            "/api/evidence?path=../etc/x",
+            Norm::Exact,
+        ),
         // Happy path: hello.txt exists in snap-alpha (sha matches → fresh).
         // store_path is machine-specific → normalize with AbsPathAndStore.
-        Case::get("evidence_hello", "/api/evidence?path=hello.txt", Norm::AbsPathAndStore),
+        Case::get(
+            "evidence_hello",
+            "/api/evidence?path=hello.txt",
+            Norm::AbsPathAndStore,
+        ),
         // Limit clamping: limit=1 shows only 1 snapshot of 4.
-        Case::get("evidence_hello_limit1", "/api/evidence?path=hello.txt&limit=1", Norm::AbsPathAndStore),
+        Case::get(
+            "evidence_hello_limit1",
+            "/api/evidence?path=hello.txt&limit=1",
+            Norm::AbsPathAndStore,
+        ),
         // main.go is only in snap-verify, has wrong SHA → stale.
-        Case::get("evidence_main_go", "/api/evidence?path=main.go", Norm::AbsPathAndStore),
+        Case::get(
+            "evidence_main_go",
+            "/api/evidence?path=main.go",
+            Norm::AbsPathAndStore,
+        ),
         // --- /api/evidence/verify ---
         // GET rejected (POST only).
-        Case::get("evidence_verify_get_rejected", "/api/evidence/verify", Norm::Exact),
+        Case::get(
+            "evidence_verify_get_rejected",
+            "/api/evidence/verify",
+            Norm::Exact,
+        ),
         // Missing pack field → bad_request.
-        Case::post("evidence_verify_missing_pack", "/api/evidence/verify", Norm::Exact,
-            r#"{"pack":"","response":"hello"}"#),
+        Case::post(
+            "evidence_verify_missing_pack",
+            "/api/evidence/verify",
+            Norm::Exact,
+            r#"{"pack":"","response":"hello"}"#,
+        ),
         // Missing response field → bad_request.
-        Case::post("evidence_verify_missing_response", "/api/evidence/verify", Norm::Exact,
-            "{\"pack\":\"# ctx pack\",\"response\":\"\"}"),
+        Case::post(
+            "evidence_verify_missing_response",
+            "/api/evidence/verify",
+            Norm::Exact,
+            "{\"pack\":\"# ctx pack\",\"response\":\"\"}",
+        ),
         // Pack with no embedded contract → no_contract.
-        Case::post("evidence_verify_no_contract", "/api/evidence/verify", Norm::Exact,
-            r#"{"pack":"no contract here","response":"hello"}"#),
+        Case::post(
+            "evidence_verify_no_contract",
+            "/api/evidence/verify",
+            Norm::Exact,
+            r#"{"pack":"no contract here","response":"hello"}"#,
+        ),
         // --- /api/file: happy paths on non-symbol-bearing files ---
         Case::get("file_txt", "/api/file?path=hello.txt", Norm::Exact),
         Case::get("file_json", "/api/file?path=data.json", Norm::Exact),
@@ -165,27 +225,67 @@ fn cases() -> Vec<Case> {
         // below: the compiled-in embed must serve EXACTLY the vendored bytes.
         // --- /api/where ---
         Case::get("where_missing_q", "/api/where", Norm::Exact),
-        Case::get("where_no_match", "/api/where?q=xyzzy_no_match_at_all", Norm::Exact),
-        Case::get("where_traversal", "/api/where?q=hello&path=../etc", Norm::Exact),
+        Case::get(
+            "where_no_match",
+            "/api/where?q=xyzzy_no_match_at_all",
+            Norm::Exact,
+        ),
+        Case::get(
+            "where_traversal",
+            "/api/where?q=hello&path=../etc",
+            Norm::Exact,
+        ),
         // Both Go and Rust search the same fixture dir (non-code files only,
         // no symbols). Scoring is basename + content match for "hello" on
         // hello.txt; both produce score=15, same reason, same match details.
         Case::get("where_hello", "/api/where?q=hello", Norm::Exact),
         // --- /api/relations ---
         Case::get("relations_missing_path", "/api/relations", Norm::Exact),
-        Case::get("relations_unsupported", "/api/relations?path=hello.txt", Norm::Exact),
-        Case::get("relations_traversal", "/api/relations?path=../etc/x", Norm::Exact),
+        Case::get(
+            "relations_unsupported",
+            "/api/relations?path=hello.txt",
+            Norm::Exact,
+        ),
+        Case::get(
+            "relations_traversal",
+            "/api/relations?path=../etc/x",
+            Norm::Exact,
+        ),
         // --- /api/replay/list (store_path is machine-specific → normalized) ---
-        Case::get("replay_list_empty", "/api/replay/list", Norm::AbsPathAndStore),
-        Case::get("replay_list_populated", "/api/replay/list", Norm::AbsPathAndStore),
+        Case::get(
+            "replay_list_empty",
+            "/api/replay/list",
+            Norm::AbsPathAndStore,
+        ),
+        Case::get(
+            "replay_list_populated",
+            "/api/replay/list",
+            Norm::AbsPathAndStore,
+        ),
         // --- /api/replay/show ---
         Case::get("replay_show_missing_id", "/api/replay/show", Norm::Exact),
-        Case::get("replay_show_invalid_id", "/api/replay/show?id=../evil", Norm::Exact),
-        Case::get("replay_show_not_found", "/api/replay/show?id=does-not-exist", Norm::Exact),
-        Case::get("replay_show_snap_alpha", "/api/replay/show?id=snap-alpha", Norm::Exact),
+        Case::get(
+            "replay_show_invalid_id",
+            "/api/replay/show?id=../evil",
+            Norm::Exact,
+        ),
+        Case::get(
+            "replay_show_not_found",
+            "/api/replay/show?id=does-not-exist",
+            Norm::Exact,
+        ),
+        Case::get(
+            "replay_show_snap_alpha",
+            "/api/replay/show?id=snap-alpha",
+            Norm::Exact,
+        ),
         // --- /api/replay/diff ---
         Case::get("replay_diff_missing_id", "/api/replay/diff", Norm::Exact),
-        Case::get("replay_diff_not_found", "/api/replay/diff?id=does-not-exist", Norm::Exact),
+        Case::get(
+            "replay_diff_not_found",
+            "/api/replay/diff?id=does-not-exist",
+            Norm::Exact,
+        ),
         // Diff against snap-diff: worktree walk + SHA256 + tiktoken counts.
         // snap-diff pins hello.txt (current sha → unchanged), notes.md (wrong
         // sha → modified), ghost.txt (absent → removed); data.json + raw.bin
@@ -193,9 +293,21 @@ fn cases() -> Vec<Case> {
         // the same tiktoken counter (ctx_tokens::count_file == Go CountFile),
         // so the kind/sort/token deltas are byte-identical. No raw floats are
         // emitted by this route, so no FloatTol slot is needed.
-        Case::get("replay_diff_snap", "/api/replay/diff?id=snap-diff", Norm::Exact),
-        Case::get("replay_diff_snap_strict", "/api/replay/diff?id=snap-diff&strict=true", Norm::Exact),
-        Case::get("replay_diff_snap_limit", "/api/replay/diff?id=snap-diff&limit=1", Norm::Exact),
+        Case::get(
+            "replay_diff_snap",
+            "/api/replay/diff?id=snap-diff",
+            Norm::Exact,
+        ),
+        Case::get(
+            "replay_diff_snap_strict",
+            "/api/replay/diff?id=snap-diff&strict=true",
+            Norm::Exact,
+        ),
+        Case::get(
+            "replay_diff_snap_limit",
+            "/api/replay/diff?id=snap-diff&limit=1",
+            Norm::Exact,
+        ),
         // --- /api/budget ---
         // Missing budget param → bad_request (budget defaults to 0 which is <= 0).
         Case::get("budget_missing_budget", "/api/budget", Norm::Exact),
@@ -203,7 +315,11 @@ fn cases() -> Vec<Case> {
         Case::get("budget_zero", "/api/budget?budget=0", Norm::Exact),
         // Traversal → bad_path (before the budget check in Go; in Rust the order
         // is: check budget first, then resolve path — we match Go's order).
-        Case::get("budget_traversal", "/api/budget?budget=100&path=../etc", Norm::Exact),
+        Case::get(
+            "budget_traversal",
+            "/api/budget?budget=100&path=../etc",
+            Norm::Exact,
+        ),
         // Large budget: all fixture files (non-binary) fit.
         // Fixture has 5 files; all are text so they all have non-zero tokens.
         Case::get("budget_all_fit", "/api/budget?budget=10000", Norm::Exact),
@@ -225,13 +341,25 @@ fn cases() -> Vec<Case> {
         Case::get("tests_non_go", "/api/tests?path=hello.txt", Norm::Exact),
         // Source file WITH a real test → TotalTests>0, Tests populated.
         // Anti-escape guard: body must contain the test file path and test count.
-        Case::get("tests_source_with_tests", "/api/tests?path=gocode/add.go", Norm::Exact),
+        Case::get(
+            "tests_source_with_tests",
+            "/api/tests?path=gocode/add.go",
+            Norm::Exact,
+        ),
         // Test file → Sources populated; tests array empty.
         // Anti-escape guard: body must contain the source file path.
-        Case::get("tests_test_file_sources", "/api/tests?path=gocode/add_test.go", Norm::Exact),
+        Case::get(
+            "tests_test_file_sources",
+            "/api/tests?path=gocode/add_test.go",
+            Norm::Exact,
+        ),
         // limit=1 on a source file that has exactly 1 test (already satisfies limit,
         // confirms limit clamping works without truncating the single result).
-        Case::get("tests_limit1", "/api/tests?path=gocode/add.go&limit=1", Norm::Exact),
+        Case::get(
+            "tests_limit1",
+            "/api/tests?path=gocode/add.go&limit=1",
+            Norm::Exact,
+        ),
         // REGRESSION LOCK: a real complex file (internal/symbols/extractor.go,
         // copied verbatim into the fixture as symbols/extractor.go). Its
         // matching test (symbols/extractor_test.go) uses a LOCAL variable
@@ -241,7 +369,11 @@ fn cases() -> Vec<Case> {
         // scores/total_tests. Go's go/ast only surfaces TOP-LEVEL decls, so
         // matched_symbols must be exactly ["Extract","New"] (NO "out").
         // expect_contains guards the real symbols + asserts test_count=5.
-        Case::get("tests_extractor_complex", "/api/tests?path=symbols/extractor.go", Norm::Exact),
+        Case::get(
+            "tests_extractor_complex",
+            "/api/tests?path=symbols/extractor.go",
+            Norm::Exact,
+        ),
         // REGRESSION LOCK #2 (under-extraction): a real file with a grouped
         // top-level `var ( … )` block (internal/tokens/counter.go, copied
         // verbatim as tokens/counter.go). In tree-sitter-go the grouped var
@@ -251,23 +383,61 @@ fn cases() -> Vec<Case> {
         // surfaces all grouped-block names, so `sharedEncoder` MUST appear in
         // matched_symbols and the perf_test.go cross-file match (on
         // `sharedEncoder`) MUST be present. expect_contains guards both.
-        Case::get("tests_counter_grouped_var", "/api/tests?path=tokens/counter.go", Norm::Exact),
+        Case::get(
+            "tests_counter_grouped_var",
+            "/api/tests?path=tokens/counter.go",
+            Norm::Exact,
+        ),
         // --- /api/replay/verify (POST) ---
-        Case::get("replay_verify_get_rejected", "/api/replay/verify", Norm::Exact),
+        Case::get(
+            "replay_verify_get_rejected",
+            "/api/replay/verify",
+            Norm::Exact,
+        ),
         // Validation error envelopes (handler-owned messages, not decoder text).
-        Case::post("replay_verify_missing_id", "/api/replay/verify", Norm::Exact, r#"{"id":"","response":"see main.go"}"#),
-        Case::post("replay_verify_missing_response", "/api/replay/verify", Norm::Exact, r#"{"id":"snap-verify","response":""}"#),
-        Case::post("replay_verify_not_found", "/api/replay/verify", Norm::Exact, r#"{"id":"nope-missing","response":"see main.go"}"#),
+        Case::post(
+            "replay_verify_missing_id",
+            "/api/replay/verify",
+            Norm::Exact,
+            r#"{"id":"","response":"see main.go"}"#,
+        ),
+        Case::post(
+            "replay_verify_missing_response",
+            "/api/replay/verify",
+            Norm::Exact,
+            r#"{"id":"snap-verify","response":""}"#,
+        ),
+        Case::post(
+            "replay_verify_not_found",
+            "/api/replay/verify",
+            Norm::Exact,
+            r#"{"id":"nope-missing","response":"see main.go"}"#,
+        ),
         // Happy path: response cites main.go (a recognized code-file ref) which
         // IS in snap-verify's manifest → OK reference, exit_code 0. Reuses
         // ctx_contract::verify byte-for-byte (same logic as CLI contract verify).
-        Case::post("replay_verify_ok", "/api/replay/verify", Norm::Exact, r#"{"id":"snap-verify","response":"See main.go for the entrypoint."}"#),
+        Case::post(
+            "replay_verify_ok",
+            "/api/replay/verify",
+            Norm::Exact,
+            r#"{"id":"snap-verify","response":"See main.go for the entrypoint."}"#,
+        ),
         // Violation: response cites a code path NOT in the manifest →
         // out-of-context violation, exit_code 1.
-        Case::post("replay_verify_violation", "/api/replay/verify", Norm::Exact, r#"{"id":"snap-verify","response":"See missing/phantom.go for the bug."}"#),
+        Case::post(
+            "replay_verify_violation",
+            "/api/replay/verify",
+            Norm::Exact,
+            r#"{"id":"snap-verify","response":"See missing/phantom.go for the bug."}"#,
+        ),
         // Worktree check: cite main.go with check_worktree; snap-verify's pinned
         // sha (all-zeros) differs from the current worktree bytes → stale-content.
-        Case::post("replay_verify_stale", "/api/replay/verify", Norm::Exact, r#"{"id":"snap-verify","response":"See main.go.","check_worktree":true}"#),
+        Case::post(
+            "replay_verify_stale",
+            "/api/replay/verify",
+            Norm::Exact,
+            r#"{"id":"snap-verify","response":"See main.go.","check_worktree":true}"#,
+        ),
         // --- /api/mix (READ side — ported & byte-parity) ---
         // mix list/get are exercised against the pinned fixture in
         // replay-store/ctx/mixes/. Both servers share XDG_STATE_HOME so they
@@ -287,29 +457,53 @@ fn cases() -> Vec<Case> {
         // byte-parity-able because GenerateID is crypto/rand + writes mutate
         // the shared fixture store.)
         Case::put("mix_collection_put_rejected", "/api/mix", Norm::Exact),
-        Case::put("mix_item_put_rejected", "/api/mix/aabbccdd11223344", Norm::Exact),
+        Case::put(
+            "mix_item_put_rejected",
+            "/api/mix/aabbccdd11223344",
+            Norm::Exact,
+        ),
         // --- /api/symbols ---
         // Single code file (main.go): extracts the `main` function symbol.
         // Non-trivial guard: body must contain the symbol shape.
         Case::get("symbols_file_go", "/api/symbols?path=main.go", Norm::Exact),
         // Non-code file (hello.txt): files map has key with null value.
-        Case::get("symbols_file_txt", "/api/symbols?path=hello.txt", Norm::Exact),
+        Case::get(
+            "symbols_file_txt",
+            "/api/symbols?path=hello.txt",
+            Norm::Exact,
+        ),
         // Directory root: only main.go has symbols; all other fixture files
         // (hello.txt, notes.md, data.json, raw.bin) are non-code → skipped.
         Case::get("symbols_dir_root", "/api/symbols", Norm::Exact),
         // Not-found path → 404 (machine path in message → AbsPath norm).
-        Case::get("symbols_notfound", "/api/symbols?path=nope.go", Norm::AbsPath),
+        Case::get(
+            "symbols_notfound",
+            "/api/symbols?path=nope.go",
+            Norm::AbsPath,
+        ),
         // Traversal rejected.
-        Case::get("symbols_traversal", "/api/symbols?path=../etc/x", Norm::Exact),
+        Case::get(
+            "symbols_traversal",
+            "/api/symbols?path=../etc/x",
+            Norm::Exact,
+        ),
         // --- /api/definition ---
         // Missing name param → bad_request.
         Case::get("definition_missing_name", "/api/definition", Norm::Exact),
         // Known symbol `main` in main.go — entry file, enriched with role+tokens.
         Case::get("definition_main", "/api/definition?name=main", Norm::Exact),
         // Same symbol with from hint (same dir → same ranking, deterministic).
-        Case::get("definition_main_from", "/api/definition?name=main&from=main.go", Norm::Exact),
+        Case::get(
+            "definition_main_from",
+            "/api/definition?name=main&from=main.go",
+            Norm::Exact,
+        ),
         // Unknown symbol name → 200 with empty candidates array.
-        Case::get("definition_no_match", "/api/definition?name=Xyzzy_NoSuchSymbol", Norm::Exact),
+        Case::get(
+            "definition_no_match",
+            "/api/definition?name=Xyzzy_NoSuchSymbol",
+            Norm::Exact,
+        ),
         // --- /api/file: symbols field now populated for code files ---
         // main.go is a Go file with one function → symbols list present.
         Case::get("file_go_symbols", "/api/file?path=main.go", Norm::Exact),
@@ -327,23 +521,45 @@ fn expect_contains(name: &str) -> &'static [&'static str] {
         "tree_root_tokens" => &[r#""tokens":"#, r#""name":"hello.txt""#],
         "tree_depth1" => &[r#""root":"."#, r#""total":"#],
         // dir_root: must list the known children sorted dirs-first.
-        "dir_root" => &[r#""path":"."#, r#""file_count":"#, r#""name":"hello.txt""#, r#""children":"#],
+        "dir_root" => &[
+            r#""path":"."#,
+            r#""file_count":"#,
+            r#""name":"hello.txt""#,
+            r#""children":"#,
+        ],
         "dir_root_dot" => &[r#""path":"."#, r#""children":"#],
         // roots_list: alpha < beta (sorted); both entries present.
         "roots_list" => &[r#""roots":"#, r#""name":"alpha""#, r#""name":"beta""#],
         // evidence_hello: snap-alpha includes hello.txt.
-        "evidence_hello" => &[r#""path":"hello.txt""#, r#""total_snapshots":"#, r#""snapshots":"#, r#""id":"snap-alpha""#],
+        "evidence_hello" => &[
+            r#""path":"hello.txt""#,
+            r#""total_snapshots":"#,
+            r#""snapshots":"#,
+            r#""id":"snap-alpha""#,
+        ],
         // limit=1 returns only the NEWEST snapshot with hello.txt (snap-diff, 2026-01-03).
-        "evidence_hello_limit1" => &[r#""path":"hello.txt""#, r#""total_snapshots":3"#, r#""id":"snap-diff""#],
+        "evidence_hello_limit1" => &[
+            r#""path":"hello.txt""#,
+            r#""total_snapshots":3"#,
+            r#""id":"snap-diff""#,
+        ],
         // evidence_main_go: snap-verify has main.go with wrong sha → stale.
-        "evidence_main_go" => &[r#""path":"main.go""#, r#""status":"stale""#, r#""id":"snap-verify""#],
+        "evidence_main_go" => &[
+            r#""path":"main.go""#,
+            r#""status":"stale""#,
+            r#""id":"snap-verify""#,
+        ],
         // budget_all_fit: all fixture files have non-zero tokens, so included is non-empty.
         // main.go (entry) is highest-priority so it appears in included.
         "budget_all_fit" => &[r#""budget":10000"#, r#""included":"#, r#""path":"main.go""#],
         // budget_none_fit: budget=1, all files excluded as "too large" (tokens > budget/2=0).
         "budget_none_fit" => &[r#""budget":1"#, r#""included":[]"#, r#""excluded":"#],
         // where_hello must rank hello.txt with a content+basename match.
-        "where_hello" => &[r#""path":"hello.txt""#, r#""score":15"#, r#""type":"content""#],
+        "where_hello" => &[
+            r#""path":"hello.txt""#,
+            r#""score":15"#,
+            r#""type":"content""#,
+        ],
         // diff against snap-diff: notes.md modified, ghost.txt removed,
         // data.json/raw.bin added, hello.txt unchanged (counted, not listed).
         "replay_diff_snap" => &[
@@ -356,9 +572,18 @@ fn expect_contains(name: &str) -> &'static [&'static str] {
         "replay_diff_snap_strict" => &[r#""strict":true"#, r#""kind":"modified""#],
         "replay_diff_snap_limit" => &[r#""truncated":true"#],
         // verify happy path: an OK reference to main.go, exit 0.
-        "replay_verify_ok" => &[r#""pack_file":"replay:snap-verify""#, r#""ok":[{"#, r#""path":"main.go""#, r#""exit_code":0"#],
+        "replay_verify_ok" => &[
+            r#""pack_file":"replay:snap-verify""#,
+            r#""ok":[{"#,
+            r#""path":"main.go""#,
+            r#""exit_code":0"#,
+        ],
         // verify violation: out-of-context phantom path, exit 1.
-        "replay_verify_violation" => &[r#""violations":[{"#, r#""out-of-context""#, r#""exit_code":1"#],
+        "replay_verify_violation" => &[
+            r#""violations":[{"#,
+            r#""out-of-context""#,
+            r#""exit_code":1"#,
+        ],
         // verify stale: worktree bytes differ from pinned sha.
         "replay_verify_stale" => &[r#""stale_files":[{"#, r#""exit_code":1"#],
         // mix list populated: both pinned entries present, newest-first (beta > alpha).
@@ -385,7 +610,9 @@ fn expect_contains(name: &str) -> &'static [&'static str] {
         ],
         // mix unsupported-method 405 envelopes: genuine default-405 on BOTH
         // servers (PUT is not routed to any mutation in Go).
-        "mix_collection_put_rejected" => &[r#""code":"method_not_allowed""#, r#""GET or POST only""#],
+        "mix_collection_put_rejected" => {
+            &[r#""code":"method_not_allowed""#, r#""GET or POST only""#]
+        }
         "mix_item_put_rejected" => &[r#""code":"method_not_allowed""#, r#""GET or DELETE only""#],
         // symbols: file case must include real symbol shape.
         "symbols_file_go" => &[
@@ -507,13 +734,11 @@ fn http_byte_parity_go_vs_rust() {
     // Replay store lives OUTSIDE the served fixture root (sibling dir) so the
     // /api/replay/diff worktree walk does not pick up the snapshot JSON files.
     // XDG_STATE_HOME is set to this dir so both servers read the same manifests.
-    let replay_store = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/replay-store");
+    let replay_store = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/replay-store");
 
     // Pinned roots registry — both servers read the same file via CTX_ROOTS_FILE
     // so /api/roots output is deterministic and machine-independent.
-    let roots_file = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/roots-registry/roots.toml");
+    let roots_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/roots-registry/roots.toml");
 
     // Set env vars before spawning any threads (process-global, safe here since
     // no other threads are running at this point in the test).
@@ -547,8 +772,7 @@ fn http_byte_parity_go_vs_rust() {
     let abs_root = std::fs::canonicalize(&fixture).unwrap();
     let abs_root = abs_root.to_string_lossy().to_string();
 
-    let abs_store = std::fs::canonicalize(&replay_store)
-        .unwrap_or_else(|_| replay_store.clone());
+    let abs_store = std::fs::canonicalize(&replay_store).unwrap_or_else(|_| replay_store.clone());
     let abs_store = abs_store.to_string_lossy().to_string();
     // Store path used by both servers: XDG_STATE_HOME/ctx/replay
     let store_path = format!("{abs_store}/ctx/replay");
@@ -677,9 +901,9 @@ fn http_request(base: &str, method: &str, path: &str, body: Option<&str>) -> Htt
              Content-Type: application/json\r\nContent-Length: {}\r\n\r\n{b}",
             b.len()
         ),
-        None => format!(
-            "{method} {path} HTTP/1.1\r\nHost: {hostport}\r\nConnection: close\r\n\r\n"
-        ),
+        None => {
+            format!("{method} {path} HTTP/1.1\r\nHost: {hostport}\r\nConnection: close\r\n\r\n")
+        }
     };
     use std::io::Write;
     stream.write_all(req.as_bytes()).unwrap();
@@ -745,10 +969,7 @@ fn dechunk(body: &[u8]) -> Vec<u8> {
         };
         let size_line = &body[pos..line_end];
         // Strip any chunk extension after ';'.
-        let size_hex = size_line
-            .split(|&b| b == b';')
-            .next()
-            .unwrap_or(size_line);
+        let size_hex = size_line.split(|&b| b == b';').next().unwrap_or(size_line);
         let size_str = String::from_utf8_lossy(size_hex);
         let size = match usize::from_str_radix(size_str.trim(), 16) {
             Ok(n) => n,
@@ -769,9 +990,7 @@ fn dechunk(body: &[u8]) -> Vec<u8> {
 }
 
 fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack
-        .windows(needle.len())
-        .position(|w| w == needle)
+    haystack.windows(needle.len()).position(|w| w == needle)
 }
 
 // ----------------------------------------------------------------------------
@@ -989,8 +1208,7 @@ fn native_where_all_requires_every_query_term() {
     assert_eq!(broad.status, 200, "broad search status");
     let broad_body = String::from_utf8_lossy(&broad.body);
     assert!(
-        broad_body.contains(r#""path":"hello.txt""#)
-            && broad_body.contains(r#""path":"notes.md""#),
+        broad_body.contains(r#""path":"hello.txt""#) && broad_body.contains(r#""path":"notes.md""#),
         "default OR search should include one-term matches; body:\n{broad_body}"
     );
 
@@ -1001,10 +1219,52 @@ fn native_where_all_requires_every_query_term() {
         strict_body.contains(r#""results":[]"#),
         "all=true should exclude files that only match one query term; body:\n{strict_body}"
     );
-    assert!(!strict_body.contains(r#""path":"hello.txt""#), "hello.txt must be excluded");
-    assert!(!strict_body.contains(r#""path":"notes.md""#), "notes.md must be excluded");
+    assert!(
+        !strict_body.contains(r#""path":"hello.txt""#),
+        "hello.txt must be excluded"
+    );
+    assert!(
+        !strict_body.contains(r#""path":"notes.md""#),
+        "notes.md must be excluded"
+    );
 
     rust.shutdown();
+}
+
+#[test]
+fn native_where_literal_filters_mixed_ascii_cjk() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock after epoch")
+        .as_nanos();
+    let fixture = std::env::temp_dir().join(format!("ctx-web-where-literal-{unique}"));
+    std::fs::create_dir_all(fixture.join("docs")).expect("create fixture");
+    std::fs::write(fixture.join("docs/normalized.md"), "ab テスト\n").expect("write fixture");
+    std::fs::write(fixture.join("docs/exact.md"), "ABテスト rollout\n").expect("write fixture");
+
+    let rust = RustServer::start(&fixture);
+    rust.wait_ready();
+    let base = format!("http://127.0.0.1:{}", rust.port);
+
+    let resp = http_request(
+        &base,
+        "GET",
+        "/api/where?q=AB%E3%83%86%E3%82%B9%E3%83%88&literal=AB%E3%83%86%E3%82%B9%E3%83%88",
+        None,
+    );
+    assert_eq!(resp.status, 200, "literal search status");
+    let body = String::from_utf8_lossy(&resp.body);
+    assert!(
+        body.contains(r#""path":"docs/exact.md""#),
+        "literal search should include exact content match; body:\n{body}"
+    );
+    assert!(
+        !body.contains(r#""path":"docs/normalized.md""#),
+        "literal search should exclude normalized-only token matches; body:\n{body}"
+    );
+
+    rust.shutdown();
+    let _ = std::fs::remove_dir_all(&fixture);
 }
 
 #[test]

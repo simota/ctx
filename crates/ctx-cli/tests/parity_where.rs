@@ -1,5 +1,6 @@
 mod common;
 use common::*;
+use std::fs;
 
 #[test]
 fn native_where_regex_vimgrep_matches_go() {
@@ -9,6 +10,40 @@ fn native_where_regex_vimgrep_matches_go() {
         &["where", "--regex", "Helper", "--format", "vimgrep"],
     );
     assert_delegated_parity_in(&root, &["where", "--regex=Run", "--format=vimgrep"]);
+}
+
+#[test]
+fn native_where_literal_filters_mixed_ascii_cjk() {
+    let root = test_dir("where-literal-mixed");
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(root.join("docs/normalized.md"), "ab テスト\n").unwrap();
+    fs::write(root.join("docs/exact.md"), "ABテスト rollout\n").unwrap();
+
+    let out = run_rust_in(
+        &root,
+        &[
+            "where",
+            "ABテスト",
+            "--literal",
+            "ABテスト",
+            "--format",
+            "json",
+        ],
+    );
+    assert!(
+        out.status.success(),
+        "stderr:\n{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let paths: Vec<&str> = json
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| item["path"].as_str().unwrap())
+        .collect();
+    assert_eq!(paths, vec!["docs/exact.md"]);
+    assert_eq!(json[0]["score_breakdown"]["literal"].as_i64(), Some(3));
 }
 
 #[test]

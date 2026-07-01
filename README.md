@@ -64,9 +64,11 @@ ctx where "authentication session"
 ctx where "Pack" --format json --limit 5
 ctx where --all "Auth Handler"
 ctx where --regex 'http\.Handler' "server"
+ctx where "ABテスト" --literal "ABテスト"
 ```
 
 `ctx where` は、basename / path / symbol / content のシグナルを組み合わせてファイルをランキングします。
+`--literal` を付けると、クエリの小文字化や token 分割を使わず、大文字小文字を区別した exact パターンで候補を絞り込めます。
 逐語検索を最速で行いたい場合は `rg`、構文パターン検索をしたい場合は `ast-grep` が適しています。
 
 ### 3. AI に渡す bundle を作る

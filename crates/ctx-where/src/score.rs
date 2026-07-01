@@ -18,9 +18,8 @@ static QUERY_TOKEN_RE: Lazy<Regex> = Lazy::new(|| {
 
 static QUERY_STOPWORDS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
     [
-        "a", "an", "and", "for", "in", "of", "on", "or", "the", "to", "with",
-        "どこ", "どれ", "です", "する", "した", "して", "ある", "いる",
-        "から", "まで", "の", "は", "を",
+        "a", "an", "and", "for", "in", "of", "on", "or", "the", "to", "with", "どこ", "どれ",
+        "です", "する", "した", "して", "ある", "いる", "から", "まで", "の", "は", "を",
     ]
     .into_iter()
     .collect()
@@ -33,7 +32,10 @@ pub fn extract_keywords(query: &str) -> Vec<String> {
     let mut seen: HashSet<String> = HashSet::new();
     let mut out: Vec<String> = Vec::new();
     for m in QUERY_TOKEN_RE.find_iter(&lower) {
-        let mut token = m.as_str().trim_matches(|c| c == '_' || c == '-').to_string();
+        let mut token = m
+            .as_str()
+            .trim_matches(|c| c == '_' || c == '-')
+            .to_string();
         if token.is_empty() {
             continue;
         }
@@ -187,11 +189,7 @@ pub fn score_file(fi: &FileForScore, keywords: &[String], context_n: usize) -> R
 
 /// Mirrors `where.scoreFileWithSets`. Original-keyword matches earn the
 /// full score; synonym matches earn `SYNONYM_DISCOUNT` × base.
-pub fn score_file_with_sets(
-    fi: &FileForScore,
-    kw_sets: &[KeywordSet],
-    context_n: usize,
-) -> Result {
+pub fn score_file_with_sets(fi: &FileForScore, kw_sets: &[KeywordSet], context_n: usize) -> Result {
     // Build the token universe and per-token discount flag.
     let mut token_map: HashMap<String, bool> = HashMap::new();
     for ks in kw_sets {
@@ -341,6 +339,88 @@ pub fn score_file_with_sets(
     result
 }
 
+/// Scores an exact, case-sensitive literal pattern without query
+/// normalization, tokenization, or lower-casing.
+pub fn score_file_literal(fi: &FileForScore, literal: &str, context_n: usize) -> Result {
+    let mut result = Result {
+        path: slash_path(&fi.path),
+        ..Default::default()
+    };
+    if literal.is_empty() {
+        return result;
+    }
+
+    let mut reasons: BTreeMap<&'static str, Vec<String>> = BTreeMap::new();
+    let mut breakdown = ScoreBreakdown::default();
+
+    let bn = basename(&fi.path);
+    let base = trim_ext(&bn);
+    let dir = dirname(&fi.path);
+
+    if base.contains(literal) {
+        result.score += 12;
+        breakdown.literal += 12;
+        append_unique(reasons.entry("literal match").or_default(), literal);
+    }
+    if dir != "." && dir.contains(literal) {
+        result.score += 6;
+        breakdown.literal += 6;
+        append_unique(reasons.entry("literal match").or_default(), literal);
+    }
+
+    for sym in fi.symbols {
+        if !sym.name.contains(literal) {
+            continue;
+        }
+        result.score += 10;
+        breakdown.literal += 10;
+        let text = symbol_text(fi.lines, sym);
+        let column = text.find(&sym.name).map(|idx| idx + 1).unwrap_or(1);
+        let (before, after) = context_lines(fi.lines, sym.line as i64, context_n as i64);
+        result.matches.push(Match {
+            line: sym.line,
+            column: column as i64,
+            kind: "symbol-literal".into(),
+            text,
+            before,
+            after,
+        });
+        append_unique(reasons.entry("literal match").or_default(), literal);
+    }
+
+    for (line_no, line) in fi.lines.iter().enumerate() {
+        if let Some(idx) = line.find(literal) {
+            result.score += 3;
+            breakdown.literal += 3;
+            let (before, after) = context_lines(fi.lines, (line_no + 1) as i64, context_n as i64);
+            result.matches.push(Match {
+                line: (line_no + 1) as i64,
+                column: (idx + 1) as i64,
+                kind: "content-literal".into(),
+                text: line.trim().to_string(),
+                before,
+                after,
+            });
+            append_unique(reasons.entry("literal match").or_default(), literal);
+        }
+    }
+
+    result.reason = format_reasons(&reasons);
+    if result.score > 0 {
+        result.score_breakdown = Some(breakdown);
+    }
+    if result.matches.is_empty() && result.score > 0 {
+        result.matches.push(Match {
+            line: 1,
+            column: 1,
+            kind: "path-literal".into(),
+            text: result.path.clone(),
+            ..Default::default()
+        });
+    }
+    result
+}
+
 fn append_unique(values: &mut Vec<String>, value: &str) {
     for existing in values.iter() {
         if existing == value {
@@ -353,6 +433,7 @@ fn append_unique(values: &mut Vec<String>, value: &str) {
 fn format_reasons(reasons: &BTreeMap<&'static str, Vec<String>>) -> String {
     // Match the Go ordering exactly.
     let order = [
+        "literal match",
         "symbol match",
         "splitname match",
         "content match",
@@ -405,10 +486,7 @@ pub fn context_lines(lines: &[String], line_no: i64, n: i64) -> (Vec<String>, Ve
 }
 
 /// Mirrors `where.hasAllKeywordSets`. Used for AND-filtering.
-pub fn has_all_keyword_sets(
-    sets: &[KeywordSet],
-    fi: &FileForScore,
-) -> bool {
+pub fn has_all_keyword_sets(sets: &[KeywordSet], fi: &FileForScore) -> bool {
     let bn = basename(&fi.path);
     let base = trim_ext(&bn).to_lowercase();
     let dir = dirname(&fi.path).to_lowercase();

@@ -42,6 +42,7 @@
   let selectedPath = $derived(route.name === 'file' ? route.path : '');
   let searchQuery = $derived(route.name === 'search' ? route.query : '');
   let searchMatchMode = $derived(route.name === 'search' ? (route.searchMatch ?? 'all') : 'all');
+  let searchExact = $derived(route.name === 'search' ? (route.searchExact ?? false) : false);
 
   let rightTab: 'file' | 'search' | 'budget' | 'dir' | 'gitlog' | 'largest' = $derived.by(() => {
     if (route.name === 'search') return 'search';
@@ -519,7 +520,7 @@
     {#if rightTab !== 'file'}
       <section class="pane right" aria-live="polite">
         {#if rightTab === 'search'}
-          <SearchResults query={searchQuery} matchMode={searchMatchMode} />
+          <SearchResults query={searchQuery} matchMode={searchMatchMode} exact={searchExact} />
         {:else if rightTab === 'budget'}
           <BudgetPanel />
         {:else if rightTab === 'dir'}

@@ -3,9 +3,10 @@
   import { navigate, toFileHash } from '../lib/router.svelte';
   import type { SearchMatchMode } from '../lib/router.svelte';
 
-  let { query, matchMode = 'all' } = $props<{
+  let { query, matchMode = 'all', exact = false } = $props<{
     query: string;
     matchMode?: SearchMatchMode;
+    exact?: boolean;
   }>();
 
   let data = $state<WhereResponse | null>(null);
@@ -23,7 +24,7 @@
     // Cancellation guard: a slow earlier response must not overwrite a newer
     // query's results after rapid re-searches.
     let cancelled = false;
-    fetchWhere(q, { limit: 30, all: matchMode === 'all' })
+    fetchWhere(q, { limit: 30, all: matchMode === 'all', literal: exact ? q : undefined })
       .then((r) => {
         if (!cancelled) data = r;
       })
@@ -51,7 +52,9 @@
   <header>
     <h2>Search</h2>
     {#if query}
-      <p class="muted query mono">q = {query} · match = {matchMode}</p>
+      <p class="muted query mono">
+        q = {query} · match = {matchMode}{exact ? ' · exact' : ''}
+      </p>
     {/if}
   </header>
 

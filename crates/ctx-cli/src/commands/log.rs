@@ -362,6 +362,7 @@ fn load_query_log(args: &LogArgs, query: &str) -> Result<LogData, String> {
         context_n: 0,
         require_all: false,
         regex: String::new(),
+        literal: String::new(),
         synonyms: Default::default(),
         explain: false,
     };

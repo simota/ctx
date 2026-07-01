@@ -5,6 +5,7 @@
 //!   limit  (optional) — max results, default 10
 //!   path   (optional) — sub-root relative to server root (default: root)
 //!   all    (optional) — require every query term to match, default false
+//!   literal (optional) — exact case-sensitive pattern, not normalized
 //!
 //! Reuses `ctx-where::search_with_options` for scoring. The walker is
 //! reimplemented here to match Go's default walk semantics (gitignore-aware
@@ -38,6 +39,8 @@ pub struct WhereParams {
     all: bool,
     #[serde(default)]
     require_all: bool,
+    #[serde(default)]
+    literal: String,
 }
 
 /// WhereMatch mirrors `web.WhereMatch`. Field order matches Go struct.
@@ -99,6 +102,7 @@ fn handle_sync(state: AppState, params: WhereParams) -> Response {
     let opts = Options {
         limit,
         require_all: params.all || params.require_all,
+        literal: params.literal,
         ..Options::default()
     };
     let results = ctx_where::search_with_options(&files, &params.query, &opts);
@@ -145,13 +149,8 @@ fn collect_files(root: &Path, dir: &Path) -> Result<Vec<FileInput>, String> {
     Ok(out)
 }
 
-fn collect_files_inner(
-    root: &Path,
-    dir: &Path,
-    out: &mut Vec<FileInput>,
-) -> Result<(), String> {
-    let entries =
-        std::fs::read_dir(dir).map_err(|e| format!("walk {}: {e}", dir.display()))?;
+fn collect_files_inner(root: &Path, dir: &Path, out: &mut Vec<FileInput>) -> Result<(), String> {
+    let entries = std::fs::read_dir(dir).map_err(|e| format!("walk {}: {e}", dir.display()))?;
     for entry in entries.flatten() {
         let path = entry.path();
         let name = entry.file_name();

@@ -8,6 +8,7 @@
 //   #/dir/<path>             -> directory overview for <path>
 //   #/search?q=<query>       -> search results
 //   #/search?q=<query>&match=any -> search results matching any term
+//   #/search?q=<query>&exact=true -> search with exact literal filtering
 //   #/budget                 -> budget panel
 // The path segment after #/file/ or #/dir/ is treated as the full remaining
 // path (no further slash splitting), so paths like "internal/cli/pack.go"
@@ -41,6 +42,7 @@ export interface Route {
   // When true, use file mtime instead of git commit time for date filtering.
   useMtime?: boolean;
   searchMatch?: SearchMatchMode;
+  searchExact?: boolean;
   gitBase?: string;
   gitHead?: string;
   gitMode?: GitReviewMode;
@@ -95,6 +97,8 @@ function parse(rawHash: string): Route {
   }
   if (p === 'search') {
     const matchRaw = queryParams.get('match');
+    const exact =
+      queryParams.get('exact') === 'true' || queryParams.get('literal') === 'true';
     return {
       name: 'search',
       path: '',
@@ -102,6 +106,7 @@ function parse(rawHash: string): Route {
       openPaths: [],
       rightPath: '',
       searchMatch: matchRaw === 'any' ? 'any' : 'all',
+      searchExact: exact || undefined,
     };
   }
   if (p.startsWith('file/')) {
@@ -208,6 +213,7 @@ if (typeof window !== 'undefined') {
     route.until = next.until;
     route.useMtime = next.useMtime;
     route.searchMatch = next.searchMatch;
+    route.searchExact = next.searchExact;
     route.gitBase = next.gitBase;
     route.gitHead = next.gitHead;
     route.gitMode = next.gitMode;
@@ -265,12 +271,15 @@ export function toFileHash(path: string, opts?: number | FileHashOpts): string {
 
 export interface SearchHashOpts {
   match?: SearchMatchMode;
+  exact?: boolean;
 }
 
 export function toSearchHash(query: string, opts: SearchHashOpts = {}): string {
   const match = opts.match ?? route.searchMatch ?? 'all';
+  const exact = opts.exact ?? route.searchExact ?? false;
   const params = new URLSearchParams({ q: query });
   if (match === 'any') params.set('match', 'any');
+  if (exact) params.set('exact', 'true');
   const q = params.toString();
   return `#/search?${q}`;
 }

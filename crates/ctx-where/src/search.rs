@@ -12,9 +12,10 @@ use rayon::prelude::*;
 
 use crate::levenshtein::levenshtein;
 use crate::score::{
-    extract_keywords, has_all_keyword_sets, score_file_with_sets, FileForScore, SymbolInfo,
+    extract_keywords, has_all_keyword_sets, score_file_literal, score_file_with_sets, FileForScore,
+    SymbolInfo,
 };
-use crate::types::{KeywordSet, Result as SearchResult, Suggestion};
+use crate::types::{KeywordSet, Result as SearchResult, ScoreBreakdown, Suggestion};
 
 /// SymbolInput mirrors the JSON shape the Go dispatcher passes through:
 /// pre-extracted model.Symbol values.
@@ -55,6 +56,8 @@ pub struct Options {
     pub require_all: bool,
     #[serde(default)]
     pub regex: String, // optional regex pattern; empty = none
+    #[serde(default)]
+    pub literal: String, // optional exact pattern; empty = none
     #[serde(default, deserialize_with = "null_as_empty_map")]
     pub synonyms: BTreeMap<String, Vec<String>>,
     #[serde(default)]
@@ -72,7 +75,10 @@ where
     Ok(v.unwrap_or_default())
 }
 
-fn expand_keywords(keywords: &[String], synonyms: &BTreeMap<String, Vec<String>>) -> Vec<KeywordSet> {
+fn expand_keywords(
+    keywords: &[String],
+    synonyms: &BTreeMap<String, Vec<String>>,
+) -> Vec<KeywordSet> {
     keywords
         .iter()
         .map(|kw| KeywordSet {
@@ -82,26 +88,70 @@ fn expand_keywords(keywords: &[String], synonyms: &BTreeMap<String, Vec<String>>
         .collect()
 }
 
+fn merge_score_breakdown(base: &mut Option<ScoreBreakdown>, extra: Option<ScoreBreakdown>) {
+    let Some(extra) = extra else {
+        return;
+    };
+    if base.is_none() {
+        *base = Some(ScoreBreakdown::default());
+    }
+    let Some(base) = base.as_mut() else {
+        return;
+    };
+    base.basename += extra.basename;
+    base.symbol += extra.symbol;
+    base.splitname += extra.splitname;
+    base.path += extra.path;
+    base.content += extra.content;
+    base.literal += extra.literal;
+}
+
+fn merge_search_result(base: &mut SearchResult, extra: SearchResult) {
+    base.score += extra.score;
+    merge_score_breakdown(&mut base.score_breakdown, extra.score_breakdown);
+
+    if !extra.reason.is_empty() {
+        if base.reason.is_empty() {
+            base.reason = extra.reason;
+        } else {
+            base.reason = format!("{}; {}", extra.reason, base.reason);
+        }
+    }
+
+    let mut seen: std::collections::HashSet<(i64, i64)> =
+        base.matches.iter().map(|m| (m.line, m.column)).collect();
+    for m in extra.matches {
+        if seen.insert((m.line, m.column)) {
+            base.matches.push(m);
+        }
+    }
+}
+
 /// Mirrors `where.SearchWithOptions` minus the walk + symbols
 /// extraction (those happen in Go before FFI).
-pub fn search_with_options(
-    files: &[FileInput],
-    query: &str,
-    opts: &Options,
-) -> Vec<SearchResult> {
+pub fn search_with_options(files: &[FileInput], query: &str, opts: &Options) -> Vec<SearchResult> {
     let mut limit = opts.limit;
     if limit <= 0 {
         limit = 10;
     }
-    let context_n = if opts.context_n < 0 { 0 } else { opts.context_n as usize };
+    let context_n = if opts.context_n < 0 {
+        0
+    } else {
+        opts.context_n as usize
+    };
     let regex_opt = if opts.regex.is_empty() {
         None
     } else {
         regex::Regex::new(&opts.regex).ok()
     };
+    let literal_opt = if opts.literal.is_empty() {
+        None
+    } else {
+        Some(opts.literal.as_str())
+    };
 
     let mut keywords = extract_keywords(query);
-    if keywords.is_empty() && regex_opt.is_none() {
+    if keywords.is_empty() && regex_opt.is_none() && literal_opt.is_none() {
         keywords = vec![query.to_lowercase()];
     }
     let kw_sets = expand_keywords(&keywords, &opts.synonyms);
@@ -125,6 +175,14 @@ pub fn search_with_options(
 
             if opts.require_all && !kw_sets.is_empty() && !has_all_keyword_sets(&kw_sets, &file) {
                 return None;
+            }
+
+            if let Some(literal) = literal_opt {
+                let literal_result = score_file_literal(&file, literal, context_n);
+                if literal_result.score == 0 {
+                    return None;
+                }
+                merge_search_result(&mut result, literal_result);
             }
 
             if let Some(re) = &regex_opt {
@@ -204,11 +262,7 @@ pub fn search_with_options(
 }
 
 /// Mirrors `where.SuggestSimilar` minus the walk + symbols extraction.
-pub fn suggest_similar(
-    files: &[FileInput],
-    query: &str,
-    limit: i64,
-) -> Vec<Suggestion> {
+pub fn suggest_similar(files: &[FileInput], query: &str, limit: i64) -> Vec<Suggestion> {
     if limit <= 0 {
         return Vec::new();
     }
@@ -231,7 +285,11 @@ pub fn suggest_similar(
     }
     let mut seen = std::collections::HashSet::new();
     let mut candidates: Vec<Candidate> = Vec::new();
-    let add = |name: &str, kind: &str, path: &str, seen: &mut std::collections::HashSet<String>, cs: &mut Vec<Candidate>| {
+    let add = |name: &str,
+               kind: &str,
+               path: &str,
+               seen: &mut std::collections::HashSet<String>,
+               cs: &mut Vec<Candidate>| {
         if name.is_empty() {
             return;
         }
@@ -377,11 +435,7 @@ mod tests {
 
     #[test]
     fn suggest_similar_empty_for_unrelated() {
-        let files = vec![mkfile(
-            "foo.go",
-            vec!["// noop"],
-            vec![("Bar", 2)],
-        )];
+        let files = vec![mkfile("foo.go", vec!["// noop"], vec![("Bar", 2)])];
         let s = suggest_similar(&files, "xyz", 5);
         assert!(s.is_empty());
     }

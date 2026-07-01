@@ -19,6 +19,7 @@ pub(crate) struct WhereArgs {
     no_suggest: bool,
     require_all: bool,
     regex: String,
+    literal: String,
     explain: bool,
     plain: bool,
 }
@@ -43,6 +44,7 @@ pub(crate) fn parse_where_args(args: &[OsString]) -> Option<WhereArgs> {
     let mut no_suggest = false;
     let mut require_all = false;
     let mut regex = String::new();
+    let mut literal = String::new();
     let mut explain = false;
     let mut saw_where = false;
     let mut positionals: Vec<OsString> = Vec::new();
@@ -82,6 +84,11 @@ pub(crate) fn parse_where_args(args: &[OsString]) -> Option<WhereArgs> {
         } else if arg == OsStr::new("--regex") {
             i += 1;
             regex = args.get(i)?.to_string_lossy().into_owned();
+        } else if let Some(value) = flag_value(arg, "--literal") {
+            literal = value.to_string_lossy().into_owned();
+        } else if arg == OsStr::new("--literal") {
+            i += 1;
+            literal = args.get(i)?.to_string_lossy().into_owned();
         } else if arg == OsStr::new("--explain") {
             explain = true;
         } else if flag_value(arg, "--where-engine").is_some() {
@@ -118,14 +125,17 @@ pub(crate) fn parse_where_args(args: &[OsString]) -> Option<WhereArgs> {
         no_suggest,
         require_all,
         regex,
+        literal,
         explain,
         plain,
     })
 }
 
 pub(crate) fn where_command(args: WhereArgs) -> Result<(), String> {
-    if args.query.is_empty() && args.regex.is_empty() {
-        return Err("where: requires a query argument or --regex pattern".to_string());
+    if args.query.is_empty() && args.regex.is_empty() && args.literal.is_empty() {
+        return Err(
+            "where: requires a query argument, --regex pattern, or --literal pattern".to_string(),
+        );
     }
     if !args.regex.is_empty() {
         regex::Regex::new(&args.regex).map_err(|err| format!("invalid --regex pattern: {err}"))?;
@@ -143,11 +153,16 @@ pub(crate) fn where_command(args: WhereArgs) -> Result<(), String> {
         context_n: args.context_n,
         require_all: args.require_all,
         regex: args.regex.clone(),
+        literal: args.literal.clone(),
         synonyms: Default::default(),
         explain: args.explain,
     };
     let results = ctx_where::search_with_options(&files, &args.query, &opts);
-    let suggestions = if results.is_empty() && !args.no_suggest && args.regex.is_empty() {
+    let suggestions = if results.is_empty()
+        && !args.no_suggest
+        && args.regex.is_empty()
+        && args.literal.is_empty()
+    {
         ctx_where::suggest_similar(&files, &args.query, 3)
     } else {
         Vec::new()
@@ -570,6 +585,9 @@ pub(crate) fn format_where_score_breakdown(result: &ctx_where::SearchResult) -> 
     if b.content > 0 {
         parts.push(format!("content:{}", b.content));
     }
+    if b.literal > 0 {
+        parts.push(format!("literal:{}", b.literal));
+    }
     if parts.is_empty() {
         return String::new();
     }
@@ -758,6 +776,27 @@ mod tests {
 
     fn paths(files: &[ctx_where::FileInput]) -> Vec<&str> {
         files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>()
+    }
+
+    #[test]
+    fn parse_where_literal_flag() {
+        let args = [
+            OsString::from("where"),
+            OsString::from("ABテスト"),
+            OsString::from("--literal"),
+            OsString::from("ABテスト"),
+        ];
+        let parsed = parse_where_args(&args).expect("where args parse");
+        assert_eq!(parsed.query, "ABテスト");
+        assert_eq!(parsed.literal, "ABテスト");
+
+        let args_eq = [
+            OsString::from("where"),
+            OsString::from("ABテスト"),
+            OsString::from("--literal=ABテスト"),
+        ];
+        let parsed_eq = parse_where_args(&args_eq).expect("where args parse");
+        assert_eq!(parsed_eq.literal, "ABテスト");
     }
 
     #[test]

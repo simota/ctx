@@ -58,6 +58,8 @@ pub struct ScoreBreakdown {
     pub path: i64,
     #[serde(default, skip_serializing_if = "is_default_i64")]
     pub content: i64,
+    #[serde(default, skip_serializing_if = "is_default_i64")]
+    pub literal: i64,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
