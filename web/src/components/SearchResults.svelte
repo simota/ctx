@@ -1,8 +1,12 @@
 <script lang="ts">
   import { fetchWhere, type WhereResponse } from '../lib/api';
   import { navigate, toFileHash } from '../lib/router.svelte';
+  import type { SearchMatchMode } from '../lib/router.svelte';
 
-  let { query } = $props<{ query: string }>();
+  let { query, matchMode = 'all' } = $props<{
+    query: string;
+    matchMode?: SearchMatchMode;
+  }>();
 
   let data = $state<WhereResponse | null>(null);
   let loading = $state(false);
@@ -19,7 +23,7 @@
     // Cancellation guard: a slow earlier response must not overwrite a newer
     // query's results after rapid re-searches.
     let cancelled = false;
-    fetchWhere(q, { limit: 30, all: true })
+    fetchWhere(q, { limit: 30, all: matchMode === 'all' })
       .then((r) => {
         if (!cancelled) data = r;
       })
@@ -47,7 +51,7 @@
   <header>
     <h2>Search</h2>
     {#if query}
-      <p class="muted query mono">q = {query}</p>
+      <p class="muted query mono">q = {query} · match = {matchMode}</p>
     {/if}
   </header>
 

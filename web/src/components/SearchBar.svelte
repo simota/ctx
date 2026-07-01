@@ -1,5 +1,6 @@
 <script lang="ts">
   import { navigate, toSearchHash, route } from '../lib/router.svelte';
+  import type { SearchMatchMode } from '../lib/router.svelte';
   import { finder } from '../lib/finder.svelte';
   import { palette } from '../lib/palette.svelte';
   import { cheatsheet } from '../lib/cheatsheet.svelte';
@@ -7,12 +8,16 @@
   import { rootsPicker } from '../lib/roots-picker.svelte';
 
   let value = $state(route.name === 'search' ? route.query : '');
+  let matchMode = $state<SearchMatchMode>(
+    route.name === 'search' ? (route.searchMatch ?? 'all') : 'all',
+  );
   let inputEl: HTMLInputElement | null = $state(null);
 
   // sync external route changes into the input
   $effect(() => {
     if (route.name === 'search') {
       value = route.query;
+      matchMode = route.searchMatch ?? 'all';
     }
   });
 
@@ -20,7 +25,15 @@
     e.preventDefault();
     const q = value.trim();
     if (!q) return;
-    navigate(toSearchHash(q));
+    navigate(toSearchHash(q, { match: matchMode }));
+  }
+
+  function setMatchMode(mode: SearchMatchMode) {
+    matchMode = mode;
+    const q = value.trim();
+    if (q && route.name === 'search') {
+      navigate(toSearchHash(q, { match: mode }));
+    }
   }
 
   function onGlobalKey(e: KeyboardEvent) {
@@ -63,13 +76,33 @@
     autocomplete="off"
     spellcheck="false"
   />
-  <button type="submit" aria-label="run search">Go</button>
+  <div class="match-mode" role="group" aria-label="Search match mode">
+    <button
+      class="mode-button"
+      class:active={matchMode === 'all'}
+      type="button"
+      aria-pressed={matchMode === 'all'}
+      onclick={() => setMatchMode('all')}
+    >
+      All
+    </button>
+    <button
+      class="mode-button"
+      class:active={matchMode === 'any'}
+      type="button"
+      aria-pressed={matchMode === 'any'}
+      onclick={() => setMatchMode('any')}
+    >
+      Any
+    </button>
+  </div>
+  <button class="submit" type="submit" aria-label="run search">Go</button>
 </form>
 
 <style>
   .search-bar {
     display: grid;
-    grid-template-columns: 24px 1fr auto;
+    grid-template-columns: 24px minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 4px;
     background: var(--ctx-bg-panel);
@@ -98,7 +131,40 @@
   }
   button {
     border: 0;
+  }
+  .match-mode {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--ctx-border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .mode-button {
+    min-width: 34px;
+    min-height: 24px;
+    padding: 2px 8px;
+    color: var(--ctx-fg-dim);
+    border-left: 1px solid var(--ctx-border);
+  }
+  .mode-button:first-child {
+    border-left: 0;
+  }
+  .mode-button.active {
+    color: var(--ctx-bg);
+    background: var(--ctx-accent);
+  }
+  .submit {
+    min-height: 24px;
     padding: 2px 10px;
     color: var(--ctx-accent);
+  }
+  @media (max-width: 720px) {
+    .search-bar {
+      grid-template-columns: 24px minmax(0, 1fr) auto;
+    }
+    .match-mode {
+      grid-column: 2 / -1;
+      justify-self: start;
+    }
   }
 </style>

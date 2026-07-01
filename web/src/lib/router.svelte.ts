@@ -7,6 +7,7 @@
 //   #/dir                    -> directory overview (root)
 //   #/dir/<path>             -> directory overview for <path>
 //   #/search?q=<query>       -> search results
+//   #/search?q=<query>&match=any -> search results matching any term
 //   #/budget                 -> budget panel
 // The path segment after #/file/ or #/dir/ is treated as the full remaining
 // path (no further slash splitting), so paths like "internal/cli/pack.go"
@@ -16,6 +17,7 @@
 export type RouteName = 'tree' | 'file' | 'dir' | 'search' | 'budget' | 'gitlog' | 'largest';
 export type FileViewMode = 'diff' | 'history';
 export type GitReviewMode = 'merge-base' | 'direct';
+export type SearchMatchMode = 'all' | 'any';
 
 export interface Route {
   name: RouteName;
@@ -38,6 +40,7 @@ export interface Route {
   until?: string;
   // When true, use file mtime instead of git commit time for date filtering.
   useMtime?: boolean;
+  searchMatch?: SearchMatchMode;
   gitBase?: string;
   gitHead?: string;
   gitMode?: GitReviewMode;
@@ -91,12 +94,14 @@ function parse(rawHash: string): Route {
     return { name: 'largest', path: '', query: '', openPaths: [], rightPath: '' };
   }
   if (p === 'search') {
+    const matchRaw = queryParams.get('match');
     return {
       name: 'search',
       path: '',
       query: queryParams.get('q') ?? '',
       openPaths: [],
       rightPath: '',
+      searchMatch: matchRaw === 'any' ? 'any' : 'all',
     };
   }
   if (p.startsWith('file/')) {
@@ -202,6 +207,7 @@ if (typeof window !== 'undefined') {
     route.since = next.since;
     route.until = next.until;
     route.useMtime = next.useMtime;
+    route.searchMatch = next.searchMatch;
     route.gitBase = next.gitBase;
     route.gitHead = next.gitHead;
     route.gitMode = next.gitMode;
@@ -257,8 +263,15 @@ export function toFileHash(path: string, opts?: number | FileHashOpts): string {
   return params.length > 0 ? `${base}?${params.join('&')}` : base;
 }
 
-export function toSearchHash(query: string): string {
-  const q = new URLSearchParams({ q: query }).toString();
+export interface SearchHashOpts {
+  match?: SearchMatchMode;
+}
+
+export function toSearchHash(query: string, opts: SearchHashOpts = {}): string {
+  const match = opts.match ?? route.searchMatch ?? 'all';
+  const params = new URLSearchParams({ q: query });
+  if (match === 'any') params.set('match', 'any');
+  const q = params.toString();
   return `#/search?${q}`;
 }
 
