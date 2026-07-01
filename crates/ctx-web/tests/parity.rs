@@ -38,7 +38,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 // ----------------------------------------------------------------------------
 // Route matrix
@@ -976,4 +976,71 @@ fn spa_root_serves_vendored_index_html() {
     let ct = resp.header("content-type").unwrap_or_default();
     assert!(ct.starts_with("text/html"), "content-type: {ct:?}");
     rust.shutdown();
+}
+
+#[test]
+fn native_where_all_requires_every_query_term() {
+    let fixture = fixture_dir();
+    let rust = RustServer::start(&fixture);
+    rust.wait_ready();
+    let base = format!("http://127.0.0.1:{}", rust.port);
+
+    let broad = http_request(&base, "GET", "/api/where?q=hello%20markdown", None);
+    assert_eq!(broad.status, 200, "broad search status");
+    let broad_body = String::from_utf8_lossy(&broad.body);
+    assert!(
+        broad_body.contains(r#""path":"hello.txt""#)
+            && broad_body.contains(r#""path":"notes.md""#),
+        "default OR search should include one-term matches; body:\n{broad_body}"
+    );
+
+    let strict = http_request(&base, "GET", "/api/where?q=hello%20markdown&all=true", None);
+    assert_eq!(strict.status, 200, "strict search status");
+    let strict_body = String::from_utf8_lossy(&strict.body);
+    assert!(
+        strict_body.contains(r#""results":[]"#),
+        "all=true should exclude files that only match one query term; body:\n{strict_body}"
+    );
+    assert!(!strict_body.contains(r#""path":"hello.txt""#), "hello.txt must be excluded");
+    assert!(!strict_body.contains(r#""path":"notes.md""#), "notes.md must be excluded");
+
+    rust.shutdown();
+}
+
+#[test]
+fn native_where_uses_tree_sitter_symbols_for_symbol_matches() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock after epoch")
+        .as_nanos();
+    let fixture = std::env::temp_dir().join(format!("ctx-web-symbols-{unique}"));
+    std::fs::create_dir_all(fixture.join("src")).expect("create fixture");
+    std::fs::write(
+        fixture.join("src/lib.rs"),
+        "const CacheLimit: usize = 128;\n\nfn helper() {}\n",
+    )
+    .expect("write fixture");
+
+    let rust = RustServer::start(&fixture);
+    rust.wait_ready();
+    let base = format!("http://127.0.0.1:{}", rust.port);
+
+    let resp = http_request(&base, "GET", "/api/where?q=CacheLimit", None);
+    assert_eq!(resp.status, 200, "symbol search status");
+    let body = String::from_utf8_lossy(&resp.body);
+    assert!(
+        body.contains(r#""path":"src/lib.rs""#),
+        "symbol search should include the Rust source file; body:\n{body}"
+    );
+    assert!(
+        body.contains(r#""reason":"symbol match: CacheLimit"#),
+        "where search should classify the const declaration as a symbol match, not just content; body:\n{body}"
+    );
+    assert!(
+        body.contains(r#""type":"symbol""#),
+        "symbol match should include a symbol-typed match entry; body:\n{body}"
+    );
+
+    rust.shutdown();
+    let _ = std::fs::remove_dir_all(&fixture);
 }

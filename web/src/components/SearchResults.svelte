@@ -19,7 +19,7 @@
     // Cancellation guard: a slow earlier response must not overwrite a newer
     // query's results after rapid re-searches.
     let cancelled = false;
-    fetchWhere(q, { limit: 30 })
+    fetchWhere(q, { limit: 30, all: true })
       .then((r) => {
         if (!cancelled) data = r;
       })

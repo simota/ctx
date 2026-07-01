@@ -4,6 +4,7 @@
 //!   q      (required) — search query
 //!   limit  (optional) — max results, default 10
 //!   path   (optional) — sub-root relative to server root (default: root)
+//!   all    (optional) — require every query term to match, default false
 //!
 //! Reuses `ctx-where::search_with_options` for scoring. The walker is
 //! reimplemented here to match Go's default walk semantics (gitignore-aware
@@ -11,7 +12,6 @@
 //! used in parity tests, no symbols are extracted, so scores are based on
 //! path/basename/content — identical to Go.
 
-use std::ffi::OsStr;
 use std::path::Path;
 
 use axum::extract::rejection::QueryRejection;
@@ -34,6 +34,10 @@ pub struct WhereParams {
     limit: i64,
     #[serde(default)]
     path: String,
+    #[serde(default)]
+    all: bool,
+    #[serde(default)]
+    require_all: bool,
 }
 
 /// WhereMatch mirrors `web.WhereMatch`. Field order matches Go struct.
@@ -94,6 +98,7 @@ fn handle_sync(state: AppState, params: WhereParams) -> Response {
 
     let opts = Options {
         limit,
+        require_all: params.all || params.require_all,
         ..Options::default()
     };
     let results = ctx_where::search_with_options(&files, &params.query, &opts);
@@ -182,7 +187,15 @@ fn collect_files_inner(
         };
 
         let lines: Vec<String> = body.lines().map(|l| l.to_string()).collect();
-        let symbols = extract_symbols(&rel, &lines);
+        let symbols = ctx_symbols::extract(&path)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|sym| SymbolInput {
+                name: sym.name,
+                kind: sym.kind,
+                line: i64::from(sym.line),
+            })
+            .collect();
 
         out.push(FileInput {
             path: rel,
@@ -192,102 +205,4 @@ fn collect_files_inner(
         });
     }
     Ok(())
-}
-
-/// Lightweight regex-free symbol extraction matching ctx-cli's heuristics.
-/// For non-code files (the fixture) this produces no symbols — identical to Go.
-fn extract_symbols(path: &str, lines: &[String]) -> Vec<SymbolInput> {
-    let mut out = Vec::new();
-    let ext = Path::new(path)
-        .extension()
-        .and_then(OsStr::to_str)
-        .unwrap_or("");
-    for (idx, line) in lines.iter().enumerate() {
-        let line_no = (idx + 1) as i64;
-        match ext {
-            "go" => extract_go_symbol(line, line_no, &mut out),
-            "rs" => extract_rust_symbol(line, line_no, &mut out),
-            "ts" | "tsx" | "js" | "jsx" | "mjs" | "cjs" => {
-                extract_js_symbol(line, line_no, &mut out)
-            }
-            "py" => extract_python_symbol(line, line_no, &mut out),
-            _ => {}
-        }
-    }
-    out
-}
-
-fn sym(name: &str, kind: &str, line: i64) -> SymbolInput {
-    SymbolInput { name: name.to_string(), kind: kind.to_string(), line }
-}
-
-fn first_ident(s: &str) -> Option<&str> {
-    let s = s.trim_start();
-    let end = s
-        .find(|c: char| !c.is_alphanumeric() && c != '_')
-        .unwrap_or(s.len());
-    if end == 0 { None } else { Some(&s[..end]) }
-}
-
-fn extract_go_symbol(line: &str, line_no: i64, out: &mut Vec<SymbolInput>) {
-    let trimmed = line.trim_start();
-    if let Some(rest) = trimmed.strip_prefix("func ") {
-        let name = rest
-            .strip_prefix('(')
-            .and_then(|tail| tail.split_once(')'))
-            .and_then(|(_, after)| first_ident(after.trim_start()))
-            .or_else(|| first_ident(rest));
-        if let Some(n) = name {
-            out.push(sym(n, "function", line_no));
-        }
-    } else if let Some(rest) = trimmed.strip_prefix("type ") {
-        if let Some(n) = first_ident(rest) {
-            out.push(sym(n, "type", line_no));
-        }
-    }
-}
-
-fn extract_rust_symbol(line: &str, line_no: i64, out: &mut Vec<SymbolInput>) {
-    let trimmed = line.trim_start();
-    let rest = trimmed.strip_prefix("pub ").unwrap_or(trimmed);
-    for (prefix, kind) in [("fn ", "function"), ("struct ", "struct"), ("enum ", "enum"), ("trait ", "trait")] {
-        if let Some(tail) = rest.strip_prefix(prefix) {
-            if let Some(n) = first_ident(tail) {
-                out.push(sym(n, kind, line_no));
-            }
-            break;
-        }
-    }
-}
-
-fn extract_js_symbol(line: &str, line_no: i64, out: &mut Vec<SymbolInput>) {
-    let trimmed = line.trim_start();
-    if let Some(rest) = trimmed
-        .strip_prefix("export function ")
-        .or_else(|| trimmed.strip_prefix("function "))
-    {
-        if let Some(n) = first_ident(rest) {
-            out.push(sym(n, "function", line_no));
-        }
-    } else if let Some(rest) = trimmed
-        .strip_prefix("export class ")
-        .or_else(|| trimmed.strip_prefix("class "))
-    {
-        if let Some(n) = first_ident(rest) {
-            out.push(sym(n, "class", line_no));
-        }
-    }
-}
-
-fn extract_python_symbol(line: &str, line_no: i64, out: &mut Vec<SymbolInput>) {
-    let trimmed = line.trim_start();
-    if let Some(rest) = trimmed.strip_prefix("def ") {
-        if let Some(n) = first_ident(rest) {
-            out.push(sym(n, "function", line_no));
-        }
-    } else if let Some(rest) = trimmed.strip_prefix("class ") {
-        if let Some(n) = first_ident(rest) {
-            out.push(sym(n, "class", line_no));
-        }
-    }
 }

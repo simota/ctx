@@ -205,6 +205,7 @@ export function fetchFile(path: string, opts: FetchFileOpts = {}): Promise<FileR
 export interface FetchWhereOpts {
   limit?: number;
   path?: string;
+  all?: boolean;
 }
 
 export function fetchWhere(query: string, opts: FetchWhereOpts = {}): Promise<WhereResponse> {
