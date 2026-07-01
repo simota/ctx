@@ -22,6 +22,7 @@
   import GitRefsPanel from './components/GitRefsPanel.svelte';
   import GitCommitDetail from './components/GitCommitDetail.svelte';
   import GitCoChangeGraph from './components/GitCoChangeGraph.svelte';
+  import GitRangeReview from './components/GitRangeReview.svelte';
   import PaneSplitter from './components/PaneSplitter.svelte';
   import { announceState, announce } from './lib/announce.svelte';
   import { toggleCheatsheet, cheatsheet } from './lib/cheatsheet.svelte';
@@ -525,6 +526,8 @@
         {:else if rightTab === 'gitlog'}
           {#if route.path === 'relations'}
             <GitCoChangeGraph />
+          {:else if route.path === 'review'}
+            <GitRangeReview />
           {:else}
             <GitCommitDetail hash={route.path} />
           {/if}

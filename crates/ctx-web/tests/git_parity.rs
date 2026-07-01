@@ -355,6 +355,100 @@ fn rust_commit_diff_bad_rev_returns_bad_request() {
 }
 
 #[test]
+fn rust_changed_files_returns_range_manifest() {
+    let fx = GitFixture::build();
+    fx.git(&["reset", "--hard", "HEAD"], None);
+    fx.git(&["checkout", "-q", "-b", "feature"], None);
+    fx.write("review.txt", "one\ntwo\n");
+    fx.git(&["add", "review.txt"], None);
+    fx.commit("Add review file", "2020-05-06T07:08:09+00:00");
+    fx.git(&["checkout", "-q", "main"], None);
+
+    let rust = RustServer::start(fx.root());
+    rust.wait_ready();
+    let base = format!("http://127.0.0.1:{}", rust.port);
+    let response = http_request(
+        &base,
+        "GET",
+        "/api/git/changed-files?base=main&head=feature&mode=merge-base",
+        None,
+    );
+    rust.shutdown();
+
+    let body = String::from_utf8_lossy(&response.body);
+    assert_eq!(response.status, 200, "body: {body}");
+    assert_eq!(
+        response.header("content-type").as_deref(),
+        Some("application/json; charset=utf-8"),
+    );
+    assert!(body.contains(r#""requested_base":"main""#), "body: {body}");
+    assert!(
+        body.contains(r#""requested_head":"feature""#),
+        "body: {body}"
+    );
+    assert!(body.contains(r#""mode":"merge-base""#), "body: {body}");
+    assert!(body.contains(r#""effective_base":"#), "body: {body}");
+    assert!(body.contains(r#""effective_head":"#), "body: {body}");
+    assert!(body.contains(r#""merge_base":"#), "body: {body}");
+    assert!(body.contains(r#""limit":1000"#), "body: {body}");
+    assert!(body.contains(r#""truncated":false"#), "body: {body}");
+    assert!(body.contains(r#""status":"added""#), "body: {body}");
+    assert!(body.contains(r#""path":"review.txt""#), "body: {body}");
+    assert!(body.contains(r#""additions":2"#), "body: {body}");
+    assert!(
+        !body.contains(r#""lines":"#) && !body.contains("@@"),
+        "manifest must stay metadata-only: {body}",
+    );
+}
+
+#[test]
+fn rust_changed_files_rejects_invalid_inputs_without_mutating_repo() {
+    let fx = GitFixture::build();
+    fx.git(&["reset", "--hard", "HEAD"], None);
+    let before_head = fx.git_capture(&["rev-parse", "HEAD"]);
+    let before_status = fx.git_capture(&["status", "--porcelain"]);
+
+    let rust = RustServer::start(fx.root());
+    rust.wait_ready();
+    let base = format!("http://127.0.0.1:{}", rust.port);
+    let cases = [
+        (
+            "/api/git/changed-files?head=feature&mode=merge-base",
+            "bad_request",
+        ),
+        (
+            "/api/git/changed-files?base=main&mode=merge-base",
+            "bad_request",
+        ),
+        (
+            "/api/git/changed-files?base=main&head=feature&mode=sideways",
+            "bad_request",
+        ),
+        (
+            "/api/git/changed-files?base=-c.config&head=feature&mode=merge-base",
+            "invalid_ref",
+        ),
+        (
+            "/api/git/changed-files?base=main..evil&head=feature&mode=merge-base",
+            "invalid_ref",
+        ),
+    ];
+    for (path, code) in cases {
+        let response = http_request(&base, "GET", path, None);
+        let body = String::from_utf8_lossy(&response.body);
+        assert_eq!(response.status, 400, "path: {path}, body: {body}");
+        assert!(
+            body.contains(&format!(r#""code":"{code}""#)),
+            "path: {path}, body: {body}",
+        );
+    }
+    rust.shutdown();
+
+    assert_eq!(fx.git_capture(&["rev-parse", "HEAD"]), before_head);
+    assert_eq!(fx.git_capture(&["status", "--porcelain"]), before_status);
+}
+
+#[test]
 fn rust_git_diff_from_served_subdirectory() {
     let fx = GitFixture::build();
     let project = fx.root().join("project");
@@ -522,6 +616,23 @@ impl GitFixture {
             .status()
             .unwrap_or_else(|e| panic!("git {args:?} failed to spawn: {e}"));
         assert!(status.success(), "git {args:?} exited with {status}");
+    }
+
+    fn git_capture(&self, args: &[&str]) -> String {
+        let mut cmd = Command::new("git");
+        cmd.args(args).current_dir(&self.dir);
+        cmd.env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_SYSTEM", "/dev/null")
+            .env("GIT_TERMINAL_PROMPT", "0");
+        let output = cmd
+            .output()
+            .unwrap_or_else(|e| panic!("git {args:?} failed to spawn: {e}"));
+        assert!(
+            output.status.success(),
+            "git {args:?} exited with {}",
+            output.status
+        );
+        String::from_utf8(output.stdout).expect("git stdout utf8")
     }
 }
 

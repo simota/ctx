@@ -1,7 +1,7 @@
 <script lang="ts">
   import { formatRelative, basename } from '../lib/format';
   import { announce } from '../lib/announce.svelte';
-  import { route, navigate, toGitLogHash } from '../lib/router.svelte';
+  import { route, navigate, toGitLogHash, toGitReviewHash } from '../lib/router.svelte';
   import { gitlog, loadGitLog } from '../lib/gitlog.svelte';
   import { computeGraph, type GraphEdge } from '../lib/git-graph';
   import {
@@ -98,6 +98,14 @@
   function select(hash: string): void {
     navigate(toGitLogHash(hash));
   }
+
+  function openReview(): void {
+    navigate(toGitReviewHash({
+      base: route.gitBase,
+      head: route.gitHead,
+      mode: route.gitMode ?? 'merge-base',
+    }));
+  }
 </script>
 
 <nav class="gitlog-list" aria-label="git log commits">
@@ -111,10 +119,18 @@
         type="button"
         role="tab"
         class="seg"
-        class:active={route.path !== 'relations'}
-        aria-selected={route.path !== 'relations'}
+        class:active={route.path !== 'relations' && route.path !== 'review'}
+        aria-selected={route.path !== 'relations' && route.path !== 'review'}
         onclick={() => navigate(toGitLogHash())}
       >Commits</button>
+      <button
+        type="button"
+        role="tab"
+        class="seg"
+        class:active={route.path === 'review'}
+        aria-selected={route.path === 'review'}
+        onclick={openReview}
+      >Review</button>
       <button
         type="button"
         role="tab"

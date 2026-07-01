@@ -15,6 +15,7 @@
 
 export type RouteName = 'tree' | 'file' | 'dir' | 'search' | 'budget' | 'gitlog' | 'largest';
 export type FileViewMode = 'diff' | 'history';
+export type GitReviewMode = 'merge-base' | 'direct';
 
 export interface Route {
   name: RouteName;
@@ -37,6 +38,9 @@ export interface Route {
   until?: string;
   // When true, use file mtime instead of git commit time for date filtering.
   useMtime?: boolean;
+  gitBase?: string;
+  gitHead?: string;
+  gitMode?: GitReviewMode;
 }
 
 function parseOpenParam(raw: string | null): string[] {
@@ -150,6 +154,20 @@ function parse(rawHash: string): Route {
   if (p === 'gitlog') {
     return { name: 'gitlog', path: '', query: '', openPaths: [], rightPath: '' };
   }
+  if (p === 'gitlog/review') {
+    const modeRaw = queryParams.get('mode');
+    const gitMode: GitReviewMode = modeRaw === 'direct' ? 'direct' : 'merge-base';
+    return {
+      name: 'gitlog',
+      path: 'review',
+      query: '',
+      openPaths: [],
+      rightPath: '',
+      gitBase: queryParams.get('base') ?? '',
+      gitHead: queryParams.get('head') ?? '',
+      gitMode,
+    };
+  }
   if (p.startsWith('gitlog/')) {
     // path segment is the selected commit's full hash (opaque, no slashes).
     return {
@@ -184,6 +202,9 @@ if (typeof window !== 'undefined') {
     route.since = next.since;
     route.until = next.until;
     route.useMtime = next.useMtime;
+    route.gitBase = next.gitBase;
+    route.gitHead = next.gitHead;
+    route.gitMode = next.gitMode;
   });
 }
 
@@ -273,6 +294,20 @@ export function toLargestHash(): string {
 export function toGitLogHash(hash?: string): string {
   if (!hash) return '#/gitlog';
   return `#/gitlog/${encodeURIComponent(hash)}`;
+}
+
+export interface GitReviewHashOpts {
+  base?: string;
+  head?: string;
+  mode?: GitReviewMode;
+}
+
+export function toGitReviewHash(opts: GitReviewHashOpts = {}): string {
+  const params = new URLSearchParams();
+  if (opts.base) params.set('base', opts.base);
+  if (opts.head) params.set('head', opts.head);
+  params.set('mode', opts.mode ?? 'merge-base');
+  return `#/gitlog/review?${params.toString()}`;
 }
 
 export interface DirHashOpts {

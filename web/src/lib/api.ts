@@ -576,6 +576,48 @@ export function fetchCommitFiles(hash: string): Promise<CommitFilesResponse> {
   return getJSON<CommitFilesResponse>(`/api/git/commit-files${qs({ hash })}`);
 }
 
+// git changed files — net changed-file manifest for a base/head range.
+export type ChangedFileStatus = CommitFileStatus | 'renamed' | string;
+export type ChangedFilesMode = 'merge-base' | 'direct';
+
+export interface ChangedFileEntry {
+  status: ChangedFileStatus;
+  path: string;
+  old_path?: string;
+  additions: number;
+  deletions: number;
+  binary: boolean;
+  raw_status?: string;
+}
+
+export interface ChangedFilesSummary {
+  files: number;
+  additions: number;
+  deletions: number;
+  binary_files: number;
+}
+
+export interface ChangedFilesResponse {
+  requested_base: string;
+  requested_head: string;
+  mode: ChangedFilesMode;
+  effective_base: string;
+  effective_head: string;
+  merge_base?: string;
+  summary: ChangedFilesSummary;
+  limit: number;
+  truncated: boolean;
+  files: ChangedFileEntry[];
+}
+
+export function fetchChangedFiles(
+  base: string,
+  head: string,
+  mode: ChangedFilesMode = 'merge-base',
+): Promise<ChangedFilesResponse> {
+  return getJSON<ChangedFilesResponse>(`/api/git/changed-files${qs({ base, head, mode })}`);
+}
+
 // git branches — local branches with their short target hash; `current` marks
 // the branch HEAD points at.
 export interface BranchEntry {

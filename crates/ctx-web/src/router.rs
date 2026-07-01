@@ -44,6 +44,10 @@ pub fn build(state: AppState) -> Router {
             get(handlers::git::handle_commit_files),
         )
         .route(
+            "/api/git/changed-files",
+            get(handlers::git::handle_changed_files),
+        )
+        .route(
             "/api/git/commit-diff",
             get(handlers::git::handle_commit_diff),
         )

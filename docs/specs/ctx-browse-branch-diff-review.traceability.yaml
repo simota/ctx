@@ -1,0 +1,158 @@
+feature: ctx-browse-branch-diff-review
+title: Branch Diff Review in ctx browse
+status: locked
+current_phase: LOCK
+generated_at: 2026-07-01
+build_path_decision: apex
+
+requirements:
+  - id: REQ-BDR-001
+    kind: functional
+    priority: Must
+    title: Review route and navigation
+    acceptance_criteria: [AC-BDR-001, AC-BDR-011]
+    verdict: NOT_TESTED
+  - id: REQ-BDR-002
+    kind: functional
+    priority: Should
+    title: Ref selection controls
+    acceptance_criteria: [AC-BDR-001, AC-BDR-011]
+    verdict: NOT_TESTED
+  - id: REQ-BDR-003
+    kind: functional
+    priority: Must
+    title: Range changed-file manifest
+    acceptance_criteria: [AC-BDR-002, AC-BDR-004, AC-BDR-008, AC-BDR-012]
+    verdict: NOT_TESTED
+  - id: REQ-BDR-004
+    kind: functional
+    priority: Must
+    title: Lazy per-file diff loading
+    acceptance_criteria: [AC-BDR-005, AC-BDR-006, AC-BDR-009]
+    verdict: NOT_TESTED
+  - id: REQ-BDR-005
+    kind: functional
+    priority: Should
+    title: Review file-list interactions
+    acceptance_criteria: [AC-BDR-006, AC-BDR-009, AC-BDR-010]
+    verdict: NOT_TESTED
+  - id: REQ-BDR-006
+    kind: functional
+    priority: Should
+    title: Comparison mode clarity
+    acceptance_criteria: [AC-BDR-003, AC-BDR-004, AC-BDR-013]
+    verdict: NOT_TESTED
+  - id: REQ-BDR-007
+    kind: functional
+    priority: Should
+    title: Empty and error states
+    acceptance_criteria: [AC-BDR-007, AC-BDR-008, AC-BDR-012]
+    verdict: NOT_TESTED
+  - id: CFR-BDR-001
+    kind: cross-functional
+    priority: Must
+    title: Read-only safety
+    acceptance_criteria: [AC-BDR-007]
+    verdict: NOT_TESTED
+  - id: CFR-BDR-002
+    kind: cross-functional
+    priority: Must
+    title: Performance and bounded work
+    acceptance_criteria: [AC-BDR-005, AC-BDR-012]
+    verdict: NOT_TESTED
+  - id: CFR-BDR-003
+    kind: cross-functional
+    priority: Must
+    title: Reproducibility
+    acceptance_criteria: [AC-BDR-002, AC-BDR-003, AC-BDR-013]
+    verdict: NOT_TESTED
+  - id: CFR-BDR-004
+    kind: cross-functional
+    priority: Should
+    title: Accessibility and responsive behavior
+    acceptance_criteria: [AC-BDR-010]
+    verdict: NOT_TESTED
+
+acceptance_criteria:
+  - id: AC-BDR-001
+    priority: CRITICAL
+    verification_method: route_and_component_test
+    linked_requirements: [REQ-BDR-001, REQ-BDR-002]
+    verdict: NOT_TESTED
+  - id: AC-BDR-011
+    priority: HIGH
+    verification_method: frontend_behavior_test
+    linked_requirements: [REQ-BDR-002, REQ-BDR-001]
+    verdict: NOT_TESTED
+  - id: AC-BDR-002
+    priority: CRITICAL
+    verification_method: backend_integration_test
+    linked_requirements: [REQ-BDR-003, CFR-BDR-003]
+    verdict: NOT_TESTED
+  - id: AC-BDR-003
+    priority: HIGH
+    verification_method: backend_integration_test
+    linked_requirements: [REQ-BDR-006, CFR-BDR-003]
+    verdict: NOT_TESTED
+  - id: AC-BDR-004
+    priority: HIGH
+    verification_method: backend_integration_test
+    linked_requirements: [REQ-BDR-006, REQ-BDR-003]
+    verdict: NOT_TESTED
+  - id: AC-BDR-005
+    priority: HIGH
+    verification_method: frontend_behavior_test
+    linked_requirements: [REQ-BDR-004, CFR-BDR-002]
+    verdict: NOT_TESTED
+  - id: AC-BDR-006
+    priority: CRITICAL
+    verification_method: frontend_behavior_test
+    linked_requirements: [REQ-BDR-004, REQ-BDR-005]
+    verdict: NOT_TESTED
+  - id: AC-BDR-007
+    priority: CRITICAL
+    verification_method: backend_validation_test
+    linked_requirements: [REQ-BDR-007, CFR-BDR-001]
+    verdict: NOT_TESTED
+  - id: AC-BDR-008
+    priority: MEDIUM
+    verification_method: frontend_behavior_test
+    linked_requirements: [REQ-BDR-007, REQ-BDR-003]
+    verdict: NOT_TESTED
+  - id: AC-BDR-009
+    priority: HIGH
+    verification_method: frontend_behavior_test
+    linked_requirements: [REQ-BDR-004, REQ-BDR-005]
+    verdict: NOT_TESTED
+  - id: AC-BDR-010
+    priority: MEDIUM
+    verification_method: accessibility_check
+    linked_requirements: [CFR-BDR-004, REQ-BDR-005]
+    verdict: NOT_TESTED
+  - id: AC-BDR-012
+    priority: HIGH
+    verification_method: backend_and_frontend_behavior_test
+    linked_requirements: [CFR-BDR-002, REQ-BDR-007, REQ-BDR-003]
+    verdict: NOT_TESTED
+  - id: AC-BDR-013
+    priority: HIGH
+    verification_method: frontend_behavior_test
+    linked_requirements: [CFR-BDR-003, REQ-BDR-006]
+    verdict: NOT_TESTED
+
+quality_gates:
+  l1_requirements_complete: PASS
+  l2_detail_complete: PASS
+  l3_acceptance_criteria_complete: PASS
+  no_code_implementation_started: PASS
+  ambiguity: PASS
+  completeness: PASS
+  consistency: PASS
+  testability: PASS
+  scope_coherence: PASS
+  ready_for_lock: PASS
+
+quality_gate_notes:
+  - Initial Attest and Judge reviews found blocking ambiguity in metadata expectations, ref validation, lazy diff verification, bounded work, binary/deleted handling, and effective OID UI exposure.
+  - The draft was remediated with concrete fixture metadata, validation examples, metadata-only manifest checks, explicit truncation behavior, and AC-BDR-013 for visible effective OIDs.
+  - Acceptance criteria remain NOT_TESTED because this is a specification artifact and no implementation has been started.

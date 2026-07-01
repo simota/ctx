@@ -295,6 +295,54 @@ pub struct CommitFile {
     pub binary: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChangedFilesMode {
+    MergeBase,
+    Direct,
+}
+
+impl ChangedFilesMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::MergeBase => "merge-base",
+            Self::Direct => "direct",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ChangedFile {
+    pub status: String,
+    pub path: String,
+    pub old_path: Option<String>,
+    pub additions: u32,
+    pub deletions: u32,
+    pub binary: bool,
+    pub raw_status: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ChangedFilesSummary {
+    pub files: u32,
+    pub additions: u32,
+    pub deletions: u32,
+    pub binary_files: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChangedFilesManifest {
+    pub requested_base: String,
+    pub requested_head: String,
+    pub mode: String,
+    pub effective_base: String,
+    pub effective_head: String,
+    pub merge_base: Option<String>,
+    pub summary: ChangedFilesSummary,
+    pub limit: usize,
+    pub truncated: bool,
+    pub files: Vec<ChangedFile>,
+}
+
 /// Recent repository-wide commit history (newest first), like `git log`.
 /// Returns at most `limit` entries plus a `truncated` flag that is true when
 /// more history exists beyond the window. Empty (and not truncated) on an
@@ -463,6 +511,185 @@ pub fn commit_files(repo_root: impl AsRef<Path>, hash: &str) -> Result<Vec<Commi
         });
     }
     Ok(files)
+}
+
+pub fn changed_files_between(
+    repo_root: impl AsRef<Path>,
+    base: &str,
+    head: &str,
+    mode: ChangedFilesMode,
+    limit: usize,
+) -> Result<ChangedFilesManifest> {
+    if base.is_empty() {
+        return Err(GitError::new("base is required"));
+    }
+    if head.is_empty() {
+        return Err(GitError::new("head is required"));
+    }
+
+    let git_dir = git_dir(repo_root.as_ref());
+    let requested_base = base.to_string();
+    let requested_head = head.to_string();
+    let base_oid = resolve_commit_revision(&git_dir, base, "base")?
+        .ok_or_else(|| GitError::new("base has no commit"))?
+        .oid;
+    let head_oid = resolve_commit_revision(&git_dir, head, "head")?
+        .ok_or_else(|| GitError::new("head has no commit"))?
+        .oid;
+    let (effective_base, merge_base) = match mode {
+        ChangedFilesMode::Direct => (base_oid, None),
+        ChangedFilesMode::MergeBase => {
+            let output = git_output(&git_dir, &["merge-base", &base_oid, &head_oid])?;
+            let mb = String::from_utf8(output).map_err(|err| GitError::new(err.to_string()))?;
+            let mb = mb.trim().to_string();
+            if mb.is_empty() {
+                return Err(GitError::new("merge base not found"));
+            }
+            (mb.clone(), Some(mb))
+        }
+    };
+
+    let mut stats = diff_numstat(&git_dir, &effective_base, &head_oid)?;
+    let status_out = git_output(
+        &git_dir,
+        &[
+            "-c",
+            "core.quotepath=false",
+            "diff",
+            "--name-status",
+            "-M",
+            &effective_base,
+            &head_oid,
+            "--",
+        ],
+    )?;
+    let status_text = String::from_utf8_lossy(&status_out);
+    let mut files = Vec::new();
+    for line in status_text.lines() {
+        if line.is_empty() {
+            continue;
+        }
+        let mut parts = line.split('\t');
+        let raw_status = parts.next().unwrap_or("").to_string();
+        if raw_status.is_empty() {
+            continue;
+        }
+        let Some(first_path) = parts.next() else {
+            continue;
+        };
+        if first_path.is_empty() {
+            continue;
+        }
+        let status_code = raw_status.chars().next().unwrap_or('M');
+        let (status, old_path, path) = match status_code {
+            'A' => ("added", None, first_path),
+            'D' => ("deleted", None, first_path),
+            'R' => {
+                let Some(new_path) = parts.next() else {
+                    continue;
+                };
+                ("renamed", Some(first_path.to_string()), new_path)
+            }
+            _ => ("modified", None, first_path),
+        };
+        if path.is_empty() {
+            continue;
+        }
+        let (additions, deletions, binary) = stats.remove(path).unwrap_or((0, 0, false));
+        files.push(ChangedFile {
+            status: status.to_string(),
+            path: path.to_string(),
+            old_path,
+            additions,
+            deletions,
+            binary,
+            raw_status,
+        });
+    }
+
+    let summary = ChangedFilesSummary {
+        files: files.len() as u32,
+        additions: files.iter().map(|f| f.additions).sum(),
+        deletions: files.iter().map(|f| f.deletions).sum(),
+        binary_files: files.iter().filter(|f| f.binary).count() as u32,
+    };
+    let limit = limit.max(1);
+    let truncated = files.len() > limit;
+    if truncated {
+        files.truncate(limit);
+    }
+
+    Ok(ChangedFilesManifest {
+        requested_base,
+        requested_head,
+        mode: mode.as_str().to_string(),
+        effective_base,
+        effective_head: head_oid,
+        merge_base,
+        summary,
+        limit,
+        truncated,
+        files,
+    })
+}
+
+fn diff_numstat(
+    git_dir: &Path,
+    effective_base: &str,
+    effective_head: &str,
+) -> Result<HashMap<String, (u32, u32, bool)>> {
+    let numstat_out = git_output(
+        git_dir,
+        &[
+            "-c",
+            "core.quotepath=false",
+            "diff",
+            "--numstat",
+            "-M",
+            effective_base,
+            effective_head,
+            "--",
+        ],
+    )?;
+    let numstat_text = String::from_utf8_lossy(&numstat_out);
+    let mut stats = HashMap::new();
+    for line in numstat_text.lines() {
+        let mut parts = line.splitn(3, '\t');
+        let Some(add_raw) = parts.next() else {
+            continue;
+        };
+        let Some(del_raw) = parts.next() else {
+            continue;
+        };
+        let Some(path_raw) = parts.next() else {
+            continue;
+        };
+        if path_raw.is_empty() {
+            continue;
+        }
+        let binary = add_raw == "-" || del_raw == "-";
+        let additions = add_raw.parse::<u32>().unwrap_or(0);
+        let deletions = del_raw.parse::<u32>().unwrap_or(0);
+        stats.insert(numstat_path_key(path_raw), (additions, deletions, binary));
+    }
+    Ok(stats)
+}
+
+fn numstat_path_key(path_raw: &str) -> String {
+    if let Some((prefix, suffix)) = path_raw.split_once(" => ") {
+        if let Some((_, close)) = suffix.split_once('}') {
+            if let Some((before_open, _old_part)) = prefix.rsplit_once('{') {
+                let new_part = suffix
+                    .split_once('}')
+                    .map(|(new_part, _)| new_part)
+                    .unwrap_or(suffix);
+                return format!("{before_open}{new_part}{close}");
+            }
+            return suffix.trim_start_matches('}').to_string();
+        }
+        return suffix.to_string();
+    }
+    path_raw.to_string()
 }
 
 pub fn worktree_files(repo_root: impl AsRef<Path>) -> Result<Vec<CommitFile>> {
@@ -2166,6 +2393,150 @@ mod tests {
             by_path.get("new.txt").map(|f| (f.additions, f.deletions)),
             Some((1, 0))
         );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn changed_files_between_returns_net_manifest_with_renames() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("keep.txt"), "same\nold\n").expect("write keep");
+        fs::write(root.join("gone.txt"), "a\nb\nc\n").expect("write gone");
+        fs::write(root.join("old.txt"), "rename me\n").expect("write old");
+        commit_all(&root, "base", "2020-01-02T03:04:05+00:00");
+
+        git(&root, &["checkout", "-q", "-b", "feature"]);
+        fs::write(root.join("new.txt"), "one\ntwo\n").expect("write new");
+        fs::write(root.join("keep.txt"), "same\nnew\n").expect("modify keep");
+        fs::remove_file(root.join("gone.txt")).expect("rm gone");
+        fs::rename(root.join("old.txt"), root.join("renamed.txt")).expect("rename");
+        commit_all(&root, "feature", "2021-06-07T08:09:10+00:00");
+
+        let manifest =
+            changed_files_between(&root, "main", "feature", ChangedFilesMode::MergeBase, 1000)
+                .expect("changed files");
+        let by_path: std::collections::HashMap<&str, &ChangedFile> = manifest
+            .files
+            .iter()
+            .map(|f| (f.path.as_str(), f))
+            .collect();
+
+        assert_eq!(manifest.requested_base, "main");
+        assert_eq!(manifest.requested_head, "feature");
+        assert_eq!(manifest.mode, "merge-base");
+        assert_eq!(
+            manifest.effective_base,
+            manifest.merge_base.clone().unwrap()
+        );
+        assert_eq!(manifest.effective_head.len(), 40);
+        assert!(!manifest.truncated);
+        assert_eq!(manifest.summary.files, 4);
+        assert_eq!(manifest.summary.additions, 3);
+        assert_eq!(manifest.summary.deletions, 4);
+        assert_eq!(
+            by_path.get("new.txt").map(|f| f.status.as_str()),
+            Some("added")
+        );
+        assert_eq!(
+            by_path
+                .get("new.txt")
+                .map(|f| (f.additions, f.deletions, f.binary)),
+            Some((2, 0, false))
+        );
+        assert_eq!(
+            by_path
+                .get("keep.txt")
+                .map(|f| (f.status.as_str(), f.additions, f.deletions)),
+            Some(("modified", 1, 1))
+        );
+        assert_eq!(
+            by_path
+                .get("gone.txt")
+                .map(|f| (f.status.as_str(), f.additions, f.deletions)),
+            Some(("deleted", 0, 3))
+        );
+        let renamed = by_path.get("renamed.txt").expect("renamed entry");
+        assert_eq!(renamed.status, "renamed");
+        assert_eq!(renamed.old_path.as_deref(), Some("old.txt"));
+        assert_eq!(
+            (renamed.additions, renamed.deletions, renamed.binary),
+            (0, 0, false)
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn changed_files_between_distinguishes_merge_base_and_direct_modes() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("base.txt"), "base\n").expect("write base");
+        commit_all(&root, "base", "2020-01-02T03:04:05+00:00");
+
+        git(&root, &["checkout", "-q", "-b", "feature"]);
+        fs::write(root.join("feature.txt"), "feature\n").expect("write feature");
+        commit_all(&root, "feature", "2020-02-03T04:05:06+00:00");
+
+        git(&root, &["checkout", "-q", "main"]);
+        fs::write(root.join("main.txt"), "main\n").expect("write main");
+        commit_all(&root, "main advance", "2020-03-04T05:06:07+00:00");
+
+        let merge_base =
+            changed_files_between(&root, "main", "feature", ChangedFilesMode::MergeBase, 1000)
+                .expect("merge-base manifest");
+        let direct =
+            changed_files_between(&root, "main", "feature", ChangedFilesMode::Direct, 1000)
+                .expect("direct manifest");
+
+        assert_eq!(
+            merge_base.effective_base,
+            merge_base.merge_base.clone().unwrap()
+        );
+        assert_ne!(direct.effective_base, merge_base.effective_base);
+        assert_eq!(direct.merge_base, None);
+        assert!(merge_base.files.iter().any(|f| f.path == "feature.txt"));
+        assert!(!merge_base.files.iter().any(|f| f.path == "main.txt"));
+        assert!(direct.files.iter().any(|f| f.path == "feature.txt"));
+        assert!(direct
+            .files
+            .iter()
+            .any(|f| f.path == "main.txt" && f.status == "deleted"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn changed_files_between_marks_truncation_without_diff_bodies() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("base.txt"), "base\n").expect("write base");
+        commit_all(&root, "base", "2020-01-02T03:04:05+00:00");
+
+        git(&root, &["checkout", "-q", "-b", "feature"]);
+        fs::write(root.join("a.txt"), "a\n").expect("write a");
+        fs::write(root.join("b.txt"), "b\n").expect("write b");
+        commit_all(&root, "feature", "2020-02-03T04:05:06+00:00");
+
+        let manifest =
+            changed_files_between(&root, "main", "feature", ChangedFilesMode::MergeBase, 1)
+                .expect("changed files");
+        assert!(manifest.truncated);
+        assert_eq!(manifest.limit, 1);
+        assert_eq!(manifest.files.len(), 1);
+        assert_eq!(manifest.summary.files, 2);
 
         let _ = fs::remove_dir_all(root);
     }

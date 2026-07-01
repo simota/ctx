@@ -147,6 +147,16 @@ pub struct CommitFilesParams {
 }
 
 #[derive(Deserialize)]
+pub struct ChangedFilesParams {
+    #[serde(default)]
+    base: String,
+    #[serde(default)]
+    head: String,
+    #[serde(default)]
+    mode: String,
+}
+
+#[derive(Deserialize)]
 pub struct CoChangeParams {
     #[serde(default)]
     limit: String,
@@ -248,6 +258,42 @@ struct CommitFileEntry {
 struct CommitFilesResponse {
     hash: String,
     files: Vec<CommitFileEntry>,
+}
+
+#[derive(Serialize)]
+struct ChangedFilesSummaryResp {
+    files: u32,
+    additions: u32,
+    deletions: u32,
+    binary_files: u32,
+}
+
+#[derive(Serialize)]
+struct ChangedFileEntryResp {
+    status: String,
+    path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    old_path: Option<String>,
+    additions: u32,
+    deletions: u32,
+    binary: bool,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    raw_status: String,
+}
+
+#[derive(Serialize)]
+struct ChangedFilesResponse {
+    requested_base: String,
+    requested_head: String,
+    mode: String,
+    effective_base: String,
+    effective_head: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    merge_base: Option<String>,
+    summary: ChangedFilesSummaryResp,
+    limit: usize,
+    truncated: bool,
+    files: Vec<ChangedFileEntryResp>,
 }
 
 pub async fn handle_diff(
@@ -404,6 +450,21 @@ fn is_valid_ref(ref_name: &str) -> bool {
         && ref_name
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '/' | '@' | '-'))
+}
+
+fn is_valid_range_ref(ref_name: &str) -> bool {
+    if ref_name.is_empty() || ref_name.len() > 255 {
+        return false;
+    }
+    if ref_name.starts_with('-') || ref_name.ends_with('/') || ref_name.ends_with('.') {
+        return false;
+    }
+    if ref_name.contains("..") || ref_name.contains("@{") || ref_name.contains("//") {
+        return false;
+    }
+    ref_name
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'/' | b'@' | b'-'))
 }
 
 pub async fn handle_repo_log(
@@ -581,6 +642,135 @@ fn handle_commit_files_sync(state: AppState, params: CommitFilesParams) -> Respo
             &err.to_string(),
         ),
     }
+}
+
+pub async fn handle_changed_files(
+    State(state): State<AppState>,
+    Query(params): Query<ChangedFilesParams>,
+) -> Response {
+    crate::blocking::run(move || handle_changed_files_sync(state, params)).await
+}
+
+fn handle_changed_files_sync(state: AppState, params: ChangedFilesParams) -> Response {
+    const CHANGED_FILES_LIMIT: usize = 1000;
+
+    if params.base.is_empty() {
+        return response::error(StatusCode::BAD_REQUEST, "bad_request", "base is required");
+    }
+    if params.head.is_empty() {
+        return response::error(StatusCode::BAD_REQUEST, "bad_request", "head is required");
+    }
+    if !is_valid_range_ref(&params.base) || !is_valid_range_ref(&params.head) {
+        return response::error(StatusCode::BAD_REQUEST, "invalid_ref", "invalid ref");
+    }
+    let mode = match params.mode.as_str() {
+        "" | "merge-base" => ctx_git::ChangedFilesMode::MergeBase,
+        "direct" => ctx_git::ChangedFilesMode::Direct,
+        _ => {
+            return response::error(StatusCode::BAD_REQUEST, "bad_request", "invalid mode");
+        }
+    };
+
+    let served_root = crate::handlers::file::canonical_root(&state.root);
+    let git_root = git_root_only(&state.root);
+    match ctx_git::changed_files_between(
+        &git_root,
+        &params.base,
+        &params.head,
+        mode,
+        CHANGED_FILES_LIMIT,
+    ) {
+        Ok(manifest) => response::json(
+            StatusCode::OK,
+            &changed_files_response(manifest, &git_root, &served_root),
+        ),
+        Err(err) => git_changed_files_error(&err.to_string()),
+    }
+}
+
+fn changed_files_response(
+    manifest: ctx_git::ChangedFilesManifest,
+    git_root: &Path,
+    served_root: &Path,
+) -> ChangedFilesResponse {
+    let mut files: Vec<ChangedFileEntryResp> = manifest
+        .files
+        .into_iter()
+        .filter_map(|file| changed_file_response(file, git_root, served_root))
+        .collect();
+    let summary = ChangedFilesSummaryResp {
+        files: files.len() as u32,
+        additions: files.iter().map(|f| f.additions).sum(),
+        deletions: files.iter().map(|f| f.deletions).sum(),
+        binary_files: files.iter().filter(|f| f.binary).count() as u32,
+    };
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    ChangedFilesResponse {
+        requested_base: manifest.requested_base,
+        requested_head: manifest.requested_head,
+        mode: manifest.mode,
+        effective_base: manifest.effective_base,
+        effective_head: manifest.effective_head,
+        merge_base: manifest.merge_base,
+        summary,
+        limit: manifest.limit,
+        truncated: manifest.truncated,
+        files,
+    }
+}
+
+fn changed_file_response(
+    file: ctx_git::ChangedFile,
+    git_root: &Path,
+    served_root: &Path,
+) -> Option<ChangedFileEntryResp> {
+    let path = repo_path_to_served_path(git_root, served_root, &file.path)?;
+    let old_path = file
+        .old_path
+        .as_deref()
+        .and_then(|p| repo_path_to_served_path(git_root, served_root, p));
+    let raw_status = if matches!(
+        (file.status.as_str(), file.raw_status.as_str()),
+        ("added", "A") | ("modified", "M") | ("deleted", "D")
+    ) || (file.status == "renamed" && file.raw_status.starts_with('R'))
+    {
+        String::new()
+    } else {
+        file.raw_status
+    };
+    Some(ChangedFileEntryResp {
+        status: file.status,
+        path,
+        old_path,
+        additions: file.additions,
+        deletions: file.deletions,
+        binary: file.binary,
+        raw_status,
+    })
+}
+
+fn repo_path_to_served_path(
+    git_root: &Path,
+    served_root: &Path,
+    repo_path: &str,
+) -> Option<String> {
+    let abs = git_root.join(repo_path.replace('/', std::path::MAIN_SEPARATOR_STR));
+    abs.strip_prefix(served_root).ok().map(slash_path)
+}
+
+fn git_changed_files_error(message: &str) -> Response {
+    if is_revision_error(message)
+        || message == "reference not found"
+        || message == "merge base not found"
+        || message.ends_with(" has no commit")
+    {
+        return response::error(StatusCode::BAD_REQUEST, "invalid_revision", message);
+    }
+    response::error(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "git_changed_files",
+        message,
+    )
 }
 
 pub async fn handle_co_change(
