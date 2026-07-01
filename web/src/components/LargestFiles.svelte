@@ -124,14 +124,27 @@
   $effect(() => {
     if (loading || error) return;
     if (announcedCount === filtered.length) return;
+    const firstAnnouncement = announcedCount === null;
     announcedCount = filtered.length;
     announce(`${filtered.length} source files ranked by line count`);
-    queueMicrotask(() => headingEl?.focus());
+    if (firstAnnouncement && !hasEditableFocus()) {
+      queueMicrotask(() => {
+        if (!hasEditableFocus()) headingEl?.focus();
+      });
+    }
   });
 
   function barWidth(lines: number): number {
     if (maxLines <= 0) return 0;
     return Math.max(2, Math.round((lines / maxLines) * 100));
+  }
+
+  function hasEditableFocus(): boolean {
+    if (typeof document === 'undefined') return false;
+    const active = document.activeElement as HTMLElement | null;
+    if (!active) return false;
+    const tag = active.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || active.isContentEditable;
   }
 </script>
 
