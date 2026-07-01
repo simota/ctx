@@ -41,7 +41,13 @@ fn mkfile(path: &str, role: &str, syms: &[(&str, &str)]) -> FileInput {
 
 fn corpus(n: usize) -> Vec<FileInput> {
     let mut out = Vec::with_capacity(n);
-    let dirs = ["src/auth", "internal/pack", "internal/scan", "cmd/ctx", "docs"];
+    let dirs = [
+        "src/auth",
+        "internal/pack",
+        "internal/scan",
+        "cmd/ctx",
+        "docs",
+    ];
     let bases = ["login", "session", "config", "render", "diff", "preset"];
     let roles = ["core", "entry", "test", "doc", "config", "unknown"];
     for i in 0..n {

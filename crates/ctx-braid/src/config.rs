@@ -103,8 +103,8 @@ pub fn load_from_file(path: &std::path::Path) -> Result<Config, ConfigError> {
 
 /// load parses a braid.toml document from bytes and validates it.
 pub fn load(data: &[u8]) -> Result<Config, ConfigError> {
-    let raw_text = std::str::from_utf8(data)
-        .map_err(|e| ConfigError::Parse(format!("invalid utf-8: {e}")))?;
+    let raw_text =
+        std::str::from_utf8(data).map_err(|e| ConfigError::Parse(format!("invalid utf-8: {e}")))?;
     let raw: RawConfig = match toml::from_str(raw_text) {
         Ok(c) => c,
         Err(e) => return Err(ConfigError::Parse(e.message().to_string())),
@@ -138,8 +138,8 @@ pub fn load(data: &[u8]) -> Result<Config, ConfigError> {
 
     // Pre-validate unknown policy strings while we still have raw access.
     // Use a side-channel pass: re-parse just to recover policy strings.
-    let raw_again: RawConfig = toml::from_str(raw_text)
-        .map_err(|e| ConfigError::Parse(e.message().to_string()))?;
+    let raw_again: RawConfig =
+        toml::from_str(raw_text).map_err(|e| ConfigError::Parse(e.message().to_string()))?;
     for rs in raw_again.strand.iter() {
         if !rs.policy.is_empty() && PolicyKind::from_str_opt(&rs.policy).is_none() {
             // Use the strand name; if missing, the name-required error in
@@ -177,7 +177,9 @@ pub fn validate(cfg: &mut Config) -> Result<(), ConfigError> {
             return Err(ConfigError::StrandNameRequired(i));
         }
         if seen.contains(&cfg.strands[i].name) {
-            return Err(ConfigError::DuplicateStrandName(cfg.strands[i].name.clone()));
+            return Err(ConfigError::DuplicateStrandName(
+                cfg.strands[i].name.clone(),
+            ));
         }
         seen.insert(cfg.strands[i].name.clone());
 

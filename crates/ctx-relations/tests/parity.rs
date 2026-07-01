@@ -25,8 +25,7 @@ fn load_golden(fixture: &str, name: &str) -> Value {
     let path = goldens_dir().join(fixture).join(format!("{name}.json"));
     let raw = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("read golden {}: {e}", path.display()));
-    serde_json::from_str(&raw)
-        .unwrap_or_else(|e| panic!("parse golden {}: {e}", path.display()))
+    serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse golden {}: {e}", path.display()))
 }
 
 fn run_parity(fixture: &str) {

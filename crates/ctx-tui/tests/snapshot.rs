@@ -57,9 +57,7 @@ fn sessions() -> Vec<(&'static str, Vec<&'static str>)> {
 fn render_frame(model: &Model) -> String {
     let backend = TestBackend::new(WIDTH, HEIGHT);
     let mut terminal = Terminal::new(backend).expect("terminal");
-    terminal
-        .draw(|f| ctx_tui::render(model, f))
-        .expect("draw");
+    terminal.draw(|f| ctx_tui::render(model, f)).expect("draw");
     buffer_to_text(terminal.backend().buffer())
 }
 
@@ -91,8 +89,7 @@ fn normalise(mut lines: Vec<String>) -> String {
 /// Parse a golden file into per-frame normalised strings.
 fn parse_goldens(name: &str) -> Vec<String> {
     let path = format!("{}/tests/goldens/{}.txt", env!("CARGO_MANIFEST_DIR"), name);
-    let raw = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("read golden {path}: {e}"));
+    let raw = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read golden {path}: {e}"));
 
     let mut frames: Vec<String> = Vec::new();
     let mut current: Option<Vec<String>> = None;

@@ -25,11 +25,9 @@ fn fixtures_dir() -> PathBuf {
 fn main() {
     #[cfg(feature = "dhat")]
     {
-        let out_path = std::env::var("CTX_DHAT_OUT")
-            .unwrap_or_else(|_| "/tmp/focus-dhat.json".to_string());
-        let _profiler = dhat::Profiler::builder()
-            .file_name(&out_path)
-            .build();
+        let out_path =
+            std::env::var("CTX_DHAT_OUT").unwrap_or_else(|_| "/tmp/focus-dhat.json".to_string());
+        let _profiler = dhat::Profiler::builder().file_name(&out_path).build();
         run_workload();
         eprintln!("dhat profile written to {out_path}");
     }
@@ -47,8 +45,8 @@ fn run_workload() {
         return;
     };
     let files: Vec<FileInput> = serde_json::from_slice(&raw).expect("files.json");
-    let anchor_raw = std::fs::read_to_string(dir.join("anchor.txt"))
-        .unwrap_or_else(|_| "Pack".into());
+    let anchor_raw =
+        std::fs::read_to_string(dir.join("anchor.txt")).unwrap_or_else(|_| "Pack".into());
     let anchor_str = anchor_raw.trim();
     for _ in 0..200 {
         if let Ok(a) = resolve_anchor(&files, anchor_str) {

@@ -91,11 +91,7 @@ pub async fn handle(
 
 fn handle_sync(state: AppState, params: BudgetParams) -> Response {
     if params.budget <= 0 {
-        return response::error(
-            StatusCode::BAD_REQUEST,
-            "bad_request",
-            "budget must be > 0",
-        );
+        return response::error(StatusCode::BAD_REQUEST, "bad_request", "budget must be > 0");
     }
 
     let target = match safepath::resolve(&state.root, &params.path) {
@@ -166,11 +162,7 @@ fn handle_sync(state: AppState, params: BudgetParams) -> Response {
 
     // Stable sort: (priority ASC, tokens ASC, path ASC).
     // We use sort_by (stable) on a tuple that naturally compares this way.
-    candidates.sort_by(|a, b| {
-        a.0.cmp(&b.0)
-            .then(a.2.cmp(&b.2))
-            .then(a.1.cmp(&b.1))
-    });
+    candidates.sort_by(|a, b| a.0.cmp(&b.0).then(a.2.cmp(&b.2)).then(a.1.cmp(&b.1)));
 
     let mut used: i64 = 0;
     for (_, path, tokens, _) in candidates {
@@ -297,7 +289,10 @@ fn collect_files(root: &str, dir: &Path, out: &mut Vec<FileInfo>) {
         if meta.is_dir() {
             // Skip ExtraIgnore dirs (directories only — a regular file named
             // e.g. "dist" must stay visible).
-            if matches!(name_str.as_ref(), ".git" | "node_modules" | "dist" | "coverage") {
+            if matches!(
+                name_str.as_ref(),
+                ".git" | "node_modules" | "dist" | "coverage"
+            ) {
                 continue;
             }
             collect_files(root, &path, out);

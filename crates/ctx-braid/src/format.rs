@@ -60,7 +60,9 @@ pub fn render_markdown(res: &Result, explain: bool) -> String {
 
     if res.dry_run {
         out.push_str("## Dry run\n");
-        out.push_str("Pack body not generated. Re-run without --dry-run to materialise the bundle.\n");
+        out.push_str(
+            "Pack body not generated. Re-run without --dry-run to materialise the bundle.\n",
+        );
     }
     out
 }

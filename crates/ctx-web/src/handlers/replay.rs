@@ -22,9 +22,7 @@ use axum::http::StatusCode;
 use axum::response::Response;
 use serde::{Deserialize, Serialize};
 
-use ctx_replay::{
-    open_store, resolve, store::StoreError, types::Manifest, ResolveOptions,
-};
+use ctx_replay::{open_store, resolve, store::StoreError, types::Manifest, ResolveOptions};
 
 use crate::response;
 use crate::AppState;
@@ -166,7 +164,10 @@ pub struct ShowParams {
     id: String,
 }
 
-pub async fn handle_show(State(state): State<AppState>, Query(params): Query<ShowParams>) -> Response {
+pub async fn handle_show(
+    State(state): State<AppState>,
+    Query(params): Query<ShowParams>,
+) -> Response {
     if params.id.is_empty() {
         return response::error(StatusCode::BAD_REQUEST, "bad_request", "id is required");
     }
@@ -365,11 +366,7 @@ fn handle_diff_sync(state: AppState, params: DiffParams) -> Response {
     let current_entries = match build_current_entries(&state.root) {
         Ok(e) => e,
         Err(e) => {
-            return response::error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "manifest_build",
-                &e,
-            );
+            return response::error(StatusCode::INTERNAL_SERVER_ERROR, "manifest_build", &e);
         }
     };
     let current = Manifest {
@@ -582,7 +579,11 @@ pub async fn handle_verify(State(state): State<AppState>, req: axum::extract::Re
         return response::error(StatusCode::BAD_REQUEST, "bad_request", "id is required");
     }
     if req.response.trim().is_empty() {
-        return response::error(StatusCode::BAD_REQUEST, "bad_request", "response is required");
+        return response::error(
+            StatusCode::BAD_REQUEST,
+            "bad_request",
+            "response is required",
+        );
     }
     if req.response.len() > MAX_VERIFY_RESPONSE_BYTES {
         return response::error(

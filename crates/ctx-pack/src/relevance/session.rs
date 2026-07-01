@@ -46,7 +46,12 @@ impl RelevanceSession {
 
     /// Build with a pre-loaded corpus. token_counts may be shorter
     /// than files; missing entries fall back to FileInput.tokens.
-    pub fn with_corpus(goal: &str, budget: i64, files: Vec<FileInput>, token_counts: Vec<i64>) -> Self {
+    pub fn with_corpus(
+        goal: &str,
+        budget: i64,
+        files: Vec<FileInput>,
+        token_counts: Vec<i64>,
+    ) -> Self {
         Self {
             ctx: RelevanceContext::new(goal, budget),
             corpus: files,
@@ -136,7 +141,11 @@ mod tests {
 
     #[test]
     fn session_score_matches_stateless() {
-        let f = mkfile("src/auth/login.ts", "core", &[("validateLoginSession", "function")]);
+        let f = mkfile(
+            "src/auth/login.ts",
+            "core",
+            &[("validateLoginSession", "function")],
+        );
         let s = RelevanceSession::new("ログイン認証", 30000);
         let sticky = s.score_file(&f, 100);
         let stateless = super::super::score_relevance(&f, "ログイン認証", 100, 30000);
@@ -157,7 +166,11 @@ mod tests {
     #[test]
     fn session_with_corpus_ranks_files() {
         let files = vec![
-            mkfile("src/auth/login.ts", "core", &[("validateLoginSession", "function")]),
+            mkfile(
+                "src/auth/login.ts",
+                "core",
+                &[("validateLoginSession", "function")],
+            ),
             mkfile("cmd/ctx/main.go", "entry", &[]),
             mkfile("internal/render/tree.go", "unknown", &[]),
         ];

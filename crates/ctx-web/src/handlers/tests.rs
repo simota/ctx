@@ -106,11 +106,7 @@ fn handle_sync(state: AppState, params: TestsParams) -> Response {
                     &format!("stat {}: no such file or directory", target.display()),
                 );
             }
-            return response::error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "stat",
-                &e.to_string(),
-            );
+            return response::error(StatusCode::INTERNAL_SERVER_ERROR, "stat", &e.to_string());
         }
     };
     if meta.is_dir() {
@@ -121,11 +117,7 @@ fn handle_sync(state: AppState, params: TestsParams) -> Response {
     let insight = match ctx_testinsights::analyze(&state.root, &rel, &params.profile) {
         Ok(i) => i,
         Err(e) => {
-            return response::error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "tests",
-                &e.to_string(),
-            )
+            return response::error(StatusCode::INTERNAL_SERVER_ERROR, "tests", &e.to_string())
         }
     };
     let limit = clamp_limit(&params.limit);

@@ -7,15 +7,11 @@
 use std::collections::BTreeMap;
 use std::io::{self, Write};
 
-use crate::types::{OK, Result as VerifyResult, Violation, ViolationKind};
+use crate::types::{Result as VerifyResult, Violation, ViolationKind, OK};
 
 /// Emits the verify result in the requested format. Unknown format
 /// strings fall back to markdown.
-pub fn render<W: Write + ?Sized>(
-    w: &mut W,
-    res: &VerifyResult,
-    format: &str,
-) -> io::Result<()> {
+pub fn render<W: Write + ?Sized>(w: &mut W, res: &VerifyResult, format: &str) -> io::Result<()> {
     match format.to_ascii_lowercase().as_str() {
         "json" => render_json(w, res),
         "plain" => render_plain(w, res),

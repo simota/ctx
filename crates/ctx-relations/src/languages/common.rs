@@ -103,8 +103,8 @@ mod tests {
     #[test]
     fn supported_ext_matches_all_languages() {
         for ext in [
-            ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".svelte", ".vue", ".py",
-            ".java", ".kt", ".kts", ".php", ".swift",
+            ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".svelte", ".vue", ".py", ".java",
+            ".kt", ".kts", ".php", ".swift",
         ] {
             assert!(supported_ext(&format!("foo{ext}")), "{ext}");
         }

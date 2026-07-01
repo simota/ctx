@@ -12,8 +12,8 @@ use std::path::PathBuf;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
 use ctx_heatmap::{
-    aggregate, render_ascii, render_json, render_plain, squarify, AggregateOptions,
-    AsciiOptions, FileMetric, JsonOptions, PlainOptions,
+    aggregate, render_ascii, render_json, render_plain, squarify, AggregateOptions, AsciiOptions,
+    FileMetric, JsonOptions, PlainOptions,
 };
 
 fn fixtures_dir() -> PathBuf {
@@ -50,7 +50,9 @@ fn bench_heatmap(c: &mut Criterion) {
         budget: 0,
     };
     for fx in &fixtures {
-        let Some(metrics) = load_metrics(fx) else { continue };
+        let Some(metrics) = load_metrics(fx) else {
+            continue;
+        };
         let n = metrics.len() as u64;
         group.throughput(Throughput::Elements(n.max(1)));
 
@@ -62,15 +64,11 @@ fn bench_heatmap(c: &mut Criterion) {
 
         let buckets = aggregate(&metrics, &opts);
 
-        group.bench_with_input(
-            BenchmarkId::new("squarify", fx),
-            &buckets,
-            |b, bk| {
-                b.iter(|| {
-                    let _ = squarify(bk, 80, 20);
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("squarify", fx), &buckets, |b, bk| {
+            b.iter(|| {
+                let _ = squarify(bk, 80, 20);
+            })
+        });
 
         let rects = squarify(&buckets, 80, 20);
 

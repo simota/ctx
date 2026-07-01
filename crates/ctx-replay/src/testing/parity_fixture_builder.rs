@@ -12,11 +12,14 @@ pub fn fixtures_dir() -> PathBuf {
 }
 
 pub fn goldens_dir() -> PathBuf {
-    repo_root().join("tests").join("parity").join("replay-goldens")
+    repo_root()
+        .join("tests")
+        .join("parity")
+        .join("replay-goldens")
 }
 
 fn repo_root() -> PathBuf {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .unwrap_or_else(|_| "crates/ctx-replay".to_string());
+    let manifest_dir =
+        std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| "crates/ctx-replay".to_string());
     PathBuf::from(manifest_dir).join("..").join("..")
 }

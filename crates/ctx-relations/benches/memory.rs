@@ -33,9 +33,7 @@ fn main() {
     {
         let out_path = std::env::var("CTX_DHAT_OUT")
             .unwrap_or_else(|_| "/tmp/relations-dhat.json".to_string());
-        let _profiler = dhat::Profiler::builder()
-            .file_name(&out_path)
-            .build();
+        let _profiler = dhat::Profiler::builder().file_name(&out_path).build();
         run_workload();
         // Profiler writes on drop.
         eprintln!("dhat profile written to {out_path}");

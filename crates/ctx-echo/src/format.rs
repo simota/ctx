@@ -51,19 +51,25 @@ fn render_json(res: &EchoResult) -> String {
     let top_value: serde_json::Value = if res.top.is_empty() {
         serde_json::Value::Null
     } else {
-        let top: Vec<serde_json::Value> = res.top.iter().map(|t| {
-            let matches: serde_json::Map<String, serde_json::Value> = t.matches.iter()
-                .map(|(k, v)| (k.clone(), serde_json::json!(v)))
-                .collect();
-            serde_json::json!({
-                "rank": t.rank,
-                "path": t.path,
-                "line_start": t.line_start,
-                "line_end": t.line_end,
-                "score": t.score,
-                "matches": matches,
+        let top: Vec<serde_json::Value> = res
+            .top
+            .iter()
+            .map(|t| {
+                let matches: serde_json::Map<String, serde_json::Value> = t
+                    .matches
+                    .iter()
+                    .map(|(k, v)| (k.clone(), serde_json::json!(v)))
+                    .collect();
+                serde_json::json!({
+                    "rank": t.rank,
+                    "path": t.path,
+                    "line_start": t.line_start,
+                    "line_end": t.line_end,
+                    "score": t.score,
+                    "matches": matches,
+                })
             })
-        }).collect();
+            .collect();
         serde_json::json!(top)
     };
 
@@ -121,7 +127,10 @@ fn render_markdown(res: &EchoResult) -> String {
 
     let _ = writeln!(s, "## Top {} chunks by retrieval score\n", res.top.len());
     if res.top.is_empty() {
-        let _ = writeln!(s, "(no matching chunks — goal tokens did not appear in pack)");
+        let _ = writeln!(
+            s,
+            "(no matching chunks — goal tokens did not appear in pack)"
+        );
         let _ = writeln!(s);
     } else {
         for t in res.top.iter() {

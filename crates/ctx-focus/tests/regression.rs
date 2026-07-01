@@ -58,7 +58,11 @@ fn identifier_pattern_respects_camel_case_boundaries() {
 fn identifier_pattern_matches_at_word_boundary() {
     // Inside "Pack()" the `(` is a non-alnum boundary, so the pattern matches.
     let files = vec![
-        mkfile("pack.go", vec!["package pack", "func Pack() {}"], vec![("Pack", 2)]),
+        mkfile(
+            "pack.go",
+            vec!["package pack", "func Pack() {}"],
+            vec![("Pack", 2)],
+        ),
         mkfile(
             "caller.go",
             vec!["package caller", "// invokes Pack(x) here"],

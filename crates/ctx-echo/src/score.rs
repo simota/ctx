@@ -125,9 +125,7 @@ pub fn score_chunks(chunks: &[Chunk], goal_tokens: &[String]) -> Vec<ScoredChunk
             matches.insert(t.clone(), *count);
             let cnt = *count as f64;
             let numer = cnt * (BM25_K1 + 1.0);
-            let denom = cnt
-                + BM25_K1
-                    * (1.0 - BM25_B + BM25_B * (c.token_len as f64) / avg_len);
+            let denom = cnt + BM25_K1 * (1.0 - BM25_B + BM25_B * (c.token_len as f64) / avg_len);
             s += idf.get(t).copied().unwrap_or(0.0) * (numer / denom);
         }
         out.push(ScoredChunk {
@@ -142,7 +140,10 @@ pub fn score_chunks(chunks: &[Chunk], goal_tokens: &[String]) -> Vec<ScoredChunk
     // retain their input order (matches Go's sort.SliceStable).
     out.sort_by(|a, b| {
         if a.score != b.score {
-            return b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal);
+            return b
+                .score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal);
         }
         if a.chunk.source_path != b.chunk.source_path {
             return a.chunk.source_path.cmp(&b.chunk.source_path);
@@ -169,8 +170,7 @@ pub fn coverage(scored: &[ScoredChunk], goal_tokens: &[String], top_k: i32) -> (
             covered += 1;
         }
     }
-    let token_coverage =
-        present.len() as f64 / unique_tokens(goal_tokens) as f64;
+    let token_coverage = present.len() as f64 / unique_tokens(goal_tokens) as f64;
 
     let mut top_k_usize = top_k as i64;
     if top_k_usize <= 0 || top_k_usize > scored.len() as i64 {

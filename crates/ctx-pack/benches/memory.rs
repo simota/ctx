@@ -14,8 +14,8 @@ use dhat::HeapStats;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use ctx_pack::relevance::session::RelevanceSession;
 use ctx_pack::relevance::score_relevance;
+use ctx_pack::relevance::session::RelevanceSession;
 use ctx_pack::testing::synth_corpus;
 
 #[cfg(feature = "dhat")]

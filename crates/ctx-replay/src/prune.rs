@@ -119,11 +119,7 @@ fn parse_go_duration_atom(num: &str, unit: &str) -> Result<i64, String> {
 /// Deletes manifests with `created_at < now - older` (older specified in
 /// nanoseconds). `now` is an RFC3339 timestamp string for parity with
 /// the Go input.
-pub fn prune(
-    store: &Store,
-    now: &str,
-    older_nanos: i64,
-) -> Result<PruneResult, StoreError> {
+pub fn prune(store: &Store, now: &str, older_nanos: i64) -> Result<PruneResult, StoreError> {
     let manifests = store.list()?;
     let now_secs = rfc3339_to_unix_nanos(now)
         .ok_or_else(|| StoreError::InvalidId(format!("now is not RFC3339: {now}")))?;

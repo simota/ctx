@@ -19,19 +19,19 @@
 // the per-query resolution + BFS expansion against an already-loaded
 // corpus.
 
-pub mod types;
-pub mod resolve;
 pub mod expand;
-pub mod pack;
 pub mod ffi;
+pub mod pack;
+pub mod resolve;
+pub mod types;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
-pub use crate::types::{
-    Anchor, AnchorKind, Candidate, ErrAmbiguous, ExpandOptions, FileInfo, FileInput,
-    PackResult, SymbolInfo,
-};
-pub use crate::resolve::resolve_anchor;
 pub use crate::expand::expand;
 pub use crate::pack::pack;
+pub use crate::resolve::resolve_anchor;
+pub use crate::types::{
+    Anchor, AnchorKind, Candidate, ErrAmbiguous, ExpandOptions, FileInfo, FileInput, PackResult,
+    SymbolInfo,
+};

@@ -148,14 +148,7 @@ fn unknown_query_kind_does_not_corrupt_session() {
     // First a bad kind
     let mut out: *mut c_char = ptr::null_mut();
     let rc = unsafe {
-        ctx_symbols_lookup_session_query(
-            h,
-            b"nope".as_ptr(),
-            4,
-            ptr::null(),
-            0,
-            &mut out,
-        )
+        ctx_symbols_lookup_session_query(h, b"nope".as_ptr(), 4, ptr::null(), 0, &mut out)
     };
     assert_eq!(rc, ERR_BAD_KIND);
 

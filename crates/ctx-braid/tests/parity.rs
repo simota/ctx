@@ -38,26 +38,22 @@ fn load_toml(fixture: &str) -> Vec<u8> {
 
 fn load_selections(fixture: &str) -> Vec<StrandSelection> {
     let path = fixtures_dir().join(format!("{fixture}_selections.json"));
-    let raw = std::fs::read(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
-    serde_json::from_slice(&raw)
-        .unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
+    let raw = std::fs::read(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    serde_json::from_slice(&raw).unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
 }
 
 fn load_golden(fixture: &str, name: &str) -> Value {
     let path = goldens_dir().join(fixture).join(format!("{name}.json"));
     let raw = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("read golden {}: {e}", path.display()));
-    serde_json::from_str(&raw)
-        .unwrap_or_else(|e| panic!("parse golden {fixture}/{name}: {e}"))
+    serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse golden {fixture}/{name}: {e}"))
 }
 
 fn run_parity(fixture: &str) {
     let toml_bytes = load_toml(fixture);
 
     // Step 1: load_config (Load + Validate).
-    let cfg = load(&toml_bytes)
-        .unwrap_or_else(|e| panic!("load {fixture}: {e}"));
+    let cfg = load(&toml_bytes).unwrap_or_else(|e| panic!("load {fixture}: {e}"));
     let cfg_value = serde_json::to_value(&cfg).unwrap();
     let cfg_golden = load_golden(fixture, "load_config");
     assert_eq!(

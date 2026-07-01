@@ -128,7 +128,10 @@ fn related_go_sources(
 
     // Mirrors Go's `conventional` map
     let mut conventional: Vec<(String, &'static str)> = Vec::new();
-    conventional.push((join_slash(&dir, &format!("{base}.go")), "conventional source"));
+    conventional.push((
+        join_slash(&dir, &format!("{base}.go")),
+        "conventional source",
+    ));
     if let Some(idx) = base.find('_') {
         if idx > 0 {
             conventional.push((
@@ -342,8 +345,7 @@ fn collect_top_level_symbols(
             // a grammar revision introduces one.
             "type_declaration" => {
                 for_each_spec(decl, "type_spec", "type_spec_list", &mut |spec| {
-                    if let Some(name) =
-                        spec.child_by_field_name("name").and_then(|n| text(n, src))
+                    if let Some(name) = spec.child_by_field_name("name").and_then(|n| text(n, src))
                     {
                         add_symbol(out, seen, &name);
                     }
@@ -533,10 +535,7 @@ fn read_coverage(root: &Path, rel_path: &str, profile: &str) -> std::io::Result<
         profile
     };
     let profile = clean_slash(profile);
-    if Path::new(&profile).is_absolute()
-        || profile.starts_with("../")
-        || profile == ".."
-    {
+    if Path::new(&profile).is_absolute() || profile.starts_with("../") || profile == ".." {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
             "coverage profile must be repo-relative",

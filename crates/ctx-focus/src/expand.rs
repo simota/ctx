@@ -30,10 +30,7 @@ fn identifier_pattern(name: &str) -> Regex {
         return re.clone();
     }
     let quoted = regex::escape(name);
-    let pattern = format!(
-        r"(?:^|[^A-Za-z0-9_]){}(?:[^A-Za-z0-9_]|$)",
-        quoted
-    );
+    let pattern = format!(r"(?:^|[^A-Za-z0-9_]){}(?:[^A-Za-z0-9_]|$)", quoted);
     let re = Regex::new(&pattern).expect("identifier pattern always valid");
     cache.insert(name.to_string(), re.clone());
     re
@@ -112,8 +109,7 @@ fn expand_once(files: &[FileInput], anchor: &Anchor) -> Vec<FileInfo> {
         }
         let rel = to_slash(&fi.path);
         let s = stem(&rel);
-        let matches_prefix = s == origin_prefix
-            || s.starts_with(&format!("{}_", origin_prefix));
+        let matches_prefix = s == origin_prefix || s.starts_with(&format!("{}_", origin_prefix));
         if matches_prefix {
             add(
                 FileInfo {

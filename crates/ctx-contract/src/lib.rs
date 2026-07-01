@@ -4,14 +4,14 @@
 // package's file split so byte-parity verification stays trivially
 // auditable side-by-side.
 
-pub mod types;
-pub mod hash;
 pub mod builder;
-pub mod parse_refs;
 pub mod embed;
-pub mod verify;
-pub mod format;
 pub mod ffi;
+pub mod format;
+pub mod hash;
+pub mod parse_refs;
+pub mod types;
+pub mod verify;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
@@ -24,6 +24,6 @@ pub const SCHEMA_VERSION: i32 = 1;
 // Re-export the most-commonly-used types so callers can `use
 // ctx_contract::Contract` without spelling out the submodule path.
 pub use crate::types::{
-    Contract, File, FileInput, ReferenceKind, Reference, Result as VerifyResult, StaleFile,
-    Violation, ViolationKind, VerifyOptions, OK,
+    Contract, File, FileInput, Reference, ReferenceKind, Result as VerifyResult, StaleFile,
+    VerifyOptions, Violation, ViolationKind, OK,
 };

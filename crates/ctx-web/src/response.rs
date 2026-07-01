@@ -30,10 +30,7 @@ pub fn to_json_bytes<T: Serialize>(body: &T) -> Vec<u8> {
 pub fn json_bytes(status: StatusCode, buf: Vec<u8>) -> Response {
     (
         status,
-        [(
-            header::CONTENT_TYPE,
-            "application/json; charset=utf-8",
-        )],
+        [(header::CONTENT_TYPE, "application/json; charset=utf-8")],
         buf,
     )
         .into_response()
@@ -59,9 +56,12 @@ struct ErrorPayload<'a> {
 
 /// Mirror of `writeError`.
 pub fn error(status: StatusCode, code: &str, message: &str) -> Response {
-    json(status, &ErrorEnvelope {
-        error: ErrorPayload { code, message },
-    })
+    json(
+        status,
+        &ErrorEnvelope {
+            error: ErrorPayload { code, message },
+        },
+    )
 }
 
 /// Mirror of `writeBadPath` — maps a [`PathError`] to its status/code/message.

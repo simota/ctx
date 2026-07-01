@@ -13,9 +13,9 @@ use axum::http::StatusCode;
 use axum::response::Response;
 use serde::{Deserialize, Serialize};
 
+use crate::handlers::file::relative_to_root;
 use crate::response;
 use crate::safepath;
-use crate::handlers::file::relative_to_root;
 use crate::AppState;
 
 #[derive(Deserialize)]
@@ -71,19 +71,11 @@ fn handle_sync(state: AppState, params: RelationsParams) -> Response {
                     &format!("stat {}: no such file or directory", target.display()),
                 );
             }
-            return response::error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "stat",
-                &e.to_string(),
-            );
+            return response::error(StatusCode::INTERNAL_SERVER_ERROR, "stat", &e.to_string());
         }
     };
     if info.is_dir() {
-        return response::error(
-            StatusCode::BAD_REQUEST,
-            "not_a_file",
-            "path is a directory",
-        );
+        return response::error(StatusCode::BAD_REQUEST, "not_a_file", "path is a directory");
     }
 
     let rel_slash = relative_to_root(&state.root, &target);

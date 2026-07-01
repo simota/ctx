@@ -124,11 +124,7 @@ fn handle_sync(state: AppState, params: EvidenceParams) -> Response {
         }
     };
     if info.is_dir() {
-        return response::error(
-            StatusCode::BAD_REQUEST,
-            "not_a_file",
-            "path is a directory",
-        );
+        return response::error(StatusCode::BAD_REQUEST, "not_a_file", "path is a directory");
     }
 
     // Clamp limit: default 6, min 1, max 25.
@@ -337,7 +333,10 @@ fn manifest_entry_for_path<'a>(
     manifest: &'a ctx_replay::types::Manifest,
     rel_slash: &str,
 ) -> Option<&'a ctx_replay::types::Entry> {
-    manifest.entries.iter().find(|e| e.path.replace('\\', "/") == rel_slash)
+    manifest
+        .entries
+        .iter()
+        .find(|e| e.path.replace('\\', "/") == rel_slash)
 }
 
 // ---------------------------------------------------------------------------

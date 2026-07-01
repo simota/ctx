@@ -26,8 +26,7 @@ fn goldens_root() -> PathBuf {
 
 fn read_json<T: serde::de::DeserializeOwned>(p: &std::path::Path) -> T {
     let bytes = std::fs::read(p).unwrap_or_else(|e| panic!("read {}: {e}", p.display()));
-    serde_json::from_slice(&bytes)
-        .unwrap_or_else(|e| panic!("parse {}: {e}", p.display()))
+    serde_json::from_slice(&bytes).unwrap_or_else(|e| panic!("parse {}: {e}", p.display()))
 }
 
 fn for_each_fixture<F: FnMut(&str, PathBuf)>(mut f: F) {
@@ -59,10 +58,7 @@ fn parity_apionly_render() {
         let expected: serde_json::Value = read_json(&output_path);
         let rendered = render_api(&req);
         let want = expected["rendered"].as_str().unwrap_or("");
-        assert_eq!(
-            rendered, want,
-            "fixture {name}: apionly render mismatch"
-        );
+        assert_eq!(rendered, want, "fixture {name}: apionly render mismatch");
     });
 }
 
@@ -104,7 +100,10 @@ fn build_native_corpus(dir: &Path) -> Vec<FileSymbols> {
                 .unwrap()
                 .to_string_lossy()
                 .replace('\\', "/");
-            out.push(FileSymbols { path: rel, symbols: syms });
+            out.push(FileSymbols {
+                path: rel,
+                symbols: syms,
+            });
         }
     }
     let mut out = Vec::new();
@@ -163,11 +162,12 @@ fn native_extract_each_language_nonempty() {
     for (rel, name, kind, line) in cases {
         let syms = extract(lang.join(rel)).unwrap();
         assert!(!syms.is_empty(), "{rel}: extracted no symbols");
-        let want = Symbol { name: name.to_string(), kind: kind.to_string(), line: *line };
-        assert!(
-            syms.contains(&want),
-            "{rel}: expected {want:?} in {syms:?}"
-        );
+        let want = Symbol {
+            name: name.to_string(),
+            kind: kind.to_string(),
+            line: *line,
+        };
+        assert!(syms.contains(&want), "{rel}: expected {want:?} in {syms:?}");
     }
 }
 
@@ -204,10 +204,17 @@ fn parity_lookup_resolve() {
         let corpus: Vec<FileSymbols> = read_json(&corpus_path);
         let queries: Vec<LookupArgs> = read_json(&queries_path);
         let expected: Vec<Vec<Hit>> = read_json(&output_path);
-        assert_eq!(queries.len(), expected.len(), "fixture {name}: query/output length mismatch");
+        assert_eq!(
+            queries.len(),
+            expected.len(),
+            "fixture {name}: query/output length mismatch"
+        );
         for (i, q) in queries.iter().enumerate() {
             let got = resolve(&corpus, q);
-            assert_eq!(got, expected[i], "fixture {name} query #{i} {q:?}: mismatch");
+            assert_eq!(
+                got, expected[i],
+                "fixture {name} query #{i} {q:?}: mismatch"
+            );
         }
     });
 }

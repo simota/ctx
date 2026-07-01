@@ -56,7 +56,11 @@ fn escape_svg(s: &str) -> String {
 }
 
 fn svg_path_label(path: &str) -> &str {
-    if path == "." { "<root>" } else { path }
+    if path == "." {
+        "<root>"
+    } else {
+        path
+    }
 }
 
 fn svg_canvas_size(rects: &[Rect], opts: &SvgOptions) -> (i64, i64) {
@@ -70,8 +74,12 @@ fn svg_canvas_size(rects: &[Rect], opts: &SvgOptions) -> (i64, i64) {
             h = r.y + r.h;
         }
     }
-    if w <= 0 { w = 80; }
-    if h <= 0 { h = 20; }
+    if w <= 0 {
+        w = 80;
+    }
+    if h <= 0 {
+        h = 20;
+    }
     (w, h)
 }
 
@@ -96,8 +104,16 @@ fn budget_flags(rects: &[Rect], budget: i64) -> Vec<bool> {
 /// with Go's heatmap.RenderSVG output.
 pub fn render_svg(rects: &[Rect], opts: &SvgOptions) -> String {
     let (canvas_w, canvas_h) = svg_canvas_size(rects, opts);
-    let root = if opts.root.is_empty() { "." } else { &opts.root };
-    let by = if opts.by.is_empty() { "tokens" } else { &opts.by };
+    let root = if opts.root.is_empty() {
+        "."
+    } else {
+        &opts.root
+    };
+    let by = if opts.by.is_empty() {
+        "tokens"
+    } else {
+        &opts.by
+    };
 
     let total_tokens: i64 = rects.iter().map(|r| r.bucket.tokens).sum();
 
@@ -139,8 +155,7 @@ pub fn render_svg(rects: &[Rect], opts: &SvgOptions) -> String {
 
     let in_budget = budget_flags(rects, opts.budget);
     let palette = [
-        "#7dd3fc", "#fca5a5", "#86efac", "#fde68a",
-        "#c4b5fd", "#f9a8d4", "#67e8f9", "#fdba74",
+        "#7dd3fc", "#fca5a5", "#86efac", "#fde68a", "#c4b5fd", "#f9a8d4", "#67e8f9", "#fdba74",
     ];
 
     for (i, r) in rects.iter().enumerate() {

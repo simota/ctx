@@ -53,7 +53,9 @@ pub fn aggregate(files: &[FileMetric], opts: &AggregateOptions) -> Vec<Bucket> {
     buckets.sort_by(|a, b| {
         if a.weight != b.weight {
             // Descending weight.
-            b.weight.partial_cmp(&a.weight).unwrap_or(std::cmp::Ordering::Equal)
+            b.weight
+                .partial_cmp(&a.weight)
+                .unwrap_or(std::cmp::Ordering::Equal)
         } else {
             a.path.cmp(&b.path)
         }

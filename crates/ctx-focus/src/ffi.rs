@@ -114,8 +114,7 @@ fn expand_envelope(anchor: &str, hops: i64, files: &[FileInput]) -> String {
         }
         Err(err) => {
             if err.candidates.is_empty() {
-                serde_json::json!({"error": "anchor not found", "anchor": err.anchor})
-                    .to_string()
+                serde_json::json!({"error": "anchor not found", "anchor": err.anchor}).to_string()
             } else {
                 serde_json::json!({
                     "ambiguous": true,
@@ -133,8 +132,7 @@ fn pack_envelope(anchor: &str, hops: i64, files: &[FileInput]) -> String {
         Ok(r) => serde_json::to_string(&r).unwrap_or_else(|_| String::from("{}")),
         Err(err) => {
             if err.candidates.is_empty() {
-                serde_json::json!({"error": "anchor not found", "anchor": err.anchor})
-                    .to_string()
+                serde_json::json!({"error": "anchor not found", "anchor": err.anchor}).to_string()
             } else {
                 serde_json::json!({
                     "ambiguous": true,
@@ -337,7 +335,11 @@ pub unsafe extern "C" fn ctx_focus_session_expand(
             Err(e) => return e,
         };
         let session = &*(handle as *const FocusSession);
-        let effective_hops = if hops > 0 { hops as i64 } else { session.default_hops };
+        let effective_hops = if hops > 0 {
+            hops as i64
+        } else {
+            session.default_hops
+        };
         let body = expand_envelope(anchor, effective_hops, &session.files);
         emit_cstring(body, out_result_ptr)
     }));
@@ -371,7 +373,11 @@ pub unsafe extern "C" fn ctx_focus_session_pack(
             Err(e) => return e,
         };
         let session = &*(handle as *const FocusSession);
-        let effective_hops = if hops > 0 { hops as i64 } else { session.default_hops };
+        let effective_hops = if hops > 0 {
+            hops as i64
+        } else {
+            session.default_hops
+        };
         let body = pack_envelope(anchor, effective_hops, &session.files);
         emit_cstring(body, out_result_ptr)
     }));
@@ -452,13 +458,14 @@ mod tests {
         let handle = open_session(fixture_json());
         let q = "Pack";
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_focus_session_resolve(handle, q.as_ptr(), q.len(), &mut out)
-        };
+        let rc = unsafe { ctx_focus_session_resolve(handle, q.as_ptr(), q.len(), &mut out) };
         assert_eq!(rc, ERR_OK);
         let s = unsafe { CStr::from_ptr(out) }.to_str().unwrap().to_owned();
         unsafe { ctx_focus_free_string(out) };
-        assert!(s.contains("\"OriginPath\":\"internal/pack/pack.go\""), "{s}");
+        assert!(
+            s.contains("\"OriginPath\":\"internal/pack/pack.go\""),
+            "{s}"
+        );
         let rc = unsafe { ctx_focus_session_close(handle) };
         assert_eq!(rc, ERR_OK);
     }
@@ -468,9 +475,7 @@ mod tests {
         let handle = open_session(fixture_json());
         let q = "Pack";
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_focus_session_expand(handle, q.as_ptr(), q.len(), 1, &mut out)
-        };
+        let rc = unsafe { ctx_focus_session_expand(handle, q.as_ptr(), q.len(), 1, &mut out) };
         assert_eq!(rc, ERR_OK);
         let s = unsafe { CStr::from_ptr(out) }.to_str().unwrap().to_owned();
         unsafe { ctx_focus_free_string(out) };
@@ -484,9 +489,7 @@ mod tests {
         let handle = open_session(fixture_json());
         let q = "Pack";
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_focus_session_pack(handle, q.as_ptr(), q.len(), 1, &mut out)
-        };
+        let rc = unsafe { ctx_focus_session_pack(handle, q.as_ptr(), q.len(), 1, &mut out) };
         assert_eq!(rc, ERR_OK);
         let s = unsafe { CStr::from_ptr(out) }.to_str().unwrap().to_owned();
         unsafe { ctx_focus_free_string(out) };
@@ -516,9 +519,7 @@ mod tests {
                         _ => "RenderPack",
                     };
                     let mut out: *mut c_char = ptr::null_mut();
-                    let rc = unsafe {
-                        ctx_focus_session_resolve(h, q.as_ptr(), q.len(), &mut out)
-                    };
+                    let rc = unsafe { ctx_focus_session_resolve(h, q.as_ptr(), q.len(), &mut out) };
                     assert_eq!(rc, ERR_OK);
                     if !out.is_null() {
                         unsafe { ctx_focus_free_string(out) };
@@ -546,13 +547,7 @@ mod tests {
         let opts = "{}";
         let mut h: *mut c_void = ptr::null_mut();
         let rc = unsafe {
-            ctx_focus_session_open(
-                bad.as_ptr(),
-                bad.len(),
-                opts.as_ptr(),
-                opts.len(),
-                &mut h,
-            )
+            ctx_focus_session_open(bad.as_ptr(), bad.len(), opts.as_ptr(), opts.len(), &mut h)
         };
         assert_eq!(rc, ERR_BAD_JSON);
         assert!(h.is_null());
@@ -568,9 +563,7 @@ mod tests {
         let handle = open_session(files);
         let q = "Foo";
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_focus_session_expand(handle, q.as_ptr(), q.len(), 1, &mut out)
-        };
+        let rc = unsafe { ctx_focus_session_expand(handle, q.as_ptr(), q.len(), 1, &mut out) };
         assert_eq!(rc, ERR_OK);
         let s = unsafe { CStr::from_ptr(out) }.to_str().unwrap().to_owned();
         unsafe { ctx_focus_free_string(out) };

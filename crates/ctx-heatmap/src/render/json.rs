@@ -55,8 +55,16 @@ struct JsonEnvelope {
 /// terminating newline.
 pub fn render_json(rects: &[Rect], opts: &JsonOptions) -> Result<Vec<u8>, serde_json::Error> {
     let mut envelope = JsonEnvelope {
-        root: if opts.root.is_empty() { ".".into() } else { opts.root.clone() },
-        by: if opts.by.is_empty() { "tokens".into() } else { opts.by.clone() },
+        root: if opts.root.is_empty() {
+            ".".into()
+        } else {
+            opts.root.clone()
+        },
+        by: if opts.by.is_empty() {
+            "tokens".into()
+        } else {
+            opts.by.clone()
+        },
         total: 0.0,
         total_tokens: 0,
         budget: opts.budget,

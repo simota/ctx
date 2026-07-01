@@ -32,17 +32,15 @@ fn bench_search(c: &mut Criterion) {
     let fixtures = ["small_repo", "medium_repo", "large_repo"];
     let mut group = c.benchmark_group("search");
     for fx in &fixtures {
-        let Some((files, query)) = load_fixture(fx) else { continue };
+        let Some((files, query)) = load_fixture(fx) else {
+            continue;
+        };
         let n = files.len() as u64;
         group.throughput(Throughput::Elements(n.max(1)));
         group.bench_with_input(
             BenchmarkId::new("rust", fx),
             &(files, query),
-            |b, (files, query)| {
-                b.iter(|| {
-                    search_with_options(files, query, &Options::default())
-                })
-            },
+            |b, (files, query)| b.iter(|| search_with_options(files, query, &Options::default())),
         );
     }
     group.finish();

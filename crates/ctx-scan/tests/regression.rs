@@ -37,11 +37,7 @@ fn sample_gcp_api_key() -> String {
 #[test]
 fn empty_file_emits_no_warnings() {
     let path = write_temp("r01", b"");
-    let warnings = scan_file_with_options(
-        &path.to_string_lossy(),
-        &Options::default(),
-    )
-    .unwrap();
+    let warnings = scan_file_with_options(&path.to_string_lossy(), &Options::default()).unwrap();
     assert!(warnings.is_empty());
 }
 
@@ -55,8 +51,7 @@ fn first_match_wins_per_line() {
         sample_gcp_api_key()
     );
     let path = write_temp("r02", content.as_bytes());
-    let w = scan_file_with_options(&path.to_string_lossy(), &Options::default())
-        .unwrap();
+    let w = scan_file_with_options(&path.to_string_lossy(), &Options::default()).unwrap();
     assert_eq!(w.len(), 1, "expected 1, got {w:?}");
     assert_eq!(w[0].kind, "aws_access_key");
 }
@@ -70,8 +65,7 @@ fn very_long_line_does_not_panic() {
     body.extend(std::iter::repeat(b'a').take(2 * 1024 * 1024));
     body.extend_from_slice(b"\n");
     let path = write_temp("r03", &body);
-    let w = scan_file_with_options(&path.to_string_lossy(), &Options::default())
-        .unwrap();
+    let w = scan_file_with_options(&path.to_string_lossy(), &Options::default()).unwrap();
     // No regex in our set fires on a million 'a's, so this must come
     // back empty. The important assertion is the absence of a panic.
     assert!(w.is_empty());
@@ -85,8 +79,7 @@ fn embedded_nul_byte_does_not_terminate_scan() {
     body.extend_from_slice(b"prefix\x00middle\n");
     body.extend_from_slice(format!("aws=\"{}\"\n", sample_aws_access_key()).as_bytes());
     let path = write_temp("r04", &body);
-    let w = scan_file_with_options(&path.to_string_lossy(), &Options::default())
-        .unwrap();
+    let w = scan_file_with_options(&path.to_string_lossy(), &Options::default()).unwrap();
     assert_eq!(w.len(), 1, "{w:?}");
     assert_eq!(w[0].kind, "aws_access_key");
     assert_eq!(w[0].line, 2);
@@ -100,8 +93,7 @@ fn unicode_line_with_secret_emits_clean_preview() {
     // anchor (^? \b?) sees a non-ASCII left boundary.
     let line = format!("コメント aws=\"{}\"\n", sample_aws_access_key());
     let path = write_temp("r05", line.as_bytes());
-    let w = scan_file_with_options(&path.to_string_lossy(), &Options::default())
-        .unwrap();
+    let w = scan_file_with_options(&path.to_string_lossy(), &Options::default()).unwrap();
     assert_eq!(w.len(), 1, "{w:?}");
     // Preview must be valid UTF-8 and shaped like `AKIA[...]MPLE`.
     let p = &w[0].preview;
@@ -119,11 +111,7 @@ fn allowlist_files_short_circuits_scan() {
         allowlist_files: vec!["tests/fixtures/**".to_string()],
         ..Default::default()
     };
-    let w = scan_file_with_options(
-        "tests/fixtures/never-exists.txt",
-        &opts,
-    )
-    .unwrap();
+    let w = scan_file_with_options("tests/fixtures/never-exists.txt", &opts).unwrap();
     assert!(w.is_empty());
 }
 

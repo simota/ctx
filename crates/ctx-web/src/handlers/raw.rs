@@ -20,12 +20,30 @@ use crate::AppState;
 /// full gitignore-glob engine is DEFERRED (the patterns here are all
 /// basename-anchored, so suffix + exact matching is faithful for them).
 const SECRET_BASENAMES: &[&str] = &[
-    ".env", ".envrc", "id_rsa", "id_rsa.pub", "id_dsa", "id_dsa.pub", "id_ecdsa",
-    "id_ecdsa.pub", "id_ed25519", "id_ed25519.pub", "credentials.json", ".netrc",
-    ".npmrc", ".pypirc",
+    ".env",
+    ".envrc",
+    "id_rsa",
+    "id_rsa.pub",
+    "id_dsa",
+    "id_dsa.pub",
+    "id_ecdsa",
+    "id_ecdsa.pub",
+    "id_ed25519",
+    "id_ed25519.pub",
+    "credentials.json",
+    ".netrc",
+    ".npmrc",
+    ".pypirc",
 ];
 const SECRET_SUFFIXES: &[&str] = &[
-    ".env", ".pem", ".key", ".crt", ".p12", ".pfx", ".jks", ".keystore",
+    ".env",
+    ".pem",
+    ".key",
+    ".crt",
+    ".p12",
+    ".pfx",
+    ".jks",
+    ".keystore",
 ];
 const SECRET_DIRS: &[&str] = &[".aws", ".gnupg", ".ssh"];
 
@@ -62,7 +80,13 @@ fn handle_sync(state: AppState, method: Method, uri: Uri) -> Response {
     }
     let decoded = match percent_decode(rel) {
         Some(d) => d,
-        None => return response::error(StatusCode::BAD_REQUEST, "bad_request", "invalid url encoding"),
+        None => {
+            return response::error(
+                StatusCode::BAD_REQUEST,
+                "bad_request",
+                "invalid url encoding",
+            )
+        }
     };
     if secret_deny(&decoded) {
         return response::error(
@@ -206,7 +230,10 @@ fn sniff(data: &[u8]) -> String {
     // reach here. A no-extension file of printable bytes is treated as text.
     let head = &data[..data.len().min(512)];
     let looks_text = std::str::from_utf8(head)
-        .map(|s| s.chars().all(|c| !c.is_control() || c == '\n' || c == '\r' || c == '\t'))
+        .map(|s| {
+            s.chars()
+                .all(|c| !c.is_control() || c == '\n' || c == '\r' || c == '\t')
+        })
         .unwrap_or(false);
     if looks_text {
         "text/plain; charset=utf-8".into()

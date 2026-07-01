@@ -75,10 +75,7 @@ fn emit_cstring(value: String, out: *mut *mut c_char) -> c_int {
 /// structured error info should switch to the dedicated error fields,
 /// but for the FFI surface the message-string approach matches what the
 /// Go side already does in cli/braid.go (string-match on prefix).
-fn emit_ok_value(
-    value: impl serde::Serialize,
-    out: *mut *mut c_char,
-) -> c_int {
+fn emit_ok_value(value: impl serde::Serialize, out: *mut *mut c_char) -> c_int {
     let body = match serde_json::to_string(&value) {
         Ok(s) => s,
         Err(_) => return ERR_SERIALIZE,
@@ -239,8 +236,7 @@ pub unsafe extern "C" fn ctx_braid_shell_quote(
         match shell_split(src) {
             Ok(tokens) => emit_ok_value(tokens, out_result_ptr),
             Err(e) => {
-                let body =
-                    serde_json::json!({"ok": false, "error": format!("braid: {e}")});
+                let body = serde_json::json!({"ok": false, "error": format!("braid: {e}")});
                 let s = match serde_json::to_string(&body) {
                     Ok(s) => s,
                     Err(_) => return ERR_SERIALIZE,
@@ -354,9 +350,7 @@ share = 0.5
         let cfg_json =
             br#"{"schema_version":1,"strands":[{"name":"a","source":"where 'x'","share":0.3,"policy":""},{"name":"b","source":"where 'y'","share":0.4,"policy":""}]}"#;
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_braid_allocate(cfg_json.as_ptr(), cfg_json.len(), 1000, &mut out)
-        };
+        let rc = unsafe { ctx_braid_allocate(cfg_json.as_ptr(), cfg_json.len(), 1000, &mut out) };
         assert_eq!(rc, ERR_OK);
         let s = unsafe { CStr::from_ptr(out) }.to_str().unwrap().to_owned();
         unsafe { ctx_braid_free_string(out) };
@@ -406,9 +400,7 @@ share = 0.5
     fn strand_subcommand_round_trip() {
         let src = b"ctx focus Bar --hops 2";
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_braid_strand_subcommand(src.as_ptr(), src.len(), &mut out)
-        };
+        let rc = unsafe { ctx_braid_strand_subcommand(src.as_ptr(), src.len(), &mut out) };
         assert_eq!(rc, ERR_OK);
         let s = unsafe { CStr::from_ptr(out) }.to_str().unwrap().to_owned();
         unsafe { ctx_braid_free_string(out) };

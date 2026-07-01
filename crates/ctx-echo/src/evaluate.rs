@@ -119,8 +119,7 @@ mod tests {
         assert!(!res.top.is_empty(), "expected at least one scored chunk");
         assert_eq!(res.top[0].path, "foo/bar.go");
         assert!(
-            res.top[0].matches.contains_key("burst")
-                || res.top[0].matches.contains_key("handler")
+            res.top[0].matches.contains_key("burst") || res.top[0].matches.contains_key("handler")
         );
     }
 

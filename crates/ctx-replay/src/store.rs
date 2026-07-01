@@ -58,7 +58,11 @@ pub struct ResolveOptions {
 ///  4. $HOME/.ctx/replay/
 pub fn resolve(opts: ResolveOptions) -> std::io::Result<String> {
     if opts.shared {
-        let root = if opts.root.is_empty() { "." } else { &opts.root };
+        let root = if opts.root.is_empty() {
+            "."
+        } else {
+            &opts.root
+        };
         let abs = fs::canonicalize(root).unwrap_or_else(|_| PathBuf::from(root));
         let p = abs.join(".ctx").join("replay");
         return Ok(p.to_string_lossy().into_owned());

@@ -104,11 +104,7 @@ pub fn read_jvm_package(abs_path: &std::path::Path) -> String {
 }
 
 /// Mirror of `resolveJVMImports(absPath, rel, idx)`.
-pub fn resolve_jvm_imports(
-    abs_path: &std::path::Path,
-    rel: &str,
-    idx: &JvmIndex,
-) -> Vec<String> {
+pub fn resolve_jvm_imports(abs_path: &std::path::Path, rel: &str, idx: &JvmIndex) -> Vec<String> {
     let src = match fs::read_to_string(abs_path) {
         Ok(s) => s,
         Err(_) => return Vec::new(),
@@ -144,7 +140,13 @@ pub fn resolve_jvm_imports(
     out
 }
 
-fn resolve_one_jvm(spec: &str, is_static: bool, is_kotlin: bool, idx: &JvmIndex, out: &mut Vec<String>) {
+fn resolve_one_jvm(
+    spec: &str,
+    is_static: bool,
+    is_kotlin: bool,
+    idx: &JvmIndex,
+    out: &mut Vec<String>,
+) {
     let mut spec = spec.to_string();
     if spec.ends_with(".*") {
         let pkg = spec.trim_end_matches(".*");

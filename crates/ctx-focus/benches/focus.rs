@@ -32,7 +32,9 @@ fn bench_focus(c: &mut Criterion) {
     let fixtures = ["small_repo", "medium_repo", "large_repo"];
     let mut group = c.benchmark_group("focus");
     for fx in &fixtures {
-        let Some((files, anchor)) = load_fixture(fx) else { continue };
+        let Some((files, anchor)) = load_fixture(fx) else {
+            continue;
+        };
         let n = files.len() as u64;
         group.throughput(Throughput::Elements(n.max(1)));
 

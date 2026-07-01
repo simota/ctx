@@ -11,9 +11,7 @@ use std::path::PathBuf;
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
-use ctx_braid::{
-    allocate, load, merge_paths, shell_split, validate, Config, StrandSelection,
-};
+use ctx_braid::{allocate, load, merge_paths, shell_split, validate, Config, StrandSelection};
 
 fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -39,7 +37,9 @@ fn bench_braid(c: &mut Criterion) {
     let mut group = c.benchmark_group("braid");
     let sample_source = "where 'handler' --regex 'router|Handler' --limit 50";
     for fx in &fixtures {
-        let Some(toml_bytes) = load_toml(fx) else { continue };
+        let Some(toml_bytes) = load_toml(fx) else {
+            continue;
+        };
         group.throughput(Throughput::Bytes(toml_bytes.len() as u64));
 
         group.bench_with_input(

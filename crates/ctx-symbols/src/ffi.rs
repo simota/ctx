@@ -347,9 +347,7 @@ mod tests {
         });
         let body = serde_json::to_vec(&req).unwrap();
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_symbols_apionly_render(body.as_ptr(), body.len(), &mut out)
-        };
+        let rc = unsafe { ctx_symbols_apionly_render(body.as_ptr(), body.len(), &mut out) };
         assert_eq!(rc, ERR_OK);
         let s = cstr_into_string(out);
         assert!(s.contains("\"rendered\":\"package x\\n\""), "{s}");
@@ -367,13 +365,7 @@ mod tests {
         let ab = serde_json::to_vec(&args).unwrap();
         let mut out: *mut c_char = ptr::null_mut();
         let rc = unsafe {
-            ctx_symbols_lookup_resolve(
-                cb.as_ptr(),
-                cb.len(),
-                ab.as_ptr(),
-                ab.len(),
-                &mut out,
-            )
+            ctx_symbols_lookup_resolve(cb.as_ptr(), cb.len(), ab.as_ptr(), ab.len(), &mut out)
         };
         assert_eq!(rc, ERR_OK);
         let s = cstr_into_string(out);
@@ -446,10 +438,7 @@ mod tests {
         assert_eq!(rc, ERR_OK);
         let s = cstr_into_string(out);
         // pack should rank first (same-directory match wins)
-        assert!(
-            s.starts_with("[{\"Path\":\"internal/pack/pack.go\""),
-            "{s}"
-        );
+        assert!(s.starts_with("[{\"Path\":\"internal/pack/pack.go\""), "{s}");
 
         let rc = unsafe { ctx_symbols_lookup_session_close(handle) };
         assert_eq!(rc, ERR_OK);
@@ -460,13 +449,7 @@ mod tests {
         let mut handle: *mut c_void = ptr::null_mut();
         let cb = b"[]";
         let rc = unsafe {
-            ctx_symbols_lookup_session_open(
-                b"/r".as_ptr(),
-                2,
-                cb.as_ptr(),
-                cb.len(),
-                &mut handle,
-            )
+            ctx_symbols_lookup_session_open(b"/r".as_ptr(), 2, cb.as_ptr(), cb.len(), &mut handle)
         };
         assert_eq!(rc, ERR_OK);
 
@@ -508,13 +491,7 @@ mod tests {
         let mut out: *mut c_char = ptr::null_mut();
         let bad = b"not-json";
         let rc = unsafe {
-            ctx_symbols_lookup_resolve(
-                bad.as_ptr(),
-                bad.len(),
-                bad.as_ptr(),
-                bad.len(),
-                &mut out,
-            )
+            ctx_symbols_lookup_resolve(bad.as_ptr(), bad.len(), bad.as_ptr(), bad.len(), &mut out)
         };
         assert_eq!(rc, ERR_BAD_JSON);
     }
@@ -524,13 +501,7 @@ mod tests {
         let mut handle: *mut c_void = ptr::null_mut();
         let cb = b"[]";
         let rc = unsafe {
-            ctx_symbols_lookup_session_open(
-                b"/r".as_ptr(),
-                2,
-                cb.as_ptr(),
-                cb.len(),
-                &mut handle,
-            )
+            ctx_symbols_lookup_session_open(b"/r".as_ptr(), 2, cb.as_ptr(), cb.len(), &mut handle)
         };
         assert_eq!(rc, ERR_OK);
         let rc = unsafe { ctx_symbols_lookup_session_close(handle) };

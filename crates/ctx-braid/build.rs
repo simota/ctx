@@ -14,8 +14,8 @@ fn main() {
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
     let out_path = PathBuf::from(out_dir).join("ctx_braid.h");
 
-    let config = cbindgen::Config::from_file(crate_path.join("cbindgen.toml"))
-        .unwrap_or_else(|e| {
+    let config =
+        cbindgen::Config::from_file(crate_path.join("cbindgen.toml")).unwrap_or_else(|e| {
             println!("cargo:warning=cbindgen.toml parse failed: {e}");
             cbindgen::Config::default()
         });

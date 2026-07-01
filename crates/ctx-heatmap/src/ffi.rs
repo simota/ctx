@@ -362,9 +362,7 @@ mod tests {
             {"Path":"b","Tokens":0,"Files":0,"Symbols":0,"Weight":30.0}
         ]"#;
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_heatmap_squarify(buckets.as_ptr(), buckets.len(), 80, 20, &mut out)
-        };
+        let rc = unsafe { ctx_heatmap_squarify(buckets.as_ptr(), buckets.len(), 80, 20, &mut out) };
         assert_eq!(rc, ERR_OK);
         let s = unsafe { CStr::from_ptr(out) }.to_str().unwrap().to_owned();
         unsafe { ctx_heatmap_free_string(out) };
@@ -447,24 +445,15 @@ mod tests {
     #[test]
     fn bad_json_rejected() {
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_heatmap_aggregate(
-                b"not-json".as_ptr(),
-                8,
-                ptr::null(),
-                0,
-                &mut out,
-            )
-        };
+        let rc =
+            unsafe { ctx_heatmap_aggregate(b"not-json".as_ptr(), 8, ptr::null(), 0, &mut out) };
         assert_eq!(rc, ERR_BAD_JSON);
         assert!(out.is_null());
     }
 
     #[test]
     fn null_out_pointer_rejected() {
-        let rc = unsafe {
-            ctx_heatmap_aggregate(ptr::null(), 0, ptr::null(), 0, ptr::null_mut())
-        };
+        let rc = unsafe { ctx_heatmap_aggregate(ptr::null(), 0, ptr::null(), 0, ptr::null_mut()) };
         assert_eq!(rc, ERR_NULL_PTR);
     }
 }

@@ -14,11 +14,14 @@ pub fn fixtures_dir() -> PathBuf {
 
 /// Go-generated parity goldens root.
 pub fn goldens_dir() -> PathBuf {
-    repo_root().join("tests").join("parity").join("relations-goldens")
+    repo_root()
+        .join("tests")
+        .join("parity")
+        .join("relations-goldens")
 }
 
 fn repo_root() -> PathBuf {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .unwrap_or_else(|_| "crates/ctx-relations".to_string());
+    let manifest_dir =
+        std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| "crates/ctx-relations".to_string());
     PathBuf::from(manifest_dir).join("..").join("..")
 }

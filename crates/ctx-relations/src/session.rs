@@ -266,10 +266,7 @@ mod tests {
             s.query("refs", "not-json"),
             Err(QueryError::BadArgs)
         ));
-        assert!(matches!(
-            s.query("refs", r#"{}"#),
-            Err(QueryError::BadArgs)
-        ));
+        assert!(matches!(s.query("refs", r#"{}"#), Err(QueryError::BadArgs)));
     }
 
     #[test]

@@ -13,8 +13,7 @@ use crate::types::Reference;
 /// Order matches `supportedExts` in parse_refs.go verbatim — change the
 /// Go side and this list together.
 pub const SUPPORTED_EXTS: &[&str] = &[
-    ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs",
-    ".py", ".rs", ".java", ".kt", ".rb", ".swift",
+    ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".py", ".rs", ".java", ".kt", ".rb", ".swift",
     ".md", ".toml", ".yaml", ".yml", ".json", ".sh", ".sql",
 ];
 

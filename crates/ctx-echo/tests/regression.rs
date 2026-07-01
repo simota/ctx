@@ -3,10 +3,10 @@
 // Regression tests for ctx-echo. Each test exercises one of the 5
 // echo_test.go cases via the Rust evaluate() entry point.
 
+use ctx_echo::chunk::chunk_pack;
 use ctx_echo::evaluate;
 use ctx_echo::tokenize::tokenize;
 use ctx_echo::types::{ChunkStrategy, Options};
-use ctx_echo::chunk::chunk_pack;
 
 const SAMPLE_PACK: &str = include_str!("../../../internal/echo/testdata/sample_pack.md");
 
@@ -40,7 +40,8 @@ fn r02_evaluate_empty_pack() {
 #[test]
 fn r03_evaluate_single_chunk() {
     // From TestEvaluateSingleChunk.
-    let body = "## File contents\n\n### foo/bar.go\n\n```go\npackage bar\n\nfunc BurstHandler() {}\n```\n";
+    let body =
+        "## File contents\n\n### foo/bar.go\n\n```go\npackage bar\n\nfunc BurstHandler() {}\n```\n";
     let opts = Options {
         goal: "burst handler".into(),
         top: 5,
@@ -97,14 +98,22 @@ fn r05_evaluate_threshold_fail() {
 fn r06_chunk_symbol_strategy() {
     // From TestChunkSymbolStrategy.
     let chunks = chunk_pack(SAMPLE_PACK, ChunkStrategy::Symbol, 0);
-    assert!(chunks.len() >= 2, "expected ≥2 symbol chunks, got {}", chunks.len());
+    assert!(
+        chunks.len() >= 2,
+        "expected ≥2 symbol chunks, got {}",
+        chunks.len()
+    );
 }
 
 #[test]
 fn r07_chunk_fixed_strategy() {
     // From TestChunkFixedStrategy.
     let chunks = chunk_pack(SAMPLE_PACK, ChunkStrategy::Fixed, 3);
-    assert!(chunks.len() >= 3, "expected ≥3 fixed chunks for size=3, got {}", chunks.len());
+    assert!(
+        chunks.len() >= 3,
+        "expected ≥3 fixed chunks for size=3, got {}",
+        chunks.len()
+    );
 }
 
 #[test]

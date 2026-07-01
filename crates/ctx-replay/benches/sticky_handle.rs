@@ -72,7 +72,9 @@ fn bench_diff(c: &mut Criterion) {
     let fixtures = ["single_snap", "multi_snap_drift", "scoring_change"];
     let mut group = c.benchmark_group("session_diff");
     for fx in &fixtures {
-        let Some((mut base, cur)) = load_pair(fx) else { continue };
+        let Some((mut base, cur)) = load_pair(fx) else {
+            continue;
+        };
         // Fix the base id so the seeded store can be queried.
         base.id = "base".into();
         if base.created_at.is_empty() {
@@ -89,15 +91,11 @@ fn bench_diff(c: &mut Criterion) {
         );
 
         let session = ReplaySession::open(dir.to_str().unwrap()).unwrap();
-        group.bench_with_input(
-            BenchmarkId::new("rust_session", fx),
-            &args,
-            |b, args| {
-                b.iter(|| {
-                    let _ = session.query("diff", args).unwrap();
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("rust_session", fx), &args, |b, args| {
+            b.iter(|| {
+                let _ = session.query("diff", args).unwrap();
+            });
+        });
 
         // Stateless intrinsic (no FFI, just compute) — the lower bound.
         group.bench_with_input(
@@ -124,7 +122,9 @@ fn bench_load(c: &mut Criterion) {
     let fixtures = ["single_snap", "multi_snap_drift", "scoring_change"];
     let mut group = c.benchmark_group("session_load");
     for fx in &fixtures {
-        let Some((mut base, _cur)) = load_pair(fx) else { continue };
+        let Some((mut base, _cur)) = load_pair(fx) else {
+            continue;
+        };
         base.id = "base".into();
         if base.created_at.is_empty() {
             base.created_at = "2026-01-01T00:00:00Z".into();
@@ -160,10 +160,7 @@ fn bench_prune(c: &mut Criterion) {
         m.created_at = format!("2026-04-{:02}T00:00:00Z", (i % 28) + 1);
         manifests.push((m.id.clone(), m));
     }
-    let pairs: Vec<(&str, &Manifest)> = manifests
-        .iter()
-        .map(|(id, m)| (id.as_str(), m))
-        .collect();
+    let pairs: Vec<(&str, &Manifest)> = manifests.iter().map(|(id, m)| (id.as_str(), m)).collect();
     let dir = seed_store("prune", &pairs);
     let session = ReplaySession::open(dir.to_str().unwrap()).unwrap();
     // Warm the list cache.
@@ -175,11 +172,15 @@ fn bench_prune(c: &mut Criterion) {
     );
 
     let mut group = c.benchmark_group("session_prune");
-    group.bench_with_input(BenchmarkId::new("rust_session", "32_snaps"), &args, |b, args| {
-        b.iter(|| {
-            let _ = session.query("prune_candidates", args).unwrap();
-        });
-    });
+    group.bench_with_input(
+        BenchmarkId::new("rust_session", "32_snaps"),
+        &args,
+        |b, args| {
+            b.iter(|| {
+                let _ = session.query("prune_candidates", args).unwrap();
+            });
+        },
+    );
     group.finish();
 
     let _ = std::fs::remove_dir_all(&dir);

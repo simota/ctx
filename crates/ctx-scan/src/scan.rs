@@ -377,8 +377,7 @@ mod tests {
     #[test]
     fn entropy_opt_in_fires_on_random_string() {
         // Mirror of TestScanFileEntropyOptIn.
-        let path =
-            write_temp(r#"token="abcdefghijklmnopqrstuvwxyzABCDEF1234567890""#);
+        let path = write_temp(r#"token="abcdefghijklmnopqrstuvwxyzABCDEF1234567890""#);
         let opts = Options {
             enable_entropy: true,
             ..Default::default()
@@ -433,10 +432,10 @@ mod tests {
         // The Go `allowlistedFile` is order-insensitive; we just verify
         // a simple `*` glob fires.
         assert!(allowlisted_file("src/foo.go", &["src/*.go".to_string()]));
-        assert!(!allowlisted_file("src/sub/foo.go", &["src/*.go".to_string()]));
-        assert!(allowlisted_file(
+        assert!(!allowlisted_file(
             "src/sub/foo.go",
-            &["src/**".to_string()]
+            &["src/*.go".to_string()]
         ));
+        assert!(allowlisted_file("src/sub/foo.go", &["src/**".to_string()]));
     }
 }

@@ -237,9 +237,7 @@ fn scan_text_inner(text: &str, virtual_path: &str, opts: &Options) -> Vec<Warnin
                 if allowlisted_local(&token, line, &opts.allowlist) {
                     continue;
                 }
-                if token.chars().count() >= 20
-                    && crate::entropy::shannon_entropy(&token) >= 4.0
-                {
+                if token.chars().count() >= 20 && crate::entropy::shannon_entropy(&token) >= 4.0 {
                     warnings.push(Warning {
                         path: virtual_path.to_string(),
                         line: line_no,
@@ -509,15 +507,7 @@ mod tests {
     fn scan_file_happy_path() {
         let path = write_temp(&format!("aws=\"{}\"", sample_aws_access_key()));
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_scan_file(
-                path.as_ptr(),
-                path.len(),
-                ptr::null(),
-                0,
-                &mut out,
-            )
-        };
+        let rc = unsafe { ctx_scan_file(path.as_ptr(), path.len(), ptr::null(), 0, &mut out) };
         assert_eq!(rc, ERR_OK);
         let json = cstr_into_string(out);
         assert!(json.contains("\"aws_access_key\""), "json = {json}");
@@ -550,9 +540,7 @@ mod tests {
     fn scan_files_handles_empty_array() {
         let paths = b"[]";
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_scan_files(paths.as_ptr(), paths.len(), ptr::null(), 0, &mut out)
-        };
+        let rc = unsafe { ctx_scan_files(paths.as_ptr(), paths.len(), ptr::null(), 0, &mut out) };
         assert_eq!(rc, ERR_OK);
         let json = cstr_into_string(out);
         // Go serialises an empty `[]model.Warning(nil)` as `null`; we
@@ -589,15 +577,8 @@ mod tests {
         let path = write_temp("nothing");
         let bad = b"{not json";
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_scan_file(
-                path.as_ptr(),
-                path.len(),
-                bad.as_ptr(),
-                bad.len(),
-                &mut out,
-            )
-        };
+        let rc =
+            unsafe { ctx_scan_file(path.as_ptr(), path.len(), bad.as_ptr(), bad.len(), &mut out) };
         assert_eq!(rc, ERR_BAD_JSON);
     }
 

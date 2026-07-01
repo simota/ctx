@@ -17,13 +17,13 @@
 // pack_body, opts) entry point. No corpus reuse — each call is
 // independent over its own pack body.
 
-pub mod types;
-pub mod tokenize;
 pub mod chunk;
-pub mod score;
-pub mod format;
 pub mod evaluate;
 pub mod ffi;
+pub mod format;
+pub mod score;
+pub mod tokenize;
+pub mod types;
 
 pub use crate::evaluate::evaluate;
 pub use crate::types::{

@@ -359,10 +359,7 @@ fn store_error_response(e: StoreError) -> Response {
 /// Other methods (PUT/PATCH/...) genuinely 405 in Go with the same
 /// "GET or POST only" envelope + `Allow: GET, POST` — for THOSE the Rust 405
 /// is true byte-parity (covered by the `mix_collection_put_rejected` case).
-pub async fn handle_collection(
-    method: Method,
-    State(state): State<AppState>,
-) -> Response {
+pub async fn handle_collection(method: Method, State(state): State<AppState>) -> Response {
     match method {
         Method::GET => handle_list(State(state)).await,
         _ => {

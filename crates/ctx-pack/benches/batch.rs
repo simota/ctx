@@ -49,7 +49,9 @@ fn bench_diff(c: &mut Criterion) {
 
 fn bench_redact(c: &mut Criterion) {
     let data = (0..512).fold(String::new(), |mut a, i| {
-        a.push_str(&format!("line {i}: lorem ipsum dolor sit amet consectetur adipiscing\n"));
+        a.push_str(&format!(
+            "line {i}: lorem ipsum dolor sit amet consectetur adipiscing\n"
+        ));
         a
     });
     let warnings: Vec<WarningInput> = (1..=512)
@@ -109,5 +111,11 @@ fn bench_preset(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_diff, bench_redact, bench_from_where, bench_preset);
+criterion_group!(
+    benches,
+    bench_diff,
+    bench_redact,
+    bench_from_where,
+    bench_preset
+);
 criterion_main!(benches);

@@ -175,8 +175,7 @@ fn t_session_query_index_summary_byte_equal_to_build_cached() {
 
     // Build the stateless cached body for comparison.
     let mut out: *mut c_char = ptr::null_mut();
-    let rc =
-        unsafe { ctx_relations_build_cached(root.as_ptr(), root.len(), &mut out) };
+    let rc = unsafe { ctx_relations_build_cached(root.as_ptr(), root.len(), &mut out) };
     assert_eq!(rc, ERR_OK);
     let stateless = unsafe { CStr::from_ptr(out) }.to_str().unwrap().to_owned();
     unsafe { ctx_relations_free_string(out) };

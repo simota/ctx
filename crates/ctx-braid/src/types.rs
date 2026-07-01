@@ -65,7 +65,12 @@ pub struct Strand {
     pub name: String,
     #[serde(default, rename = "Source", alias = "source")]
     pub source: String,
-    #[serde(default, rename = "Share", alias = "share", serialize_with = "ser_share")]
+    #[serde(
+        default,
+        rename = "Share",
+        alias = "share",
+        serialize_with = "ser_share"
+    )]
     pub share: f64,
     /// Empty string deserialised here is interpreted as Merge after Validate
     /// normalises (matches Go behaviour).
@@ -131,12 +136,7 @@ pub struct Config {
     /// TOML `[[strand]]` becomes a `strand` array. When parsed via serde we
     /// expect `strand` (TOML array-of-tables); when parsed via JSON we
     /// accept `Strands` (Go default CamelCase) or `strand`.
-    #[serde(
-        default,
-        rename = "Strands",
-        alias = "strand",
-        alias = "strands"
-    )]
+    #[serde(default, rename = "Strands", alias = "strand", alias = "strands")]
     pub strands: Vec<Strand>,
 }
 
@@ -193,7 +193,11 @@ pub struct StrandReport {
     pub policy: PolicyKind,
     #[serde(rename = "raw_paths")]
     pub raw_paths: i64,
-    #[serde(rename = "trim_note", skip_serializing_if = "String::is_empty", default)]
+    #[serde(
+        rename = "trim_note",
+        skip_serializing_if = "String::is_empty",
+        default
+    )]
     pub trim_note: String,
 }
 
@@ -216,7 +220,11 @@ pub struct Result {
     pub dry_run: bool,
     #[serde(rename = "pack_bytes", default, skip_serializing_if = "is_zero_i64")]
     pub pack_bytes: i64,
-    #[serde(rename = "pack_sha256", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        rename = "pack_sha256",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub pack_sha256: String,
 }
 

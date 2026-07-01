@@ -15,16 +15,14 @@
 //                  (allowlist, preview, entropy candidates).
 // `ffi.rs`       — extern "C" surface used by internal/scan/rustbridge.
 
-pub mod types;
 pub mod entropy;
+pub mod ffi;
 pub mod patterns;
 pub mod scan;
-pub mod ffi;
+pub mod types;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
-pub use crate::scan::{
-    scan_file, scan_file_with_options, scan_files, scan_files_with_options,
-};
+pub use crate::scan::{scan_file, scan_file_with_options, scan_files, scan_files_with_options};
 pub use crate::types::{Options, Warning};

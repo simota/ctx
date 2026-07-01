@@ -23,18 +23,16 @@ use ctx_replay::types::Manifest;
 
 fn load_manifest(fixture: &str, name: &str) -> Manifest {
     let path = fixtures_dir().join(fixture).join(format!("{name}.json"));
-    let raw = std::fs::read(&path)
-        .unwrap_or_else(|e| panic!("read fixture {}: {e}", path.display()));
-    serde_json::from_slice(&raw)
-        .unwrap_or_else(|e| panic!("parse fixture {}: {e}", path.display()))
+    let raw =
+        std::fs::read(&path).unwrap_or_else(|e| panic!("read fixture {}: {e}", path.display()));
+    serde_json::from_slice(&raw).unwrap_or_else(|e| panic!("parse fixture {}: {e}", path.display()))
 }
 
 fn load_golden(fixture: &str, name: &str) -> Value {
     let path = goldens_dir().join(fixture).join(format!("{name}.json"));
     let raw = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("read golden {}: {e}", path.display()));
-    serde_json::from_str(&raw)
-        .unwrap_or_else(|e| panic!("parse golden {}: {e}", path.display()))
+    serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse golden {}: {e}", path.display()))
 }
 
 fn load_opts(fixture: &str) -> DiffOptions {
@@ -63,7 +61,10 @@ fn run_parity(fixture: &str) {
     sort_selection_diff(&mut sel, "tier");
     let sel_actual = serde_json::to_value(&sel).unwrap();
     let sel_expected = load_golden(fixture, "selection");
-    assert_eq!(sel_actual, sel_expected, "selection parity mismatch for {fixture}");
+    assert_eq!(
+        sel_actual, sel_expected,
+        "selection parity mismatch for {fixture}"
+    );
 }
 
 #[test]

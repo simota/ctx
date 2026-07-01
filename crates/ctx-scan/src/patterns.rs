@@ -109,9 +109,7 @@ fn build_patterns() -> Vec<SecretPattern> {
         },
         SecretPattern {
             kind: "slack_webhook",
-            re: re(
-                r"https://hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]+",
-            ),
+            re: re(r"https://hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]+"),
             severity: "medium",
         },
         SecretPattern {

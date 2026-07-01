@@ -72,7 +72,8 @@ fn fake_go_binary() -> PathBuf {
     #[cfg(not(unix))]
     {
         let path = dir.join("ctx-go-stub.bat");
-        let script = format!("@echo off\r\necho {SENTINEL_MARKER} 1>&2\r\nexit /b {SENTINEL_EXIT}\r\n");
+        let script =
+            format!("@echo off\r\necho {SENTINEL_MARKER} 1>&2\r\nexit /b {SENTINEL_EXIT}\r\n");
         std::fs::write(&path, script).expect("write stub script");
         path
     }
@@ -259,8 +260,18 @@ fn cutover_root_text_tree_dispatches_native() {
 #[test]
 fn cutover_root_flags_dispatch_native() {
     for args in [
-        &["--git=false", "--depth", "1", "tests/where-fixtures/small_repo"][..],
-        &["--git=false", "--budget", "200", "tests/where-fixtures/small_repo"][..],
+        &[
+            "--git=false",
+            "--depth",
+            "1",
+            "tests/where-fixtures/small_repo",
+        ][..],
+        &[
+            "--git=false",
+            "--budget",
+            "200",
+            "tests/where-fixtures/small_repo",
+        ][..],
     ] {
         let out = run_ctx(args, &[("CTX_WEB_ENGINE", None)]);
         assert!(

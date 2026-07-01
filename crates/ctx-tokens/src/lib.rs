@@ -15,8 +15,7 @@ static ENCODER: OnceLock<CoreBPE> = OnceLock::new();
 
 fn get_encoder() -> &'static CoreBPE {
     ENCODER.get_or_init(|| {
-        tiktoken_rs::cl100k_base()
-            .expect("cl100k_base BPE data must be available at compile time")
+        tiktoken_rs::cl100k_base().expect("cl100k_base BPE data must be available at compile time")
     })
 }
 

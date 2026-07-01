@@ -136,7 +136,12 @@ mod tests {
             after_content: after.into(),
             before_commit: "abc".into(),
             after_commit: "def".into(),
-            patch: format!("--- a/{p}\n+++ b/{p}\n@@ @@\n-{b}\n+{a}\n", p = path, b = before, a = after),
+            patch: format!(
+                "--- a/{p}\n+++ b/{p}\n@@ @@\n-{b}\n+{a}\n",
+                p = path,
+                b = before,
+                a = after
+            ),
             added: false,
             deleted: false,
             binary: false,
@@ -146,7 +151,13 @@ mod tests {
     #[test]
     fn unified_renders_fenced_patch() {
         let d = entry("a.go", "old", "new");
-        let r = render(&[d], &DiffOptions { layout: "unified".into(), preset: String::new() });
+        let r = render(
+            &[d],
+            &DiffOptions {
+                layout: "unified".into(),
+                preset: String::new(),
+            },
+        );
         assert!(r.contains("```diff"));
         assert!(r.contains("@@ @@"));
     }

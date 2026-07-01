@@ -85,9 +85,8 @@ pub fn serve<R: BufRead, W: Write>(
                 // The handler holds only `&Server` (read-only), so there is no
                 // shared mutable state to be left poisoned by an unwind.
                 let id = req.id.clone();
-                match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    server.handle(req)
-                })) {
+                match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| server.handle(req)))
+                {
                     Ok(response) => response,
                     Err(_) => Response {
                         jsonrpc: "2.0",

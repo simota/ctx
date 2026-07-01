@@ -12,9 +12,17 @@ pub fn render_ascii(rects: &[Rect], opts: &AsciiOptions) -> String {
     let h = if opts.height <= 0 { 20 } else { opts.height };
 
     let mut header = String::new();
-    let root = if opts.root.is_empty() { ".".to_string() } else { opts.root.clone() };
+    let root = if opts.root.is_empty() {
+        ".".to_string()
+    } else {
+        opts.root.clone()
+    };
     let total_tokens: i64 = rects.iter().map(|r| r.bucket.tokens).sum();
-    let by = if opts.by.is_empty() { "tokens".to_string() } else { opts.by.clone() };
+    let by = if opts.by.is_empty() {
+        "tokens".to_string()
+    } else {
+        opts.by.clone()
+    };
 
     if opts.budget > 0 {
         header.push_str(&format!(

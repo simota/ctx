@@ -10,8 +10,16 @@ use crate::types::{Bucket, PlainOptions};
 /// reader narration. Sentences end with periods so TTS engines apply a
 /// falling terminal pitch.
 pub fn render_plain(buckets: &[Bucket], opts: &PlainOptions) -> String {
-    let root = if opts.root.is_empty() { ".".to_string() } else { opts.root.clone() };
-    let by = if opts.by.is_empty() { "tokens".to_string() } else { opts.by.clone() };
+    let root = if opts.root.is_empty() {
+        ".".to_string()
+    } else {
+        opts.root.clone()
+    };
+    let by = if opts.by.is_empty() {
+        "tokens".to_string()
+    } else {
+        opts.by.clone()
+    };
     let total = total_tokens(buckets);
 
     let mut out = String::with_capacity(256 + buckets.len() * 80);
@@ -39,7 +47,11 @@ pub fn render_plain(buckets: &[Bucket], opts: &PlainOptions) -> String {
 
     let mut used: i64 = 0;
     for (i, b) in buckets.iter().enumerate() {
-        let path = if b.path == "." { "<root>" } else { b.path.as_str() };
+        let path = if b.path == "." {
+            "<root>"
+        } else {
+            b.path.as_str()
+        };
         let files_noun = if b.files == 1 { "file" } else { "files" };
         let sym_noun = if b.symbols == 1 { "symbol" } else { "symbols" };
         let base = format!(

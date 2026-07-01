@@ -10,8 +10,8 @@ use std::path::Path;
 use std::ptr;
 
 use ctx_replay::ffi::{
-    ctx_replay_diff, ctx_replay_free_string, ctx_replay_selection_diff,
-    ctx_replay_session_close, ctx_replay_session_open, ctx_replay_session_query,
+    ctx_replay_diff, ctx_replay_free_string, ctx_replay_selection_diff, ctx_replay_session_close,
+    ctx_replay_session_open, ctx_replay_session_query,
 };
 use ctx_replay::store::open_store;
 use ctx_replay::types::{Entry, Manifest};
@@ -355,7 +355,10 @@ fn t_session_concurrent_queries_safe() {
                     0 => ("list", "{}"),
                     1 => ("load", r#"{"id":"snap-c1"}"#),
                     2 => ("load", r#"{"id":"snap-c2"}"#),
-                    _ => ("diff_ids", r#"{"base_id":"snap-c1","current_id":"snap-c2"}"#),
+                    _ => (
+                        "diff_ids",
+                        r#"{"base_id":"snap-c1","current_id":"snap-c2"}"#,
+                    ),
                 };
                 let mut out: *mut c_char = ptr::null_mut();
                 let rc = unsafe {

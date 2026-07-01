@@ -274,15 +274,7 @@ mod tests {
     fn empty_opts_uses_defaults() {
         let mut out: *mut c_char = ptr::null_mut();
         let rc = unsafe {
-            ctx_echo_evaluate(
-                b"x".as_ptr(),
-                1,
-                b"".as_ptr(),
-                0,
-                ptr::null(),
-                0,
-                &mut out,
-            )
+            ctx_echo_evaluate(b"x".as_ptr(), 1, b"".as_ptr(), 0, ptr::null(), 0, &mut out)
         };
         assert_eq!(rc, ERR_OK);
         let json = cstr_into_string(out);

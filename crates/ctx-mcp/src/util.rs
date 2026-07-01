@@ -173,7 +173,7 @@ mod tests {
 
         // Every multiplier suffix that can overflow saturates to a positive value.
         for since in [
-            "100000000000000000y",  // *365
+            "100000000000000000y",   // *365
             "1000000000000000000mo", // *30
             "9000000000000000000w",  // *7
         ] {

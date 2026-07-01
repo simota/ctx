@@ -11,11 +11,14 @@ pub fn fixtures_dir() -> PathBuf {
 }
 
 pub fn goldens_dir() -> PathBuf {
-    repo_root().join("tests").join("parity").join("focus-goldens")
+    repo_root()
+        .join("tests")
+        .join("parity")
+        .join("focus-goldens")
 }
 
 fn repo_root() -> PathBuf {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .unwrap_or_else(|_| "crates/ctx-focus".to_string());
+    let manifest_dir =
+        std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| "crates/ctx-focus".to_string());
     PathBuf::from(manifest_dir).join("..").join("..")
 }

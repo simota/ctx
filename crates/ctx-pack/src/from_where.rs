@@ -25,7 +25,9 @@ pub enum FromWhereError {
 impl std::fmt::Display for FromWhereError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FromWhereError::Empty => write!(f, "--from-where: requires non-empty stdin (got 0 paths)"),
+            FromWhereError::Empty => {
+                write!(f, "--from-where: requires non-empty stdin (got 0 paths)")
+            }
             FromWhereError::BadJson => write!(f, "--from-where: JSON parse failed"),
         }
     }
@@ -64,7 +66,11 @@ fn parse_json(data: &[u8]) -> Result<Vec<String>, FromWhereError> {
         return Err(FromWhereError::Empty);
     }
     // Stable sort descending by score — matches sort.SliceStable.
-    results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    results.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let mut paths: Vec<String> = Vec::with_capacity(results.len());
     for r in results {

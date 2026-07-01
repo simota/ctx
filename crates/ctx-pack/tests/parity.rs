@@ -117,15 +117,31 @@ fn parity_relevance_small_corpus() {
         let tc = g.token_counts.get(i).copied().unwrap_or(fi.tokens);
         let r = ctx_pack::relevance::score_relevance_with_ctx(fi, &ctx, tc);
         let want = &g.results[i];
-        assert_eq!(r.tier, want.tier, "tier mismatch on file {} ({})", i, fi.path);
-        assert_eq!(r.score, want.score, "score mismatch on file {} ({})", i, fi.path);
-        assert_eq!(r.reason, want.reason, "reason mismatch on file {} ({})", i, fi.path);
+        assert_eq!(
+            r.tier, want.tier,
+            "tier mismatch on file {} ({})",
+            i, fi.path
+        );
+        assert_eq!(
+            r.score, want.score,
+            "score mismatch on file {} ({})",
+            i, fi.path
+        );
+        assert_eq!(
+            r.reason, want.reason,
+            "reason mismatch on file {} ({})",
+            i, fi.path
+        );
         assert_eq!(
             r.breakdown, want.breakdown,
             "breakdown mismatch on file {} ({})",
             i, fi.path
         );
-        assert_eq!(r.signals, want.signals, "signals mismatch on file {} ({})", i, fi.path);
+        assert_eq!(
+            r.signals, want.signals,
+            "signals mismatch on file {} ({})",
+            i, fi.path
+        );
     }
 }
 
@@ -219,7 +235,11 @@ fn synth_session_matches_stateless_for_every_file() {
         assert_eq!(sticky.score, stateless.score, "score for {}", fi.path);
         assert_eq!(sticky.tier, stateless.tier, "tier for {}", fi.path);
         assert_eq!(sticky.reason, stateless.reason, "reason for {}", fi.path);
-        assert_eq!(sticky.breakdown, stateless.breakdown, "breakdown for {}", fi.path);
+        assert_eq!(
+            sticky.breakdown, stateless.breakdown,
+            "breakdown for {}",
+            fi.path
+        );
         assert_eq!(sticky.signals, stateless.signals, "signals for {}", fi.path);
     }
 }

@@ -40,11 +40,15 @@ fn make_file(path: &str, role: &str, syms: &[(&str, &str)]) -> FileInput {
 #[test]
 fn t_extract_goal_keywords_japanese_and_aliases() {
     let got = extract_goal_keywords("ログイン処理のバグを調べたい");
-    for want in ["ログイン", "login", "auth", "session", "ログイン処理", "バグ"] {
-        assert!(
-            got.iter().any(|w| w == want),
-            "missing {want:?} in {got:?}"
-        );
+    for want in [
+        "ログイン",
+        "login",
+        "auth",
+        "session",
+        "ログイン処理",
+        "バグ",
+    ] {
+        assert!(got.iter().any(|w| w == want), "missing {want:?} in {got:?}");
     }
     for unwanted in ["の", "を", "調べたい"] {
         assert!(
@@ -56,7 +60,11 @@ fn t_extract_goal_keywords_japanese_and_aliases() {
 
 #[test]
 fn t_score_relevance_uses_basename_path_symbol_and_role() {
-    let fi = make_file("src/auth/login.ts", "core", &[("validateLoginSession", "function")]);
+    let fi = make_file(
+        "src/auth/login.ts",
+        "core",
+        &[("validateLoginSession", "function")],
+    );
     let got = score_relevance(&fi, "ログイン認証", 100, 30000);
     assert_eq!(got.tier, "High");
     assert!(got.score >= 20, "score {} too low: {:?}", got.score, got);
@@ -116,7 +124,11 @@ fn t_score_relevance_excluded_reasons() {
 fn t_doc_role_boost_when_goal_mentions_docs() {
     let fi = make_file("README.md", "doc", &[]);
     let got = score_relevance(&fi, "認証 docs", 10, 1000);
-    assert!(got.score > 0, "doc goal should avoid doc penalty: {:?}", got);
+    assert!(
+        got.score > 0,
+        "doc goal should avoid doc penalty: {:?}",
+        got
+    );
 }
 
 #[test]
@@ -132,7 +144,13 @@ fn t_diff_unified_layout() {
         deleted: false,
         binary: false,
     };
-    let out = diff_render(&[d], &DiffOptions { layout: "unified".into(), preset: String::new() });
+    let out = diff_render(
+        &[d],
+        &DiffOptions {
+            layout: "unified".into(),
+            preset: String::new(),
+        },
+    );
     assert!(out.starts_with("```diff"));
     assert!(out.contains("@@ @@"));
 }

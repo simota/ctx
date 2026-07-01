@@ -107,10 +107,7 @@ fn strip_fences(lines: &[String]) -> Vec<String> {
     }
 
     // Trim leading/trailing blank lines.
-    let lead = out
-        .iter()
-        .take_while(|l| l.trim().is_empty())
-        .count();
+    let lead = out.iter().take_while(|l| l.trim().is_empty()).count();
     out.drain(..lead);
     while !out.is_empty() && out[out.len() - 1].trim().is_empty() {
         out.pop();
@@ -212,24 +209,21 @@ fn chunk_symbol(path: &str, lines: &[String]) -> Vec<Chunk> {
     let mut buf: Vec<String> = Vec::new();
     let mut start_idx: i32 = 0;
 
-    let flush = |buf: &mut Vec<String>,
-                 out: &mut Vec<Chunk>,
-                 path: &str,
-                 start_idx: i32,
-                 end: i32| {
-        if buf.is_empty() {
-            return;
-        }
-        out.push(Chunk {
-            source_path: path.to_string(),
-            line_start: start_idx + 1,
-            line_end: end,
-            body: buf.join("\n"),
-            tokens: Vec::new(),
-            token_len: 0,
-        });
-        buf.clear();
-    };
+    let flush =
+        |buf: &mut Vec<String>, out: &mut Vec<Chunk>, path: &str, start_idx: i32, end: i32| {
+            if buf.is_empty() {
+                return;
+            }
+            out.push(Chunk {
+                source_path: path.to_string(),
+                line_start: start_idx + 1,
+                line_end: end,
+                body: buf.join("\n"),
+                tokens: Vec::new(),
+                token_len: 0,
+            });
+            buf.clear();
+        };
 
     for (i, line) in lines.iter().enumerate() {
         if SYMBOL_BOUNDARY.is_match(line) && !buf.is_empty() {

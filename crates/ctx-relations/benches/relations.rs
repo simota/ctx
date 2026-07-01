@@ -33,11 +33,9 @@ fn bench_build_per_fixture(c: &mut Criterion) {
         // crude throughput proxy: rough source bytes under the fixture
         let bytes: u64 = walkdir_bytes(&p);
         group.throughput(Throughput::Bytes(bytes));
-        group.bench_with_input(
-            BenchmarkId::new("rust", fx),
-            &path,
-            |b, path| b.iter(|| build(path).unwrap()),
-        );
+        group.bench_with_input(BenchmarkId::new("rust", fx), &path, |b, path| {
+            b.iter(|| build(path).unwrap())
+        });
     }
     group.finish();
 }
@@ -51,23 +49,17 @@ fn bench_build_cached(c: &mut Criterion) {
             continue;
         }
         let path = p.to_string_lossy().to_string();
-        group.bench_with_input(
-            BenchmarkId::new("rust_first", fx),
-            &path,
-            |b, path| {
-                b.iter(|| {
-                    invalidate_cache(path);
-                    build_cached(path).unwrap()
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("rust_first", fx), &path, |b, path| {
+            b.iter(|| {
+                invalidate_cache(path);
+                build_cached(path).unwrap()
+            })
+        });
         // hit path
         let _ = build_cached(&path).unwrap();
-        group.bench_with_input(
-            BenchmarkId::new("rust_hit", fx),
-            &path,
-            |b, path| b.iter(|| build_cached(path).unwrap()),
-        );
+        group.bench_with_input(BenchmarkId::new("rust_hit", fx), &path, |b, path| {
+            b.iter(|| build_cached(path).unwrap())
+        });
     }
     group.finish();
 }

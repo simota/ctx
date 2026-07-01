@@ -406,7 +406,13 @@ mod tests {
         let b = "sitting";
         let mut d: c_int = 0;
         let rc = unsafe {
-            ctx_where_levenshtein(a.as_ptr(), a.len(), b.as_ptr(), b.len(), &mut d as *mut c_int)
+            ctx_where_levenshtein(
+                a.as_ptr(),
+                a.len(),
+                b.as_ptr(),
+                b.len(),
+                &mut d as *mut c_int,
+            )
         };
         assert_eq!(rc, ERR_OK);
         assert_eq!(d, 3);
@@ -451,16 +457,13 @@ mod tests {
         for q in queries {
             let mut sticky_out: *mut c_char = ptr::null_mut();
             let rc = unsafe {
-                ctx_where_session_search(
-                    handle,
-                    q.as_ptr(),
-                    q.len(),
-                    10,
-                    &mut sticky_out,
-                )
+                ctx_where_session_search(handle, q.as_ptr(), q.len(), 10, &mut sticky_out)
             };
             assert_eq!(rc, ERR_OK);
-            let sticky = unsafe { CStr::from_ptr(sticky_out) }.to_str().unwrap().to_owned();
+            let sticky = unsafe { CStr::from_ptr(sticky_out) }
+                .to_str()
+                .unwrap()
+                .to_owned();
             unsafe { ctx_where_free_string(sticky_out) };
 
             // Stateless equivalent.
@@ -478,7 +481,10 @@ mod tests {
                 )
             };
             assert_eq!(rc2, ERR_OK);
-            let stateless = unsafe { CStr::from_ptr(stateless_out) }.to_str().unwrap().to_owned();
+            let stateless = unsafe { CStr::from_ptr(stateless_out) }
+                .to_str()
+                .unwrap()
+                .to_owned();
             unsafe { ctx_where_free_string(stateless_out) };
             assert_eq!(sticky, stateless, "query {q} diverged");
         }
@@ -516,9 +522,8 @@ mod tests {
                         _ => "handler",
                     };
                     let mut out: *mut c_char = ptr::null_mut();
-                    let rc = unsafe {
-                        ctx_where_session_search(h, q.as_ptr(), q.len(), 10, &mut out)
-                    };
+                    let rc =
+                        unsafe { ctx_where_session_search(h, q.as_ptr(), q.len(), 10, &mut out) };
                     assert_eq!(rc, ERR_OK);
                     if !out.is_null() {
                         unsafe { ctx_where_free_string(out) };
@@ -547,15 +552,8 @@ mod tests {
     fn t_session_search_with_null_handle_safe() {
         let q = "anything";
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_where_session_search(
-                ptr::null_mut(),
-                q.as_ptr(),
-                q.len(),
-                10,
-                &mut out,
-            )
-        };
+        let rc =
+            unsafe { ctx_where_session_search(ptr::null_mut(), q.as_ptr(), q.len(), 10, &mut out) };
         assert_eq!(rc, ERR_BAD_HANDLE);
         assert!(out.is_null());
     }
@@ -566,13 +564,7 @@ mod tests {
         let opts = "{}";
         let mut h: *mut c_void = ptr::null_mut();
         let rc = unsafe {
-            ctx_where_session_open(
-                bad.as_ptr(),
-                bad.len(),
-                opts.as_ptr(),
-                opts.len(),
-                &mut h,
-            )
+            ctx_where_session_open(bad.as_ptr(), bad.len(), opts.as_ptr(), opts.len(), &mut h)
         };
         assert_eq!(rc, ERR_BAD_JSON);
         assert!(h.is_null());

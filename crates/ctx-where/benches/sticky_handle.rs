@@ -54,7 +54,9 @@ fn bench_sticky(c: &mut Criterion) {
     let fixtures = ["small_repo", "medium_repo", "large_repo"];
     let mut group = c.benchmark_group("search");
     for fx in &fixtures {
-        let Some((raw, files, queries)) = load_fixture(fx) else { continue };
+        let Some((raw, files, queries)) = load_fixture(fx) else {
+            continue;
+        };
         let n_files = files.len() as u64;
         group.throughput(Throughput::Elements(n_files.max(1)));
 

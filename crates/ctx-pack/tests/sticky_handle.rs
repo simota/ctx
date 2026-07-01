@@ -80,14 +80,23 @@ fn session_score_same_corpus_many_times() {
 #[test]
 fn session_score_corpus_results_match_individual_calls() {
     let corpus = make_corpus();
-    let s = RelevanceSession::with_corpus("ログイン認証", 30000, corpus.clone(), vec![100, 80, 200]);
+    let s =
+        RelevanceSession::with_corpus("ログイン認証", 30000, corpus.clone(), vec![100, 80, 200]);
     let batch = s.score_corpus();
     assert_eq!(batch.len(), corpus.len());
     for (i, fi) in corpus.iter().enumerate() {
         let single = s.score_file(fi, fi.tokens);
-        assert_eq!(batch[i].score, single.score, "score mismatch at {}", fi.path);
+        assert_eq!(
+            batch[i].score, single.score,
+            "score mismatch at {}",
+            fi.path
+        );
         assert_eq!(batch[i].tier, single.tier, "tier mismatch at {}", fi.path);
-        assert_eq!(batch[i].reason, single.reason, "reason mismatch at {}", fi.path);
+        assert_eq!(
+            batch[i].reason, single.reason,
+            "reason mismatch at {}",
+            fi.path
+        );
     }
 }
 

@@ -11,7 +11,9 @@ use crate::patterns;
 /// files under `Sources/<Module>/`. Returns None when there are no .swift
 /// files in the tree (matches the Go contract — the resolver returns a
 /// nil index in that case).
-pub fn build_swift_modules(files: &[super::common::FileEntry]) -> Option<HashMap<String, Vec<String>>> {
+pub fn build_swift_modules(
+    files: &[super::common::FileEntry],
+) -> Option<HashMap<String, Vec<String>>> {
     let mut has_swift = false;
     let mut out: HashMap<String, Vec<String>> = HashMap::new();
     for fi in files {
@@ -26,7 +28,9 @@ pub fn build_swift_modules(files: &[super::common::FileEntry]) -> Option<HashMap
         if parts.len() < 3 || parts[0] != "Sources" {
             continue;
         }
-        out.entry(parts[1].to_string()).or_default().push(fi.rel.clone());
+        out.entry(parts[1].to_string())
+            .or_default()
+            .push(fi.rel.clone());
     }
     if !has_swift {
         return None;

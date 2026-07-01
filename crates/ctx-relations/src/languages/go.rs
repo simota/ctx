@@ -422,11 +422,7 @@ import "bad" // should NOT be picked up
     fn read_module_path_extracts_module_line() {
         let dir = std::env::temp_dir().join(format!("rel-go-mod-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(
-            dir.join("go.mod"),
-            "module example.com/m\n\ngo 1.22\n",
-        )
-        .unwrap();
+        std::fs::write(dir.join("go.mod"), "module example.com/m\n\ngo 1.22\n").unwrap();
         assert_eq!(read_module_path(&dir.to_string_lossy()), "example.com/m");
     }
 }

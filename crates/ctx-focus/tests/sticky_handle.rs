@@ -74,9 +74,7 @@ fn multi_query_parity_with_stateless() {
     let h = open(FIXTURE);
     for anchor in ["Pack", "helper", "RenderPack", "Options"] {
         let mut a_out = ptr::null_mut();
-        let rc = unsafe {
-            ctx_focus_session_pack(h, anchor.as_ptr(), anchor.len(), 1, &mut a_out)
-        };
+        let rc = unsafe { ctx_focus_session_pack(h, anchor.as_ptr(), anchor.len(), 1, &mut a_out) };
         assert_eq!(rc, 0);
         let sticky = read_cstr(a_out);
 
@@ -170,9 +168,7 @@ fn null_handle_safe_close() {
 fn null_handle_resolve_returns_bad_handle() {
     let q = "anything";
     let mut out = ptr::null_mut();
-    let rc = unsafe {
-        ctx_focus_session_resolve(ptr::null_mut(), q.as_ptr(), q.len(), &mut out)
-    };
+    let rc = unsafe { ctx_focus_session_resolve(ptr::null_mut(), q.as_ptr(), q.len(), &mut out) };
     assert_eq!(rc, -10);
     assert!(out.is_null());
 }

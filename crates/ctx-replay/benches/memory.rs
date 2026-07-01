@@ -26,11 +26,9 @@ fn fixtures_dir() -> PathBuf {
 fn main() {
     #[cfg(feature = "dhat")]
     {
-        let out_path = std::env::var("CTX_DHAT_OUT")
-            .unwrap_or_else(|_| "/tmp/replay-dhat.json".to_string());
-        let _profiler = dhat::Profiler::builder()
-            .file_name(&out_path)
-            .build();
+        let out_path =
+            std::env::var("CTX_DHAT_OUT").unwrap_or_else(|_| "/tmp/replay-dhat.json".to_string());
+        let _profiler = dhat::Profiler::builder().file_name(&out_path).build();
         run_workload();
         eprintln!("dhat profile written to {out_path}");
     }

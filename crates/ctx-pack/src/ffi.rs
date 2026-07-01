@@ -53,8 +53,8 @@ use crate::diff::render as diff_render;
 use crate::from_where::parse as from_where_parse;
 use crate::preset::apply_preset;
 use crate::redact::redact_lines;
-use crate::relevance::session::RelevanceSession;
 use crate::relevance::score_relevance;
+use crate::relevance::session::RelevanceSession;
 use crate::types::{DiffEntry, DiffOptions, FileInput, WarningInput};
 
 const MAX_INPUT_BYTES: usize = 256 * 1024 * 1024;
@@ -224,7 +224,9 @@ pub unsafe extern "C" fn ctx_pack_relevance_session_score_corpus(
         };
         let mut out = Vec::with_capacity(files.len());
         for (i, fi) in files.iter().enumerate() {
-            let tc = token_slice.and_then(|t| t.get(i).copied()).unwrap_or(fi.tokens);
+            let tc = token_slice
+                .and_then(|t| t.get(i).copied())
+                .unwrap_or(fi.tokens);
             out.push(session.score_file(fi, tc));
         }
         emit_ok_value(out, out_result_ptr)
@@ -283,7 +285,11 @@ pub unsafe extern "C" fn ctx_pack_relevance_session_rank(
                 budget: session.budget(),
             },
             &files,
-            if tokens.is_empty() { None } else { Some(&tokens) },
+            if tokens.is_empty() {
+                None
+            } else {
+                Some(&tokens)
+            },
             limit,
         );
         // Encode as [{"index": i, "result": {...}}] so the Go side
@@ -296,7 +302,10 @@ pub unsafe extern "C" fn ctx_pack_relevance_session_rank(
         }
         let view: Vec<Out<'_>> = ranked
             .iter()
-            .map(|(i, r)| Out { index: *i, result: r })
+            .map(|(i, r)| Out {
+                index: *i,
+                result: r,
+            })
             .collect();
         emit_ok_value(view, out_result_ptr)
     }));
@@ -603,9 +612,8 @@ mod tests {
         for _ in 0..500 {
             let goal = "認証";
             let mut h: *mut c_void = ptr::null_mut();
-            let rc = unsafe {
-                ctx_pack_relevance_session_open(goal.as_ptr(), goal.len(), 1000, &mut h)
-            };
+            let rc =
+                unsafe { ctx_pack_relevance_session_open(goal.as_ptr(), goal.len(), 1000, &mut h) };
             assert_eq!(rc, ERR_OK);
             let rc = unsafe { ctx_pack_relevance_session_close(h) };
             assert_eq!(rc, ERR_OK);
@@ -619,16 +627,18 @@ mod tests {
         let file = r#"{"path":"src/auth/login.ts","abs_path":"","is_dir":false,"tokens":100,"role":"core","metadata":{"size":100,"tokens_est":100,"role":"core","symbols":[{"name":"validateLoginSession","kind":"function","line":1}]},"content_head":[]}"#;
 
         let mut h: *mut c_void = ptr::null_mut();
-        let rc = unsafe {
-            ctx_pack_relevance_session_open(goal.as_ptr(), goal.len(), budget, &mut h)
-        };
+        let rc =
+            unsafe { ctx_pack_relevance_session_open(goal.as_ptr(), goal.len(), budget, &mut h) };
         assert_eq!(rc, ERR_OK);
         let mut s_out: *mut c_char = ptr::null_mut();
         let rc = unsafe {
             ctx_pack_relevance_session_score(h, file.as_ptr(), file.len(), 100, &mut s_out)
         };
         assert_eq!(rc, ERR_OK);
-        let sticky = unsafe { CStr::from_ptr(s_out) }.to_str().unwrap().to_owned();
+        let sticky = unsafe { CStr::from_ptr(s_out) }
+            .to_str()
+            .unwrap()
+            .to_owned();
         unsafe { ctx_pack_free_string(s_out) };
         unsafe { ctx_pack_relevance_session_close(h) };
 
@@ -645,7 +655,10 @@ mod tests {
             )
         };
         assert_eq!(rc, ERR_OK);
-        let stateless = unsafe { CStr::from_ptr(sl_out) }.to_str().unwrap().to_owned();
+        let stateless = unsafe { CStr::from_ptr(sl_out) }
+            .to_str()
+            .unwrap()
+            .to_owned();
         unsafe { ctx_pack_free_string(sl_out) };
 
         assert_eq!(sticky, stateless);
@@ -657,7 +670,13 @@ mod tests {
         let opts = r#"{"layout":"sequential","preset":""}"#;
         let mut out: *mut c_char = ptr::null_mut();
         let rc = unsafe {
-            ctx_pack_diff(diffs.as_ptr(), diffs.len(), opts.as_ptr(), opts.len(), &mut out)
+            ctx_pack_diff(
+                diffs.as_ptr(),
+                diffs.len(),
+                opts.as_ptr(),
+                opts.len(),
+                &mut out,
+            )
         };
         assert_eq!(rc, ERR_OK);
         let s = unsafe { CStr::from_ptr(out) }.to_str().unwrap().to_owned();

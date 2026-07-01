@@ -151,8 +151,8 @@ fn normalise_always_emit(v: &mut serde_json::Value) {
 /// (which only happens outside a cargo invocation, e.g. when an IDE
 /// runs the file standalone — best-effort, not a parity guarantee).
 pub fn fixture_dir() -> PathBuf {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .unwrap_or_else(|_| String::from("crates/ctx-contract"));
+    let manifest_dir =
+        std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| String::from("crates/ctx-contract"));
     // crates/ctx-contract/  →  ../../internal/contract/testdata
     PathBuf::from(manifest_dir)
         .join("..")
@@ -166,8 +166,8 @@ pub fn fixture_dir() -> PathBuf {
 /// writes to: `<repo_root>/tests/parity/goldens/`. Same resolution
 /// strategy as `fixture_dir`.
 pub fn goldens_dir() -> PathBuf {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .unwrap_or_else(|_| String::from("crates/ctx-contract"));
+    let manifest_dir =
+        std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| String::from("crates/ctx-contract"));
     PathBuf::from(manifest_dir)
         .join("..")
         .join("..")
@@ -202,13 +202,25 @@ mod tests {
         let s = String::from_utf8(bytes).unwrap();
         // Parity-critical fields must be arrays.
         assert!(s.contains("\"files\": []"), "files not normalised: {s}");
-        assert!(s.contains("\"violations\": []"), "violations not normalised: {s}");
+        assert!(
+            s.contains("\"violations\": []"),
+            "violations not normalised: {s}"
+        );
         assert!(s.contains("\"ok\": []"), "ok not normalised: {s}");
-        assert!(s.contains("\"stale_files\": []"), "stale_files not normalised: {s}");
-        assert!(s.contains("\"repack_suggestions\": []"), "repack_suggestions not normalised: {s}");
+        assert!(
+            s.contains("\"stale_files\": []"),
+            "stale_files not normalised: {s}"
+        );
+        assert!(
+            s.contains("\"repack_suggestions\": []"),
+            "repack_suggestions not normalised: {s}"
+        );
         assert!(s.contains("\"symbols\": []"), "symbols not normalised: {s}");
         // Non-parity null fields are left alone.
-        assert!(s.contains("\"other_field\": null"), "other_field changed: {s}");
+        assert!(
+            s.contains("\"other_field\": null"),
+            "other_field changed: {s}"
+        );
     }
 
     #[test]

@@ -404,9 +404,7 @@ mod tests {
     fn parse_duration_via_ffi() {
         let s = "5m";
         let mut out: i64 = 0;
-        let rc = unsafe {
-            ctx_replay_parse_duration(s.as_ptr(), s.len(), &mut out as *mut i64)
-        };
+        let rc = unsafe { ctx_replay_parse_duration(s.as_ptr(), s.len(), &mut out as *mut i64) };
         assert_eq!(rc, ERR_OK);
         assert_eq!(out, 5 * 60 * 1_000_000_000);
     }

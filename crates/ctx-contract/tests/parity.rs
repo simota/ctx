@@ -26,14 +26,13 @@ use pretty_assertions::assert_eq;
 
 use ctx_contract::builder::{build, set_now_fn, NowFn};
 use ctx_contract::embed::{
-    embed_json_patch, embed_markdown, embed_plain, embed_xml, parse_from_pack,
-    strip_contract_block,
+    embed_json_patch, embed_markdown, embed_plain, embed_xml, parse_from_pack, strip_contract_block,
 };
 use ctx_contract::format::render;
 use ctx_contract::parse_refs::extract_references;
+use ctx_contract::testing::parity_fixture_builder::{goldens_dir, FROZEN_INSTANT};
 use ctx_contract::verify::verify;
 use ctx_contract::{Contract, FileInput, VerifyOptions};
-use ctx_contract::testing::parity_fixture_builder::{goldens_dir, FROZEN_INSTANT};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -41,8 +40,8 @@ use ctx_contract::testing::parity_fixture_builder::{goldens_dir, FROZEN_INSTANT}
 
 /// Returns absolute path to the repo-side testdata directory.
 fn testdata_dir() -> PathBuf {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .unwrap_or_else(|_| "crates/ctx-contract".to_string());
+    let manifest_dir =
+        std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| "crates/ctx-contract".to_string());
     PathBuf::from(manifest_dir)
         .join("..")
         .join("..")
@@ -53,7 +52,9 @@ fn testdata_dir() -> PathBuf {
 
 /// Load a golden JSON file as a serde_json::Value.
 fn load_golden(fixture: &str, func_name: &str) -> serde_json::Value {
-    let path = goldens_dir().join(fixture).join(format!("{func_name}.json"));
+    let path = goldens_dir()
+        .join(fixture)
+        .join(format!("{func_name}.json"));
     let raw = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("failed to read golden {}: {e}", path.display()));
     serde_json::from_str(&raw)
@@ -95,8 +96,7 @@ fn build_contract_for_fixture(stem: &str, body: &[u8]) -> Contract {
                 .iter()
                 .map(|f| FileInput {
                     path: f.path.clone(),
-                    content: format!("// synthetic content for {}\n", f.path)
-                        .into_bytes(),
+                    content: format!("// synthetic content for {}\n", f.path).into_bytes(),
                     symbols: f.symbols.clone(),
                 })
                 .collect();
@@ -129,9 +129,7 @@ struct FrozenClockGuard {
 impl FrozenClockGuard {
     fn new() -> Self {
         // Acquire serialization lock first, then freeze the clock.
-        let lock = CLOCK_TEST_MUTEX
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let lock = CLOCK_TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
         let prev = set_now_fn(Some(|| FROZEN_INSTANT.to_string()));
         Self { prev, _lock: lock }
     }
@@ -159,8 +157,7 @@ fn sort_keys_deep(v: serde_json::Value) -> serde_json::Value {
             for (k, child) in map {
                 sorted.insert(k, sort_keys_deep(child));
             }
-            let new_map: serde_json::Map<String, Value> =
-                sorted.into_iter().collect();
+            let new_map: serde_json::Map<String, Value> = sorted.into_iter().collect();
             Value::Object(new_map)
         }
         Value::Array(arr) => Value::Array(arr.into_iter().map(sort_keys_deep).collect()),
@@ -172,8 +169,7 @@ fn sort_keys_deep(v: serde_json::Value) -> serde_json::Value {
 /// object keys sorted alphabetically (matching Go's encoding/json output).
 fn to_golden_json(v: serde_json::Value) -> String {
     let sorted = sort_keys_deep(v);
-    let mut s =
-        serde_json::to_string_pretty(&sorted).expect("failed to serialise value to JSON");
+    let mut s = serde_json::to_string_pretty(&sorted).expect("failed to serialise value to JSON");
     s.push('\n');
     s
 }

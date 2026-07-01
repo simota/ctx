@@ -266,9 +266,7 @@ fn handle_sync(state: AppState, params: TreeParams) -> Response {
     } else {
         match parse_pack_time_filter(&params.since, now) {
             Ok(t) => Some(t),
-            Err(msg) => {
-                return response::error(StatusCode::BAD_REQUEST, "invalid_since", &msg)
-            }
+            Err(msg) => return response::error(StatusCode::BAD_REQUEST, "invalid_since", &msg),
         }
     };
     let until_time: Option<SystemTime> = if params.until.is_empty() {
@@ -276,9 +274,7 @@ fn handle_sync(state: AppState, params: TreeParams) -> Response {
     } else {
         match parse_pack_time_filter(&params.until, now) {
             Ok(t) => Some(t),
-            Err(msg) => {
-                return response::error(StatusCode::BAD_REQUEST, "invalid_until", &msg)
-            }
+            Err(msg) => return response::error(StatusCode::BAD_REQUEST, "invalid_until", &msg),
         }
     };
     // use_mtime is accepted to avoid 400 but has no effect — filtering is
@@ -858,12 +854,16 @@ mod tests {
 
         // 2w → 2 × 7 × 24 × 3600
         let t2 = parse_pack_time_filter("2w", now).unwrap();
-        let expected2 = now.checked_sub(Duration::from_secs(2 * 7 * 24 * 3600)).unwrap();
+        let expected2 = now
+            .checked_sub(Duration::from_secs(2 * 7 * 24 * 3600))
+            .unwrap();
         assert_eq!(t2, expected2);
 
         // 1mo → 30 × 24 × 3600
         let t3 = parse_pack_time_filter("1mo", now).unwrap();
-        let expected3 = now.checked_sub(Duration::from_secs(30 * 24 * 3600)).unwrap();
+        let expected3 = now
+            .checked_sub(Duration::from_secs(30 * 24 * 3600))
+            .unwrap();
         assert_eq!(t3, expected3);
     }
 
@@ -901,10 +901,7 @@ mod tests {
         use std::fs;
 
         // Build a temp dir: <tmp>/ctx_tree_test_<pid>/
-        let tmp = std::env::temp_dir().join(format!(
-            "ctx_tree_mtime_{}",
-            std::process::id()
-        ));
+        let tmp = std::env::temp_dir().join(format!("ctx_tree_mtime_{}", std::process::id()));
         let _ = fs::remove_dir_all(&tmp);
         fs::create_dir_all(&tmp).unwrap();
         fs::write(tmp.join("a.txt"), b"hello").unwrap();
@@ -914,9 +911,20 @@ mod tests {
 
         // Baseline: no filter → both files present.
         let node = walk_tree(
-            tmp.to_str().unwrap(), &tmp, 0,
-            WalkOpts { max_depth: 0, with_tokens: false, git_status: &git, ignore: None, since: None, until: None },
-        ).unwrap().unwrap();
+            tmp.to_str().unwrap(),
+            &tmp,
+            0,
+            WalkOpts {
+                max_depth: 0,
+                with_tokens: false,
+                git_status: &git,
+                ignore: None,
+                since: None,
+                until: None,
+            },
+        )
+        .unwrap()
+        .unwrap();
         let names: Vec<&str> = node.children.iter().map(|c| c.name.as_str()).collect();
         assert!(names.contains(&"a.txt"), "baseline: a.txt must be present");
         assert!(names.contains(&"b.txt"), "baseline: b.txt must be present");
@@ -926,9 +934,20 @@ mod tests {
             .checked_add(Duration::from_secs(365 * 24 * 3600))
             .unwrap();
         let node_ff = walk_tree(
-            tmp.to_str().unwrap(), &tmp, 0,
-            WalkOpts { max_depth: 0, with_tokens: false, git_status: &git, ignore: None, since: Some(far_future), until: None },
-        ).unwrap().unwrap();
+            tmp.to_str().unwrap(),
+            &tmp,
+            0,
+            WalkOpts {
+                max_depth: 0,
+                with_tokens: false,
+                git_status: &git,
+                ignore: None,
+                since: Some(far_future),
+                until: None,
+            },
+        )
+        .unwrap()
+        .unwrap();
         assert!(
             node_ff.children.is_empty(),
             "since=far_future must exclude all file children; got {:?}",
@@ -940,9 +959,20 @@ mod tests {
         // until = far past → all files excluded (mtime > until).
         let far_past = UNIX_EPOCH + Duration::from_secs(1);
         let node_fp = walk_tree(
-            tmp.to_str().unwrap(), &tmp, 0,
-            WalkOpts { max_depth: 0, with_tokens: false, git_status: &git, ignore: None, since: None, until: Some(far_past) },
-        ).unwrap().unwrap();
+            tmp.to_str().unwrap(),
+            &tmp,
+            0,
+            WalkOpts {
+                max_depth: 0,
+                with_tokens: false,
+                git_status: &git,
+                ignore: None,
+                since: None,
+                until: Some(far_past),
+            },
+        )
+        .unwrap()
+        .unwrap();
         assert!(
             node_fp.children.is_empty(),
             "until=far_past must exclude all file children"
@@ -958,10 +988,7 @@ mod tests {
     fn walk_tree_mtime_filter_keeps_recent_files() {
         use std::fs;
 
-        let tmp = std::env::temp_dir().join(format!(
-            "ctx_tree_recent_{}",
-            std::process::id()
-        ));
+        let tmp = std::env::temp_dir().join(format!("ctx_tree_recent_{}", std::process::id()));
         let _ = fs::remove_dir_all(&tmp);
         fs::create_dir_all(&tmp).unwrap();
         fs::write(tmp.join("new.txt"), b"new").unwrap();
@@ -972,13 +999,25 @@ mod tests {
         // since = 1 second ago → file (just created) should be included.
         let since_past = now.checked_sub(Duration::from_secs(1)).unwrap();
         let node = walk_tree(
-            tmp.to_str().unwrap(), &tmp, 0,
-            WalkOpts { max_depth: 0, with_tokens: false, git_status: &git, ignore: None, since: Some(since_past), until: None },
-        ).unwrap().unwrap();
+            tmp.to_str().unwrap(),
+            &tmp,
+            0,
+            WalkOpts {
+                max_depth: 0,
+                with_tokens: false,
+                git_status: &git,
+                ignore: None,
+                since: Some(since_past),
+                until: None,
+            },
+        )
+        .unwrap()
+        .unwrap();
         let names: Vec<&str> = node.children.iter().map(|c| c.name.as_str()).collect();
         assert!(
             names.contains(&"new.txt"),
-            "since=1s ago must keep a just-created file; got {:?}", names
+            "since=1s ago must keep a just-created file; got {:?}",
+            names
         );
 
         let _ = fs::remove_dir_all(&tmp);
@@ -1003,34 +1042,79 @@ mod tests {
 
         // No filter → both dirs present (behaviour-preserving baseline).
         let base = walk_tree(
-            tmp.to_str().unwrap(), &tmp, 0,
-            WalkOpts { max_depth: 0, with_tokens: false, git_status: &git, ignore: None, since: None, until: None },
-        ).unwrap().unwrap();
+            tmp.to_str().unwrap(),
+            &tmp,
+            0,
+            WalkOpts {
+                max_depth: 0,
+                with_tokens: false,
+                git_status: &git,
+                ignore: None,
+                since: None,
+                until: None,
+            },
+        )
+        .unwrap()
+        .unwrap();
         let base_dirs: Vec<&str> = base.children.iter().map(|c| c.name.as_str()).collect();
-        assert!(base_dirs.contains(&"keep") && base_dirs.contains(&"drop"), "baseline keeps both dirs; got {base_dirs:?}");
+        assert!(
+            base_dirs.contains(&"keep") && base_dirs.contains(&"drop"),
+            "baseline keeps both dirs; got {base_dirs:?}"
+        );
 
         // since = far future → every file is out of window → BOTH dirs pruned,
         // root retained but empty.
-        let far_future = now.checked_add(Duration::from_secs(365 * 24 * 3600)).unwrap();
+        let far_future = now
+            .checked_add(Duration::from_secs(365 * 24 * 3600))
+            .unwrap();
         let all_pruned = walk_tree(
-            tmp.to_str().unwrap(), &tmp, 0,
-            WalkOpts { max_depth: 0, with_tokens: false, git_status: &git, ignore: None, since: Some(far_future), until: None },
-        ).unwrap().unwrap();
+            tmp.to_str().unwrap(),
+            &tmp,
+            0,
+            WalkOpts {
+                max_depth: 0,
+                with_tokens: false,
+                git_status: &git,
+                ignore: None,
+                since: Some(far_future),
+                until: None,
+            },
+        )
+        .unwrap()
+        .unwrap();
         assert!(all_pruned.is_dir, "root must always be retained");
         assert!(
             all_pruned.children.is_empty(),
             "dirs whose files are all filtered out must be pruned; got {:?}",
-            all_pruned.children.iter().map(|c| &c.name).collect::<Vec<_>>()
+            all_pruned
+                .children
+                .iter()
+                .map(|c| &c.name)
+                .collect::<Vec<_>>()
         );
 
         // since = 1s ago → both files survive → both dirs kept.
         let recent = now.checked_sub(Duration::from_secs(1)).unwrap();
         let kept = walk_tree(
-            tmp.to_str().unwrap(), &tmp, 0,
-            WalkOpts { max_depth: 0, with_tokens: false, git_status: &git, ignore: None, since: Some(recent), until: None },
-        ).unwrap().unwrap();
+            tmp.to_str().unwrap(),
+            &tmp,
+            0,
+            WalkOpts {
+                max_depth: 0,
+                with_tokens: false,
+                git_status: &git,
+                ignore: None,
+                since: Some(recent),
+                until: None,
+            },
+        )
+        .unwrap()
+        .unwrap();
         let kept_dirs: Vec<&str> = kept.children.iter().map(|c| c.name.as_str()).collect();
-        assert!(kept_dirs.contains(&"keep") && kept_dirs.contains(&"drop"), "dirs with surviving files are kept; got {kept_dirs:?}");
+        assert!(
+            kept_dirs.contains(&"keep") && kept_dirs.contains(&"drop"),
+            "dirs with surviving files are kept; got {kept_dirs:?}"
+        );
 
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -1050,13 +1134,29 @@ mod tests {
         // max_depth = 1: root walks `sub` (depth 1) but `sub` does NOT walk its
         // children. With a far-future filter, `sub` has empty children due to
         // the cutoff — it must still be retained.
-        let far_future = SystemTime::now().checked_add(Duration::from_secs(365 * 24 * 3600)).unwrap();
+        let far_future = SystemTime::now()
+            .checked_add(Duration::from_secs(365 * 24 * 3600))
+            .unwrap();
         let node = walk_tree(
-            tmp.to_str().unwrap(), &tmp, 0,
-            WalkOpts { max_depth: 1, with_tokens: false, git_status: &git, ignore: None, since: Some(far_future), until: None },
-        ).unwrap().unwrap();
+            tmp.to_str().unwrap(),
+            &tmp,
+            0,
+            WalkOpts {
+                max_depth: 1,
+                with_tokens: false,
+                git_status: &git,
+                ignore: None,
+                since: Some(far_future),
+                until: None,
+            },
+        )
+        .unwrap()
+        .unwrap();
         let dirs: Vec<&str> = node.children.iter().map(|c| c.name.as_str()).collect();
-        assert!(dirs.contains(&"sub"), "depth-cutoff dir must be retained; got {dirs:?}");
+        assert!(
+            dirs.contains(&"sub"),
+            "depth-cutoff dir must be retained; got {dirs:?}"
+        );
 
         let _ = fs::remove_dir_all(&tmp);
     }

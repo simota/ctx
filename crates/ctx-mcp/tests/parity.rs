@@ -98,7 +98,11 @@ struct Case {
 
 /// Construct a [`Case`] from its name, one-or-more request frames, and norm.
 const fn single(name: &'static str, request: &'static [&'static str], norm: Norm) -> Case {
-    Case { name, requests: request, norm }
+    Case {
+        name,
+        requests: request,
+        norm,
+    }
 }
 
 fn cases() -> Vec<Case> {
@@ -119,7 +123,9 @@ fn cases() -> Vec<Case> {
         // capabilities/serverInfo shape + ANY version, this case goes GREEN.
         single(
             "initialize",
-            &[r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}"#,
+            ],
             Norm::Version,
         ),
         // tools/list: Rust advertises only 2 of 9 tools, in a different order.
@@ -137,7 +143,9 @@ fn cases() -> Vec<Case> {
         // prompts/get: not implemented in Rust → method_not_found.
         single(
             "prompts_get_find_code",
-            &[r#"{"jsonrpc":"2.0","id":4,"method":"prompts/get","params":{"name":"find-code-for","arguments":{"goal":"rate limiter"}}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":4,"method":"prompts/get","params":{"name":"find-code-for","arguments":{"goal":"rate limiter"}}}"#,
+            ],
             Norm::Exact,
         ),
         // resources/list: not implemented in Rust → method_not_found.
@@ -155,7 +163,9 @@ fn cases() -> Vec<Case> {
         // resources/read (ctx://file/{path} template): not implemented in Rust.
         single(
             "resources_read_file",
-            &[r#"{"jsonrpc":"2.0","id":7,"method":"resources/read","params":{"uri":"ctx://file/notes.txt"}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":7,"method":"resources/read","params":{"uri":"ctx://file/notes.txt"}}"#,
+            ],
             Norm::Exact,
         ),
         // ----- tools/call: each ctx_* tool -----
@@ -164,32 +174,42 @@ fn cases() -> Vec<Case> {
         // real signal, not a harness bug).
         single(
             "tool_ctx_where",
-            &[r#"{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"ctx_where","arguments":{"path":".","query":"rate"}}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"ctx_where","arguments":{"path":".","query":"rate"}}}"#,
+            ],
             Norm::Exact,
         ),
         // ctx_symbols: implemented in Rust, but symbol extraction differs from
         // the Go tree-sitter path → byte mismatch in the JSON body.
         single(
             "tool_ctx_symbols",
-            &[r#"{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"ctx_symbols","arguments":{"path":"."}}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"ctx_symbols","arguments":{"path":"."}}}"#,
+            ],
             Norm::Exact,
         ),
         // ctx_pack: implemented in Rust. Timestamp norm strips the Generated line.
         single(
             "tool_ctx_pack",
-            &[r#"{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"ctx_pack","arguments":{"path":".","budget":50000,"format":"markdown"}}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"ctx_pack","arguments":{"path":".","budget":50000,"format":"markdown"}}}"#,
+            ],
             Norm::Timestamp,
         ),
         // ctx_budget: implemented in Rust.
         single(
             "tool_ctx_budget",
-            &[r#"{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"ctx_budget","arguments":{"path":".","budget":10000}}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"ctx_budget","arguments":{"path":".","budget":10000}}}"#,
+            ],
             Norm::Exact,
         ),
         // ctx_skim: implemented in Rust. AbsPath norm: header embeds the abs path.
         single(
             "tool_ctx_skim",
-            &[r#"{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"ctx_skim","arguments":{"path":"main.go","budget":500}}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"ctx_skim","arguments":{"path":"main.go","budget":500}}}"#,
+            ],
             Norm::AbsPath,
         ),
         // ctx_tree: implemented in Rust. Determinism note: Go enriches each
@@ -203,13 +223,17 @@ fn cases() -> Vec<Case> {
         // the body is stable across checkouts; no Norm needed.
         single(
             "tool_ctx_tree",
-            &[r#"{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"ctx_tree","arguments":{"path":"."}}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"ctx_tree","arguments":{"path":"."}}}"#,
+            ],
             Norm::Exact,
         ),
         // ctx_focus: implemented in Rust.
         single(
             "tool_ctx_focus",
-            &[r#"{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"ctx_focus","arguments":{"anchor":"RateLimit"}}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"ctx_focus","arguments":{"anchor":"RateLimit"}}}"#,
+            ],
             Norm::Exact,
         ),
         // ctx_digest: implemented in Rust. Go requires a git repo; on the
@@ -217,7 +241,9 @@ fn cases() -> Vec<Case> {
         // envelope.
         single(
             "tool_ctx_digest",
-            &[r#"{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"ctx_digest","arguments":{"path":".","since":"7d"}}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"ctx_digest","arguments":{"path":".","since":"7d"}}}"#,
+            ],
             Norm::Exact,
         ),
         // ctx_roots_list: implemented in Rust. The body is deterministic
@@ -230,7 +256,9 @@ fn cases() -> Vec<Case> {
         // Fully satisfiable; any failure is a real formatter or registry drift.
         single(
             "tool_ctx_roots_list",
-            &[r#"{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"ctx_roots_list"}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"ctx_roots_list"}}"#,
+            ],
             Norm::Exact,
         ),
         // ----- error paths -----
@@ -245,31 +273,33 @@ fn cases() -> Vec<Case> {
             Norm::Exact,
         ),
         // Parse error: malformed JSON → null-id parse-error response.
-        single(
-            "err_parse_error",
-            &[r#"{not valid json"#],
-            Norm::Exact,
-        ),
+        single("err_parse_error", &[r#"{not valid json"#], Norm::Exact),
         // Path outside root: Go returns Invalid Params with a data.hint that
         // names the server root. The fixture root is the served root, so it is
         // normalized. Rust's resolve_path returns a terser invalid_params with
         // NO hint → byte mismatch.
         single(
             "err_path_outside_root",
-            &[r#"{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"ctx_where","arguments":{"path":"/etc","query":"x"}}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"ctx_where","arguments":{"path":"/etc","query":"x"}}}"#,
+            ],
             Norm::AbsPath,
         ),
         // Budget exceeded: budget > maxBudget → Invalid Params + hint.
         single(
             "err_budget_too_large",
-            &[r#"{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"ctx_pack","arguments":{"path":".","budget":99999999}}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"ctx_pack","arguments":{"path":".","budget":99999999}}}"#,
+            ],
             Norm::Exact,
         ),
         // Missing required arg: ctx_focus without anchor → tool-error envelope
         // (isError:true). Rust returns unknown-tool error instead.
         single(
             "err_focus_missing_anchor",
-            &[r#"{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"ctx_focus","arguments":{}}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"ctx_focus","arguments":{}}}"#,
+            ],
             Norm::Exact,
         ),
         // Unknown tool name: Go returns a tool-error ENVELOPE (isError:true);
@@ -277,7 +307,9 @@ fn cases() -> Vec<Case> {
         // must reconcile. Guard asserts Go's envelope shape.
         single(
             "err_unknown_tool",
-            &[r#"{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"ctx_nonexistent","arguments":{}}}"#],
+            &[
+                r#"{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"ctx_nonexistent","arguments":{}}}"#,
+            ],
             Norm::Exact,
         ),
     ]
@@ -417,19 +449,13 @@ fn expect_contains(name: &str) -> &'static [&'static str] {
             r#""hint":"suggested: 50000""#,
         ],
         // err_focus_missing_anchor: tool-error envelope, NOT a JSON-RPC error.
-        "err_focus_missing_anchor" => &[
-            r#""isError":true"#,
-            r#"ctx_focus: 'anchor' is required"#,
-        ],
+        "err_focus_missing_anchor" => &[r#""isError":true"#, r#"ctx_focus: 'anchor' is required"#],
         // err_unknown_tool: Go wraps an unknown tool name in the MCP tool-error
         // ENVELOPE (result.isError:true + content text), NOT a JSON-RPC error.
         // Rust returns a JSON-RPC -32000 error instead → genuine byte mismatch.
         // The guard asserts Go's envelope so the divergence is real, not a
         // both-error false PASS.
-        "err_unknown_tool" => &[
-            r#""isError":true"#,
-            r#"unknown tool: ctx_nonexistent"#,
-        ],
+        "err_unknown_tool" => &[r#""isError":true"#, r#"unknown tool: ctx_nonexistent"#],
         _ => &[],
     }
 }
@@ -513,8 +539,13 @@ fn run_case(name: &'static str) {
     let case = case_by_name(name);
 
     // Boot a FRESH pair of servers so no request leaks state across cases.
-    let mut go = Server::spawn(go_bin, &["mcp", "serve", "--root"], &h.fixture, &h.roots_file)
-        .expect("spawn go oracle");
+    let mut go = Server::spawn(
+        go_bin,
+        &["mcp", "serve", "--root"],
+        &h.fixture,
+        &h.roots_file,
+    )
+    .expect("spawn go oracle");
     let mut rust = Server::spawn(&h.rust_bin, &["--root"], &h.fixture, &h.roots_file)
         .expect("spawn rust ctx-mcp");
 
@@ -537,7 +568,9 @@ fn run_case(name: &'static str) {
     // both-empty / both-error response can never false-PASS.
     for needle in expect_contains(case.name) {
         if !go_body.contains(needle) {
-            why.push(format!("guard: go body missing {needle:?} (got {go_body:?})"));
+            why.push(format!(
+                "guard: go body missing {needle:?} (got {go_body:?})"
+            ));
         }
     }
 
@@ -644,7 +677,11 @@ impl Server {
         let mut child = cmd.spawn()?;
         let stdin = child.stdin.take().expect("child stdin");
         let stdout = BufReader::new(child.stdout.take().expect("child stdout"));
-        Ok(Server { child, stdin, stdout })
+        Ok(Server {
+            child,
+            stdin,
+            stdout,
+        })
     }
 
     /// Write each request as one NDJSON line, then read exactly `requests.len()`
@@ -752,7 +789,11 @@ fn locate_go_binary() -> Option<PathBuf> {
         .arg(repo_root.join("ci/build-go-oracle.sh"))
         .output()
         .ok()?;
-    let out = PathBuf::from(String::from_utf8_lossy(&script_out.stdout).trim().to_string());
+    let out = PathBuf::from(
+        String::from_utf8_lossy(&script_out.stdout)
+            .trim()
+            .to_string(),
+    );
     if script_out.status.success() && out.exists() {
         Some(out)
     } else {

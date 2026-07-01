@@ -169,10 +169,7 @@ pub fn compute_selection_diff(a: &Manifest, b: &Manifest) -> SelectionSummary {
                         cur_tier: b_entry.relevance.clone(),
                         base_tokens: a_entry.tokens,
                         cur_tokens: b_entry.tokens,
-                        reason_change: format!(
-                            "tier:{}→{}",
-                            a_entry.relevance, b_entry.relevance
-                        ),
+                        reason_change: format!("tier:{}→{}", a_entry.relevance, b_entry.relevance),
                     });
                     result.summary.promoted += 1;
                     result.summary.token_delta += b_entry.tokens - a_entry.tokens;
@@ -186,17 +183,13 @@ pub fn compute_selection_diff(a: &Manifest, b: &Manifest) -> SelectionSummary {
                         cur_tier: b_entry.relevance.clone(),
                         base_tokens: a_entry.tokens,
                         cur_tokens: b_entry.tokens,
-                        reason_change: format!(
-                            "tier:{}→{}",
-                            a_entry.relevance, b_entry.relevance
-                        ),
+                        reason_change: format!("tier:{}→{}", a_entry.relevance, b_entry.relevance),
                     });
                     result.summary.demoted += 1;
                     result.summary.token_delta += b_entry.tokens - a_entry.tokens;
                 } else if score_change_significant(a_entry.score, b_entry.score) {
                     let base = if a_entry.score == 0 { 1 } else { a_entry.score };
-                    let pct = (((b_entry.score - a_entry.score) as f64)
-                        / (base as f64).abs()
+                    let pct = (((b_entry.score - a_entry.score) as f64) / (base as f64).abs()
                         * 100.0)
                         .round() as i64;
                     let sign = if pct < 0 { "" } else { "+" };
@@ -254,8 +247,16 @@ pub fn sort_selection_diff(s: &mut SelectionSummary, by: &str) {
 fn sort_group(items: &mut Vec<SelectionChange>, by: &str) {
     match by {
         "tokens" => items.sort_by(|a, b| {
-            let ta = if a.cur_tokens == 0 { a.base_tokens } else { a.cur_tokens };
-            let tb = if b.cur_tokens == 0 { b.base_tokens } else { b.cur_tokens };
+            let ta = if a.cur_tokens == 0 {
+                a.base_tokens
+            } else {
+                a.cur_tokens
+            };
+            let tb = if b.cur_tokens == 0 {
+                b.base_tokens
+            } else {
+                b.cur_tokens
+            };
             tb.cmp(&ta) // descending
         }),
         "score" => items.sort_by(|a, b| {
@@ -264,15 +265,31 @@ fn sort_group(items: &mut Vec<SelectionChange>, by: &str) {
             db.cmp(&da)
         }),
         _ => items.sort_by(|a, b| {
-            let tier_a = if a.cur_tier.is_empty() { &a.base_tier } else { &a.cur_tier };
-            let tier_b = if b.cur_tier.is_empty() { &b.base_tier } else { &b.cur_tier };
+            let tier_a = if a.cur_tier.is_empty() {
+                &a.base_tier
+            } else {
+                &a.cur_tier
+            };
+            let tier_b = if b.cur_tier.is_empty() {
+                &b.base_tier
+            } else {
+                &b.cur_tier
+            };
             let ra = tier_rank(tier_a);
             let rb = tier_rank(tier_b);
             if ra != rb {
                 rb.cmp(&ra)
             } else {
-                let sa = if a.cur_score == 0 { a.base_score } else { a.cur_score };
-                let sb = if b.cur_score == 0 { b.base_score } else { b.cur_score };
+                let sa = if a.cur_score == 0 {
+                    a.base_score
+                } else {
+                    a.cur_score
+                };
+                let sb = if b.cur_score == 0 {
+                    b.base_score
+                } else {
+                    b.cur_score
+                };
                 sb.cmp(&sa)
             }
         }),
@@ -293,7 +310,11 @@ pub fn write_selection_diff_markdown(s: &SelectionSummary) -> String {
         ));
         out.push_str("| Path | Score | Tier | Tokens |\n|---|---|---|---|\n");
         for c in &s.changes.added {
-            let tier = if c.cur_tier.is_empty() { "-".to_string() } else { c.cur_tier.clone() };
+            let tier = if c.cur_tier.is_empty() {
+                "-".to_string()
+            } else {
+                c.cur_tier.clone()
+            };
             out.push_str(&format!(
                 "| {} | {} | {} | {} |\n",
                 c.path, c.cur_score, tier, c.cur_tokens
@@ -342,10 +363,10 @@ mod tests {
         };
         let cur = Manifest {
             entries: vec![
-                entry("a", "aa", 10),     // unchanged
-                entry("b", "BB", 25),     // modified
-                entry("d", "dd", 40),     // added
-                                          // c removed
+                entry("a", "aa", 10), // unchanged
+                entry("b", "BB", 25), // modified
+                entry("d", "dd", 40), // added
+                                      // c removed
             ],
             ..Default::default()
         };
@@ -373,7 +394,10 @@ mod tests {
 
     #[test]
     fn selection_diff_added_only() {
-        let a = Manifest { id: "a".into(), ..Default::default() };
+        let a = Manifest {
+            id: "a".into(),
+            ..Default::default()
+        };
         let mut b = Manifest::default();
         b.id = "b".into();
         b.entries.push(Entry {

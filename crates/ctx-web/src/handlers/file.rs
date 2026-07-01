@@ -120,7 +120,11 @@ fn epoch_secs(t: std::io::Result<SystemTime>) -> i64 {
 #[cfg(unix)]
 fn perm_owner(meta: &std::fs::Metadata) -> (u32, String, String) {
     use std::os::unix::fs::MetadataExt;
-    (meta.mode(), lookup_user(meta.uid()), lookup_group(meta.gid()))
+    (
+        meta.mode(),
+        lookup_user(meta.uid()),
+        lookup_group(meta.gid()),
+    )
 }
 #[cfg(not(unix))]
 fn perm_owner(_: &std::fs::Metadata) -> (u32, String, String) {
@@ -135,9 +139,7 @@ fn lookup_user(uid: u32) -> String {
     let mut result: *mut libc::passwd = std::ptr::null_mut();
     // getpwuid_r is the thread-safe variant — the handler runs on a shared
     // blocking pool, so the non-_r form's static buffer would race.
-    let rc = unsafe {
-        libc::getpwuid_r(uid, &mut pwd, buf.as_mut_ptr(), buf.len(), &mut result)
-    };
+    let rc = unsafe { libc::getpwuid_r(uid, &mut pwd, buf.as_mut_ptr(), buf.len(), &mut result) };
     if rc == 0 && !result.is_null() && !pwd.pw_name.is_null() {
         unsafe { CStr::from_ptr(pwd.pw_name) }
             .to_string_lossy()
@@ -153,9 +155,7 @@ fn lookup_group(gid: u32) -> String {
     let mut buf = vec![0 as libc::c_char; 1024];
     let mut grp: libc::group = unsafe { std::mem::zeroed() };
     let mut result: *mut libc::group = std::ptr::null_mut();
-    let rc = unsafe {
-        libc::getgrgid_r(gid, &mut grp, buf.as_mut_ptr(), buf.len(), &mut result)
-    };
+    let rc = unsafe { libc::getgrgid_r(gid, &mut grp, buf.as_mut_ptr(), buf.len(), &mut result) };
     if rc == 0 && !result.is_null() && !grp.gr_name.is_null() {
         unsafe { CStr::from_ptr(grp.gr_name) }
             .to_string_lossy()

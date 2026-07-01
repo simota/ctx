@@ -164,9 +164,15 @@ impl ReplaySession {
             return Err(QueryError::BadArgs);
         }
         let base = self.manifest_by_id(&args.base_id)?;
-        let current: Manifest = serde_json::from_str(args.current_manifest.get())
-            .map_err(|_| QueryError::BadArgs)?;
-        let summary = compute(&base, &current, DiffOptions { strict: args.strict });
+        let current: Manifest =
+            serde_json::from_str(args.current_manifest.get()).map_err(|_| QueryError::BadArgs)?;
+        let summary = compute(
+            &base,
+            &current,
+            DiffOptions {
+                strict: args.strict,
+            },
+        );
         serde_json::to_string(&summary).map_err(|_| QueryError::Serialize)
     }
 
@@ -177,7 +183,13 @@ impl ReplaySession {
         }
         let base = self.manifest_by_id(&args.base_id)?;
         let cur = self.manifest_by_id(&args.current_id)?;
-        let summary: DiffSummary = compute(&base, &cur, DiffOptions { strict: args.strict });
+        let summary: DiffSummary = compute(
+            &base,
+            &cur,
+            DiffOptions {
+                strict: args.strict,
+            },
+        );
         serde_json::to_string(&summary).map_err(|_| QueryError::Serialize)
     }
 
@@ -189,7 +201,11 @@ impl ReplaySession {
         let a = self.manifest_by_id(&args.a_id)?;
         let b = self.manifest_by_id(&args.b_id)?;
         let mut sel: SelectionSummary = compute_selection_diff(&a, &b);
-        let sort_by = if args.sort_by.is_empty() { "tier" } else { &args.sort_by };
+        let sort_by = if args.sort_by.is_empty() {
+            "tier"
+        } else {
+            &args.sort_by
+        };
         sort_selection_diff(&mut sel, sort_by);
         serde_json::to_string(&sel).map_err(|_| QueryError::Serialize)
     }
@@ -521,14 +537,14 @@ mod tests {
         let dir = tmp_dir("diff_ids");
         seed_store(
             &dir,
-            &[
-                ("a", "2026-01-01T00:00:00Z"),
-                ("b", "2026-01-02T00:00:00Z"),
-            ],
+            &[("a", "2026-01-01T00:00:00Z"), ("b", "2026-01-02T00:00:00Z")],
         );
         let s = ReplaySession::open(dir.to_str().unwrap()).unwrap();
         let body = s
-            .query("diff_ids", r#"{"base_id":"a","current_id":"b","strict":false}"#)
+            .query(
+                "diff_ids",
+                r#"{"base_id":"a","current_id":"b","strict":false}"#,
+            )
             .unwrap();
         // Both stored manifests are identical so the diff should report
         // unchanged=1.
@@ -598,7 +614,13 @@ mod tests {
         let dir = tmp_dir("badargs");
         let s = ReplaySession::open(dir.to_str().unwrap()).unwrap();
         assert!(matches!(s.query("load", ""), Err(QueryError::BadArgs)));
-        assert!(matches!(s.query("load", "not-json"), Err(QueryError::BadArgs)));
-        assert!(matches!(s.query("load", r#"{"id":""}"#), Err(QueryError::BadArgs)));
+        assert!(matches!(
+            s.query("load", "not-json"),
+            Err(QueryError::BadArgs)
+        ));
+        assert!(matches!(
+            s.query("load", r#"{"id":""}"#),
+            Err(QueryError::BadArgs)
+        ));
     }
 }

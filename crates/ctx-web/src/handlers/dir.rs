@@ -13,8 +13,8 @@ use std::path::Path;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
-use serde::Serialize;
 use serde::Deserialize;
+use serde::Serialize;
 
 use crate::handlers::file::relative_to_root;
 use crate::response;
@@ -79,8 +79,12 @@ struct DirResponse {
     children: Vec<DirChild>,
 }
 
-fn is_zero_i32(v: &i32) -> bool { *v == 0 }
-fn is_zero_i64(v: &i64) -> bool { *v == 0 }
+fn is_zero_i32(v: &i32) -> bool {
+    *v == 0
+}
+fn is_zero_i64(v: &i64) -> bool {
+    *v == 0
+}
 
 // ---------------------------------------------------------------------------
 // Handler
@@ -91,7 +95,11 @@ pub async fn handle(State(state): State<AppState>, Query(params): Query<DirParam
 }
 
 fn handle_sync(state: AppState, params: DirParams) -> Response {
-    let rel = if params.path.is_empty() { "." } else { &params.path };
+    let rel = if params.path.is_empty() {
+        "."
+    } else {
+        &params.path
+    };
 
     let target = match safepath::resolve(&state.root, rel) {
         Ok(t) => t,
@@ -123,7 +131,11 @@ fn handle_sync(state: AppState, params: DirParams) -> Response {
 
     let dir_rel_raw = relative_to_root(&state.root, &target);
     // Convert "" (root) to "." to match Go relativeToRoot(".", absRoot) = ".".
-    let dir_rel = if dir_rel_raw.is_empty() { ".".to_string() } else { dir_rel_raw };
+    let dir_rel = if dir_rel_raw.is_empty() {
+        ".".to_string()
+    } else {
+        dir_rel_raw
+    };
 
     let name = if dir_rel == "." {
         // Root: use basename of the root dir, matching Go `filepath.Base(a.Root)`.
@@ -232,7 +244,14 @@ fn walk_counts(root: &str, dir: &Path) -> (i64, i32, i32) {
     let mut total_tokens: i64 = 0;
     let mut file_count: i32 = 0;
     let mut dir_count: i32 = 0;
-    walk_counts_inner(root, dir, dir, &mut total_tokens, &mut file_count, &mut dir_count);
+    walk_counts_inner(
+        root,
+        dir,
+        dir,
+        &mut total_tokens,
+        &mut file_count,
+        &mut dir_count,
+    );
     (total_tokens, file_count, dir_count)
 }
 
@@ -281,21 +300,11 @@ fn walk_counts_inner(
 // README finder
 // ---------------------------------------------------------------------------
 
-const README_CANDIDATES: &[&str] = &[
-    "README.md",
-    "README",
-    "README.txt",
-    "readme.md",
-    "doc.go",
-];
+const README_CANDIDATES: &[&str] = &["README.md", "README", "README.txt", "readme.md", "doc.go"];
 
 /// Mirrors Go `findReadme`: first matching candidate, truncated to
 /// `MAX_README_BYTES`, with its root-relative path.
-fn find_readme(
-    abs_dir: &Path,
-    dir_rel: &str,
-    entries: &[std::fs::DirEntry],
-) -> (String, String) {
+fn find_readme(abs_dir: &Path, dir_rel: &str, entries: &[std::fs::DirEntry]) -> (String, String) {
     // Build a set of present non-directory file names.
     let present: std::collections::HashSet<String> = entries
         .iter()

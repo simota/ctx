@@ -93,9 +93,8 @@ fn json_equal(a: &serde_json::Value, b: &serde_json::Value) -> bool {
             if x.len() != y.len() {
                 return false;
             }
-            x.iter().all(|(k, v)| {
-                y.get(k).map(|v2| json_equal(v, v2)).unwrap_or(false)
-            })
+            x.iter()
+                .all(|(k, v)| y.get(k).map(|v2| json_equal(v, v2)).unwrap_or(false))
         }
         _ => false,
     }
@@ -125,8 +124,7 @@ fn assert_parity(fixture: &str, goal: &str, top: i32) {
     };
     let rust_res = evaluate(fixture, &body, &opts);
     let rust_json = serde_json::to_value(&rust_res).expect("serialise rust result");
-    let go_json: serde_json::Value =
-        serde_json::from_str(&golden_raw).expect("parse golden json");
+    let go_json: serde_json::Value = serde_json::from_str(&golden_raw).expect("parse golden json");
 
     if !json_equal(&rust_json, &go_json) {
         // On mismatch, show pretty-printed forms so the diff is
@@ -160,8 +158,7 @@ fn parity_large_pack_rate_limit_burst() {
 
 #[test]
 fn parity_small_pack_threshold_fail() {
-    let body =
-        fs::read_to_string(fixtures_dir().join("small_pack.md")).expect("read fixture");
+    let body = fs::read_to_string(fixtures_dir().join("small_pack.md")).expect("read fixture");
     let opts = Options {
         goal: "non-existent-token-xyz123".to_string(),
         top: 5,

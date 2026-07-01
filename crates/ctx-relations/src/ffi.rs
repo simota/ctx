@@ -382,9 +382,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let root = dir.to_string_lossy().to_string();
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_relations_build(root.as_ptr(), root.len(), &mut out)
-        };
+        let rc = unsafe { ctx_relations_build(root.as_ptr(), root.len(), &mut out) };
         assert_eq!(rc, ERR_OK);
         let json = cstr_into_string(out);
         // BTreeMaps emit `{}` for empty maps.
@@ -401,9 +399,7 @@ mod tests {
     #[test]
     fn rejects_oversize_input() {
         let mut out: *mut c_char = ptr::null_mut();
-        let rc = unsafe {
-            ctx_relations_build(1 as *const u8, MAX_INPUT_BYTES + 1, &mut out)
-        };
+        let rc = unsafe { ctx_relations_build(1 as *const u8, MAX_INPUT_BYTES + 1, &mut out) };
         assert_eq!(rc, ERR_TOO_LARGE);
         assert!(out.is_null());
     }
@@ -411,9 +407,7 @@ mod tests {
     #[test]
     fn invalidate_cache_handles_missing_root() {
         let bogus = "/tmp/does/not/exist/abcdefg";
-        let rc = unsafe {
-            ctx_relations_invalidate_cache(bogus.as_ptr(), bogus.len())
-        };
+        let rc = unsafe { ctx_relations_invalidate_cache(bogus.as_ptr(), bogus.len()) };
         // Invalid path resolves to ERR_OK (canonicalize fails → no-op
         // per the Go semantics).
         assert_eq!(rc, ERR_OK);

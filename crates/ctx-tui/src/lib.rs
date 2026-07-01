@@ -436,7 +436,8 @@ pub fn run(root: FileInfo, root_path: &str) -> io::Result<()> {
     execute!(stdout, EnterAlternateScreen)?;
 
     let backend = CrosstermBackend::new(stdout);
-    Terminal::new(backend).and_then(|mut terminal| event_loop(&mut terminal, root, Path::new(root_path)))
+    Terminal::new(backend)
+        .and_then(|mut terminal| event_loop(&mut terminal, root, Path::new(root_path)))
 }
 
 /// Best-effort terminal teardown on drop. `LeaveAlternateScreen` is harmless

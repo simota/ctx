@@ -41,8 +41,8 @@
 // chunking, plus once per goal string. We pre-size the output to
 // rawParts.len() * 2 like the Go original.
 
-use std::collections::HashSet;
 use once_cell::sync::Lazy;
+use std::collections::HashSet;
 
 /// Stop words removed at tokenize time. Mirrors `stopWords` in Go
 /// verbatim. Lazy::new ensures the HashSet is built once per process.
@@ -50,8 +50,7 @@ static STOP_WORDS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
     let mut s = HashSet::with_capacity(20);
     // English
     for w in &[
-        "the", "a", "an", "is", "in", "of", "to", "and", "or", "for", "on", "by",
-        "with",
+        "the", "a", "an", "is", "in", "of", "to", "and", "or", "for", "on", "by", "with",
     ] {
         s.insert(*w);
     }
@@ -193,7 +192,10 @@ mod tests {
     fn camel_snake_kebab() {
         let got = tokenize("TestBurst burst_limit rate-limit the API");
         // Order matters for BM25 tf computation.
-        assert_eq!(got, vec!["test", "burst", "burst", "limit", "rate", "limit", "api"]);
+        assert_eq!(
+            got,
+            vec!["test", "burst", "burst", "limit", "rate", "limit", "api"]
+        );
     }
 
     #[test]

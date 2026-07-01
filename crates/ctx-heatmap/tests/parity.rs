@@ -34,22 +34,18 @@ const CANVAS_H: i64 = 20;
 
 fn load_metrics(fixture: &str) -> Vec<FileMetric> {
     let path = fixtures_dir().join(fixture).join("metrics.json");
-    let raw = std::fs::read(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
-    serde_json::from_slice(&raw)
-        .unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
+    let raw = std::fs::read(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    serde_json::from_slice(&raw).unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
 }
 
 fn load_golden(fixture: &str, name: &str) -> String {
     let path = goldens_dir().join(fixture).join(format!("{name}.json"));
-    std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("read golden {}: {e}", path.display()))
+    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read golden {}: {e}", path.display()))
 }
 
 fn load_golden_value(fixture: &str, name: &str) -> Value {
     let raw = load_golden(fixture, name);
-    serde_json::from_str(&raw)
-        .unwrap_or_else(|e| panic!("parse golden {fixture}/{name}: {e}"))
+    serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse golden {fixture}/{name}: {e}"))
 }
 
 fn run_parity(fixture: &str) {
@@ -86,7 +82,10 @@ fn run_parity(fixture: &str) {
     let rects = squarify(&buckets, CANVAS_W, CANVAS_H);
     let actual_sq = serde_json::to_value(&rects).unwrap();
     let expected_sq = load_golden_value(fixture, "squarify");
-    assert_eq!(actual_sq, expected_sq, "squarify parity mismatch for {fixture}");
+    assert_eq!(
+        actual_sq, expected_sq,
+        "squarify parity mismatch for {fixture}"
+    );
 
     // render_ascii byte-exact.
     let ascii = render_ascii(
@@ -100,7 +99,10 @@ fn run_parity(fixture: &str) {
         },
     );
     let expected_ascii = load_golden(fixture, "render_ascii");
-    assert_eq!(ascii, expected_ascii, "render_ascii parity mismatch for {fixture}");
+    assert_eq!(
+        ascii, expected_ascii,
+        "render_ascii parity mismatch for {fixture}"
+    );
 
     // render_json structural compare.
     let bytes = render_json(
@@ -114,7 +116,10 @@ fn run_parity(fixture: &str) {
     .unwrap();
     let actual_json: Value = serde_json::from_slice(&bytes).unwrap();
     let expected_json = load_golden_value(fixture, "render_json");
-    assert_eq!(actual_json, expected_json, "render_json parity mismatch for {fixture}");
+    assert_eq!(
+        actual_json, expected_json,
+        "render_json parity mismatch for {fixture}"
+    );
 
     // render_plain byte-exact.
     let plain = render_plain(
@@ -126,7 +131,10 @@ fn run_parity(fixture: &str) {
         },
     );
     let expected_plain = load_golden(fixture, "render_plain");
-    assert_eq!(plain, expected_plain, "render_plain parity mismatch for {fixture}");
+    assert_eq!(
+        plain, expected_plain,
+        "render_plain parity mismatch for {fixture}"
+    );
 
     // render_svg byte-exact against Go's RenderSVG output.
     let svg = render_svg(
@@ -140,7 +148,10 @@ fn run_parity(fixture: &str) {
         },
     );
     let expected_svg = load_golden(fixture, "render_svg");
-    assert_eq!(svg, expected_svg, "render_svg parity mismatch for {fixture}");
+    assert_eq!(
+        svg, expected_svg,
+        "render_svg parity mismatch for {fixture}"
+    );
 }
 
 #[test]

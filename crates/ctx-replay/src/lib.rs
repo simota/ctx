@@ -13,13 +13,13 @@
 //   prune.rs    — port of ParseDuration, Prune.
 //   ffi.rs      — extern "C" surface used by internal/replay/rustbridge.
 
-pub mod types;
-pub mod manifest;
-pub mod store;
 pub mod diff;
+pub mod ffi;
+pub mod manifest;
 pub mod prune;
 pub mod session;
-pub mod ffi;
+pub mod store;
+pub mod types;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;

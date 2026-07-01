@@ -17,12 +17,15 @@ pub fn fixtures_dir() -> PathBuf {
 
 /// Returns the directory holding the Go-generated parity goldens.
 pub fn goldens_dir() -> PathBuf {
-    repo_root().join("tests").join("parity").join("scan-goldens")
+    repo_root()
+        .join("tests")
+        .join("parity")
+        .join("scan-goldens")
 }
 
 fn repo_root() -> PathBuf {
     // CARGO_MANIFEST_DIR is `<repo>/crates/ctx-scan` at build time.
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .unwrap_or_else(|_| "crates/ctx-scan".to_string());
+    let manifest_dir =
+        std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| "crates/ctx-scan".to_string());
     PathBuf::from(manifest_dir).join("..").join("..")
 }

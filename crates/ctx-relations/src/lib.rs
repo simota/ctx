@@ -17,14 +17,14 @@
 //                         invalidation semantics (size, mtime fingerprint).
 //   ffi.rs              — extern "C" surface used by internal/relations/rustbridge.
 
-pub mod types;
-pub mod patterns;
-pub mod walk;
-pub mod languages;
 pub mod build;
 pub mod cache;
-pub mod session;
 pub mod ffi;
+pub mod languages;
+pub mod patterns;
+pub mod session;
+pub mod types;
+pub mod walk;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;

@@ -102,10 +102,7 @@ mod tests {
     fn over_one_normalises_with_warning() {
         let cfg = Config {
             schema_version: 1,
-            strands: vec![
-                strand("a", 0.7),
-                strand("b", 0.6),
-            ],
+            strands: vec![strand("a", 0.7), strand("b", 0.6)],
         };
         let out = allocate(&cfg, 10_000);
         assert!(out.warning.contains("normalising to 1.0"));

@@ -225,19 +225,17 @@ mod tests {
 
     #[test]
     fn area_conservation() {
-        let buckets = vec![
-            bk("a", 50.0),
-            bk("b", 30.0),
-            bk("c", 15.0),
-            bk("d", 5.0),
-        ];
+        let buckets = vec![bk("a", 50.0), bk("b", 30.0), bk("c", 15.0), bk("d", 5.0)];
         let (w, h) = (80, 20);
         let rects = squarify(&buckets, w, h);
         assert_eq!(rects.len(), buckets.len());
         let mut total_area: i64 = 0;
         let mut covered = vec![vec![false; w as usize]; h as usize];
         for r in &rects {
-            assert!(r.x >= 0 && r.y >= 0 && r.x + r.w <= w && r.y + r.h <= h, "{r:?}");
+            assert!(
+                r.x >= 0 && r.y >= 0 && r.x + r.w <= w && r.y + r.h <= h,
+                "{r:?}"
+            );
             total_area += r.w * r.h;
             for y in r.y..r.y + r.h {
                 for x in r.x..r.x + r.w {
@@ -251,12 +249,7 @@ mod tests {
 
     #[test]
     fn aspect_ratio_reasonable() {
-        let buckets = vec![
-            bk("a", 40.0),
-            bk("b", 30.0),
-            bk("c", 20.0),
-            bk("d", 10.0),
-        ];
+        let buckets = vec![bk("a", 40.0), bk("b", 30.0), bk("c", 20.0), bk("d", 10.0)];
         let rects = squarify(&buckets, 60, 20);
         for r in &rects {
             assert!(r.w > 0 && r.h > 0);

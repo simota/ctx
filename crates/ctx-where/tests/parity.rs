@@ -24,10 +24,8 @@ use ctx_where::testing::parity_fixture_builder::{fixtures_dir, goldens_dir};
 
 fn load_files(fixture: &str) -> Vec<FileInput> {
     let path = fixtures_dir().join(fixture).join("files.json");
-    let raw = std::fs::read(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
-    serde_json::from_slice(&raw)
-        .unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
+    let raw = std::fs::read(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    serde_json::from_slice(&raw).unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
 }
 
 fn load_query(fixture: &str) -> String {
@@ -52,8 +50,7 @@ fn load_golden(fixture: &str, name: &str) -> Value {
     let path = goldens_dir().join(fixture).join(format!("{name}.json"));
     let raw = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("read golden {}: {e}", path.display()));
-    serde_json::from_str(&raw)
-        .unwrap_or_else(|e| panic!("parse golden {}: {e}", path.display()))
+    serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse golden {}: {e}", path.display()))
 }
 
 fn run_parity(fixture: &str) {
@@ -73,7 +70,10 @@ fn run_parity(fixture: &str) {
         let suggestions = suggest_similar(&files, &query, 5);
         let actual_s = serde_json::to_value(&suggestions).unwrap();
         let expected_s = load_golden(fixture, "suggest");
-        assert_eq!(actual_s, expected_s, "suggest parity mismatch for {fixture}");
+        assert_eq!(
+            actual_s, expected_s,
+            "suggest parity mismatch for {fixture}"
+        );
     }
 }
 

@@ -26,10 +26,8 @@ use ctx_focus::{
 
 fn load_files(fixture: &str) -> Vec<FileInput> {
     let path = fixtures_dir().join(fixture).join("files.json");
-    let raw = std::fs::read(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
-    serde_json::from_slice(&raw)
-        .unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
+    let raw = std::fs::read(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    serde_json::from_slice(&raw).unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
 }
 
 fn load_anchor(fixture: &str) -> String {
@@ -44,8 +42,7 @@ fn load_golden(fixture: &str, name: &str) -> Value {
     let path = goldens_dir().join(fixture).join(format!("{name}.json"));
     let raw = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("read golden {}: {e}", path.display()));
-    serde_json::from_str(&raw)
-        .unwrap_or_else(|e| panic!("parse golden {}: {e}", path.display()))
+    serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse golden {}: {e}", path.display()))
 }
 
 fn run_parity(fixture: &str) {
@@ -53,8 +50,8 @@ fn run_parity(fixture: &str) {
     let anchor_str = load_anchor(fixture);
 
     // resolve
-    let anchor = resolve_anchor(&files, &anchor_str)
-        .unwrap_or_else(|e| panic!("resolve {fixture}: {e:?}"));
+    let anchor =
+        resolve_anchor(&files, &anchor_str).unwrap_or_else(|e| panic!("resolve {fixture}: {e:?}"));
     let actual_resolve = serde_json::to_value(&anchor).unwrap();
     let expected_resolve = load_golden(fixture, "resolve");
     assert_eq!(
@@ -84,10 +81,7 @@ fn run_parity(fixture: &str) {
     let p = pack(&files, &anchor_str, &ExpandOptions { hops: 1 }).unwrap();
     let actual_p = serde_json::to_value(&p).unwrap();
     let expected_p = load_golden(fixture, "pack");
-    assert_eq!(
-        actual_p, expected_p,
-        "pack parity mismatch for {fixture}"
-    );
+    assert_eq!(actual_p, expected_p, "pack parity mismatch for {fixture}");
 }
 
 #[test]

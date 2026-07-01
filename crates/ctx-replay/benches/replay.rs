@@ -34,15 +34,15 @@ fn bench_diff(c: &mut Criterion) {
     let fixtures = ["single_snap", "multi_snap_drift", "scoring_change"];
     let mut group = c.benchmark_group("diff");
     for fx in &fixtures {
-        let Some((base, cur)) = load_pair(fx) else { continue };
+        let Some((base, cur)) = load_pair(fx) else {
+            continue;
+        };
         let n = (base.entries.len() + cur.entries.len()) as u64;
         group.throughput(Throughput::Elements(n.max(1)));
         group.bench_with_input(
             BenchmarkId::new("rust", fx),
             &(base, cur),
-            |b, (base, cur)| {
-                b.iter(|| compute(base, cur, DiffOptions::default()))
-            },
+            |b, (base, cur)| b.iter(|| compute(base, cur, DiffOptions::default())),
         );
     }
     group.finish();

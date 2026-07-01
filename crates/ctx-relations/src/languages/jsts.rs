@@ -159,7 +159,11 @@ fn clean_slash(p: &str) -> String {
             other => out.push(other),
         }
     }
-    let mut s = if absolute { "/".to_string() } else { String::new() };
+    let mut s = if absolute {
+        "/".to_string()
+    } else {
+        String::new()
+    };
     s.push_str(&out.join("/"));
     if s.is_empty() {
         // Go path.Clean returns "." for an empty result. We use "" so

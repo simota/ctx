@@ -98,11 +98,7 @@ fn handle_symbols_sync(state: AppState, params: SymbolsParams) -> Response {
                     &format!("stat {}: no such file or directory", target.display()),
                 );
             }
-            return response::error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "stat",
-                &e.to_string(),
-            );
+            return response::error(StatusCode::INTERNAL_SERVER_ERROR, "stat", &e.to_string());
         }
     };
 
@@ -123,17 +119,20 @@ fn handle_symbols_sync(state: AppState, params: SymbolsParams) -> Response {
         };
         let key = relative_to_root(root_str, &target);
         files.insert(key.clone(), convert_symbols(syms));
-        return response::json(
-            StatusCode::OK,
-            &SymbolsResponse { path: key, files },
-        );
+        return response::json(StatusCode::OK, &SymbolsResponse { path: key, files });
     }
 
     // Directory path: walk + extract like Go's handleSymbols directory branch
     collect_symbols_from_dir(&target, root_str, &mut files);
 
     let path_key = relative_to_root(root_str, &target);
-    response::json(StatusCode::OK, &SymbolsResponse { path: path_key, files })
+    response::json(
+        StatusCode::OK,
+        &SymbolsResponse {
+            path: path_key,
+            files,
+        },
+    )
 }
 
 // ── /api/definition ───────────────────────────────────────────────────────────
@@ -253,7 +252,11 @@ fn relative_to_root(root: &str, target: &Path) -> String {
     match target.strip_prefix(&abs_root) {
         Ok(rel) => {
             let s = rel.to_string_lossy().replace('\\', "/");
-            if s.is_empty() { ".".to_string() } else { s }
+            if s.is_empty() {
+                ".".to_string()
+            } else {
+                s
+            }
         }
         Err(_) => {
             // target IS the abs_root (strip_prefix fails when paths are equal
@@ -459,11 +462,6 @@ fn is_dotted_test_name(base: &str) -> bool {
 fn is_config_file(base: &str, ext: &str) -> bool {
     matches!(
         base,
-        "package.json"
-            | "go.mod"
-            | "cargo.toml"
-            | "pyproject.toml"
-            | "dockerfile"
-            | "makefile"
+        "package.json" | "go.mod" | "cargo.toml" | "pyproject.toml" | "dockerfile" | "makefile"
     ) || matches!(ext, ".toml" | ".yaml" | ".yml")
 }

@@ -25,18 +25,42 @@ pub mod session;
 
 static GOAL_TOKEN_RE: Lazy<Regex> = Lazy::new(|| {
     // Mirrors internal/pack/relevance.go: `[\p{Han}\p{Hiragana}\p{Katakana}]+|[A-Za-z0-9_-]+`
-    Regex::new(r"[\p{Han}\p{Hiragana}\p{Katakana}]+|[A-Za-z0-9_-]+")
-        .expect("goal token regex")
+    Regex::new(r"[\p{Han}\p{Hiragana}\p{Katakana}]+|[A-Za-z0-9_-]+").expect("goal token regex")
 });
 
 fn stopwords() -> &'static HashSet<&'static str> {
     static SET: Lazy<HashSet<&'static str>> = Lazy::new(|| {
         let mut s = HashSet::new();
         for w in [
-            "a", "an", "and", "for", "in", "of", "on", "or", "the", "to", "with",
-            "が", "から", "したい", "する", "で", "です", "と", "について", "に",
-            "の", "は", "まで", "を",
-            "調べたい", "調べる", "見たい", "知りたい", "確認したい",
+            "a",
+            "an",
+            "and",
+            "for",
+            "in",
+            "of",
+            "on",
+            "or",
+            "the",
+            "to",
+            "with",
+            "が",
+            "から",
+            "したい",
+            "する",
+            "で",
+            "です",
+            "と",
+            "について",
+            "に",
+            "の",
+            "は",
+            "まで",
+            "を",
+            "調べたい",
+            "調べる",
+            "見たい",
+            "知りたい",
+            "確認したい",
             "レビューしたい",
         ] {
             s.insert(w);
@@ -293,10 +317,7 @@ fn format_relevance_reason(score: i64, signals: &[String]) -> String {
 
 fn basename_no_ext(path: &str) -> String {
     let pth = Path::new(path);
-    let base = pth
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("");
+    let base = pth.file_name().and_then(|s| s.to_str()).unwrap_or("");
     let stem = match base.rfind('.') {
         Some(i) if i > 0 => &base[..i],
         _ => base,
@@ -412,10 +433,7 @@ pub fn score_relevance_with_ctx(
     if ctx.budget > 0 && token_count > ctx.budget / 3 {
         append_signal(
             &mut signals,
-            format!(
-                "large file: {} tokens > budget/3",
-                token_count
-            ),
+            format!("large file: {} tokens > budget/3", token_count),
         );
     }
 
@@ -514,7 +532,10 @@ pub fn debug_keyword_count() -> (usize, usize) {
 pub fn debug_alias_map() -> HashMap<String, Vec<String>> {
     let mut m = HashMap::new();
     for (jp, aliases) in goal_aliases() {
-        m.insert((*jp).to_string(), aliases.iter().map(|s| s.to_string()).collect());
+        m.insert(
+            (*jp).to_string(),
+            aliases.iter().map(|s| s.to_string()).collect(),
+        );
     }
     m
 }

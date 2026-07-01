@@ -71,12 +71,7 @@ fn comment_only_go_file_produces_no_edges() {
 #[test]
 fn js_bare_specifier_is_dropped() {
     let dir = tmp_dir("js-bare");
-    write_tree(
-        &dir,
-        &[
-            ("a.ts", "import x from \"react\";\n"),
-        ],
-    );
+    write_tree(&dir, &[("a.ts", "import x from \"react\";\n")]);
     let idx = build(&dir.to_string_lossy()).unwrap();
     assert!(idx.imports.is_empty(), "{:?}", idx);
 }
@@ -102,12 +97,7 @@ fn php_without_composer_returns_no_edges() {
 #[test]
 fn swift_outside_sources_produces_no_edges() {
     let dir = tmp_dir("swift-outside");
-    write_tree(
-        &dir,
-        &[
-            ("main.swift", "import Foundation\n"),
-        ],
-    );
+    write_tree(&dir, &[("main.swift", "import Foundation\n")]);
     let idx = build(&dir.to_string_lossy()).unwrap();
     // No `Sources/<Module>/` layout → no module index → no edges.
     assert!(idx.imports.is_empty());
@@ -120,10 +110,7 @@ fn build_is_deterministic() {
         &dir,
         &[
             ("go.mod", "module example.com/m\n"),
-            (
-                "a.go",
-                "package m\nimport \"example.com/m/lib\"\n",
-            ),
+            ("a.go", "package m\nimport \"example.com/m/lib\"\n"),
             ("lib/x.go", "package lib\n"),
             ("lib/y.go", "package lib\n"),
         ],

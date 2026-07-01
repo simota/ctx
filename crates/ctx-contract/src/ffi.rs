@@ -544,8 +544,7 @@ mod tests {
             b"prelude\n<!-- ctx:contract v1\n{\"schema_version\":1,\"created\":\"x\",\"files\":[]}\n-->\nepilogue";
         let mut buf: *mut u8 = ptr::null_mut();
         let mut len: usize = 0;
-        let rc =
-            unsafe { ctx_contract_strip_block(pack.as_ptr(), pack.len(), &mut buf, &mut len) };
+        let rc = unsafe { ctx_contract_strip_block(pack.as_ptr(), pack.len(), &mut buf, &mut len) };
         assert_eq!(rc, ERR_OK);
         assert!(!buf.is_null());
         let slice = unsafe { slice::from_raw_parts(buf, len) };
@@ -564,8 +563,7 @@ mod tests {
         let pack = b"";
         let mut buf: *mut u8 = ptr::null_mut();
         let mut len: usize = 0;
-        let rc =
-            unsafe { ctx_contract_strip_block(pack.as_ptr(), pack.len(), &mut buf, &mut len) };
+        let rc = unsafe { ctx_contract_strip_block(pack.as_ptr(), pack.len(), &mut buf, &mut len) };
         assert_eq!(rc, ERR_OK);
         assert_eq!(len, 0);
         assert!(buf.is_null());
