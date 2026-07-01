@@ -148,7 +148,8 @@ ctx browse .
 ctx browse . --no-open --port 8765 --bind 127.0.0.1
 ```
 
-`ctx browse` はローカルの Axum web server を起動します。
+`ctx browse` はローカルの Axum web server を起動し、既定ではブラウザで表示します。
+ブラウザ起動を抑止する場合は `--no-open` を指定してください。
 非 loopback address へ bind する場合は `--allow-nonlocal` が必要です。
 
 Frontend を変更した場合:

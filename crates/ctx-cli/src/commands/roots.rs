@@ -525,27 +525,6 @@ pub(crate) fn display_duration(duration: Duration) -> String {
     }
 }
 
-pub(crate) fn open_url(url: &str) -> Result<(), String> {
-    let (program, args): (&str, Vec<&str>) = if cfg!(target_os = "macos") {
-        ("open", vec![url])
-    } else if cfg!(target_os = "windows") {
-        ("cmd", vec!["/C", "start", "", url])
-    } else {
-        ("xdg-open", vec![url])
-    };
-    Command::new(program)
-        .args(args)
-        .status()
-        .map_err(|err| err.to_string())
-        .and_then(|status| {
-            if status.success() {
-                Ok(())
-            } else {
-                Err(status.to_string())
-            }
-        })
-}
-
 pub(crate) fn canonical_root(path: &Path) -> Result<String, String> {
     if path.as_os_str().is_empty() {
         return Err("roots: empty path".to_string());

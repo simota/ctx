@@ -36,6 +36,27 @@ pub(crate) fn git_output(args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
+pub(crate) fn open_url(url: &str) -> Result<(), String> {
+    let (program, args): (&str, Vec<&str>) = if cfg!(target_os = "macos") {
+        ("open", vec![url])
+    } else if cfg!(target_os = "windows") {
+        ("cmd", vec!["/C", "start", "", url])
+    } else {
+        ("xdg-open", vec![url])
+    };
+    Command::new(program)
+        .args(args)
+        .status()
+        .map_err(|err| err.to_string())
+        .and_then(|status| {
+            if status.success() {
+                Ok(())
+            } else {
+                Err(status.to_string())
+            }
+        })
+}
+
 pub(crate) fn current_date_utc() -> String {
     // Implementation moved to ctx_pack::assemble alongside the pack renderer.
     ctx_pack::assemble::current_date_utc()

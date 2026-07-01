@@ -1,6 +1,6 @@
 use std::env;
 use std::ffi::{OsStr, OsString};
-use std::io::{self, BufReader};
+use std::io::{self, BufReader, Write};
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -20,6 +20,8 @@ pub(crate) struct BrowseArgs {
     port: u16,
     /// Served project path (positional; defaults to ".").
     path: String,
+    /// Do not launch the system browser after the server URL is ready.
+    no_open: bool,
 }
 
 /// Native `ctx tui [path]` — route to the ratatui ctx-tui crate.
@@ -123,8 +125,15 @@ pub(crate) fn serve_rust_web(parsed: &BrowseArgs, host: &str) -> ExitCode {
                 return ExitCode::from(1);
             }
         };
+        let url = format!("http://{addr}/");
         // Match the Go output line exactly so URL-parsing parents keep working.
-        println!("ctx browse: serving {} at http://{}/", parsed.path, addr);
+        println!("ctx browse: serving {} at {}", parsed.path, url);
+        let _ = io::stdout().flush();
+        if !parsed.no_open {
+            if let Err(err) = open_url(&url) {
+                eprintln!("warning: could not launch browser: {err}");
+            }
+        }
         let shutdown = async {
             let _ = tokio::signal::ctrl_c().await;
         };
@@ -148,6 +157,7 @@ pub(crate) fn parse_browse_args(args: &[OsString]) -> Option<BrowseArgs> {
     };
     let mut port: u16 = 0;
     let mut port_set = false;
+    let mut no_open = false;
     let mut positionals = Vec::new();
     let mut i = 0;
     while i < args.len() {
@@ -176,10 +186,9 @@ pub(crate) fn parse_browse_args(args: &[OsString]) -> Option<BrowseArgs> {
             port_set = true;
         } else if arg == OsStr::new("--allow-nonlocal") {
             allow_nonlocal = true;
-        } else if arg == OsStr::new("--no-open")
-            || arg == OsStr::new("--audit")
-            || arg == OsStr::new("--no-register")
-        {
+        } else if arg == OsStr::new("--no-open") {
+            no_open = true;
+        } else if arg == OsStr::new("--audit") || arg == OsStr::new("--no-register") {
         } else if flag_value(arg, "--relations-engine").is_some() {
         } else if arg == OsStr::new("--relations-engine") {
             i += 1;
@@ -212,6 +221,7 @@ pub(crate) fn parse_browse_args(args: &[OsString]) -> Option<BrowseArgs> {
         web_engine,
         port,
         path,
+        no_open,
     })
 }
 
@@ -335,4 +345,27 @@ pub(crate) fn is_loopback_host(host: &str) -> bool {
         return true;
     }
     host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn os_args(args: &[&str]) -> Vec<OsString> {
+        args.iter().map(OsString::from).collect()
+    }
+
+    #[test]
+    fn parse_browse_opens_browser_by_default() {
+        let parsed = parse_browse_args(&os_args(&["browse"])).expect("parse browse");
+        assert!(!parsed.no_open);
+    }
+
+    #[test]
+    fn parse_browse_honors_no_open() {
+        let parsed =
+            parse_browse_args(&os_args(&["browse", ".", "--no-open"])).expect("parse browse");
+        assert!(parsed.no_open);
+        assert_eq!(parsed.path, ".");
+    }
 }
