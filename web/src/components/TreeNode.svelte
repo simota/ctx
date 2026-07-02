@@ -7,6 +7,7 @@
   import { announce } from '../lib/announce.svelte';
   import { repo, absolutePath } from '../lib/repo.svelte';
   import { view } from '../lib/view.svelte';
+  import { ensurePinsRoot, isPinned, pinFile, unpinFile } from '../lib/pins.svelte';
 
   let {
     node,
@@ -93,6 +94,7 @@
     e.preventDefault();
     const items: ContextMenuItem[] = [];
     if (!node.is_dir) {
+      const pinned = isPinned(node.path);
       items.push({
         id: 'open',
         label: 'Open',
@@ -104,6 +106,16 @@
         label: 'Open to the Side',
         disabled: isMobile || (panes.rightOpen && panes.rightPath === node.path),
         run: () => openRight(node.path),
+      });
+      items.push({
+        id: pinned ? 'unpin-file' : 'pin-file',
+        label: pinned ? 'Unpin File' : 'Pin File',
+        disabled: !repo.root,
+        run: () => {
+          ensurePinsRoot(repo.root);
+          const result = pinned ? unpinFile(node.path) : pinFile(node.path);
+          announce(result.message);
+        },
       });
     }
     items.push({

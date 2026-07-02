@@ -10,12 +10,13 @@
 //   #/search?q=<query>&match=any -> search results matching any term
 //   #/search?q=<query>&exact=true -> search with exact literal filtering
 //   #/budget                 -> budget panel
+//   #/pins                   -> pinned files board
 // The path segment after #/file/ or #/dir/ is treated as the full remaining
 // path (no further slash splitting), so paths like "internal/cli/pack.go"
 // round-trip correctly. Snapshot ids are opaque strings (no slashes expected,
 // but we treat the suffix as the full id for forward compatibility).
 
-export type RouteName = 'tree' | 'file' | 'dir' | 'search' | 'budget' | 'gitlog' | 'largest';
+export type RouteName = 'tree' | 'file' | 'dir' | 'search' | 'budget' | 'gitlog' | 'largest' | 'pins';
 export type FileViewMode = 'diff' | 'history';
 export type GitReviewMode = 'merge-base' | 'direct';
 export type SearchMatchMode = 'all' | 'any';
@@ -91,6 +92,9 @@ function parse(rawHash: string): Route {
   }
   if (p === 'budget') {
     return { name: 'budget', path: '', query: '', openPaths: [], rightPath: '' };
+  }
+  if (p === 'pins') {
+    return { name: 'pins', path: '', query: '', openPaths: [], rightPath: '' };
   }
   if (p === 'largest') {
     return { name: 'largest', path: '', query: '', openPaths: [], rightPath: '' };
@@ -307,6 +311,10 @@ export function toTreeHash(opts?: TreeHashOpts): string {
 
 export function toBudgetHash(): string {
   return '#/budget';
+}
+
+export function toPinsHash(): string {
+  return '#/pins';
 }
 
 export function toLargestHash(): string {

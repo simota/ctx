@@ -4,6 +4,8 @@
   import { announce } from '../lib/announce.svelte';
   import { panes, openRight } from '../lib/panes.svelte';
   import { openContextMenu, type ContextMenuItem } from '../lib/context-menu.svelte';
+  import { repo } from '../lib/repo.svelte';
+  import { ensurePinsRoot, isPinned, pinFile, unpinFile } from '../lib/pins.svelte';
 
   let {
     activePath,
@@ -144,6 +146,7 @@
   function onTabContextMenu(e: MouseEvent, path: string) {
     e.preventDefault();
     const alreadyInRight = panes.rightOpen && panes.rightPath === path;
+    const pinned = isPinned(path);
     const items: ContextMenuItem[] = [
       {
         id: 'open-to-side',
@@ -152,6 +155,16 @@
         run: () => {
           openRight(path);
           announce('Right pane opened');
+        },
+      },
+      {
+        id: pinned ? 'unpin-file' : 'pin-file',
+        label: pinned ? 'Unpin File' : 'Pin File',
+        disabled: !repo.root,
+        run: () => {
+          ensurePinsRoot(repo.root);
+          const result = pinned ? unpinFile(path) : pinFile(path);
+          announce(result.message);
         },
       },
       {

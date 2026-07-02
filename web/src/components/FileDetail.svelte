@@ -63,6 +63,7 @@
   import { lookup as lookupDefinition, peek as peekDefinition } from '../lib/definitions.svelte';
   import { openDefinitionPicker } from '../lib/definition-picker.svelte';
   import { openTab } from '../lib/tabs.svelte';
+  import { ensurePinsRoot, isPinned, pinFile, unpinFile } from '../lib/pins.svelte';
   import { theme } from '../lib/theme.svelte';
   import { view, toggleDiffContextOnly } from '../lib/view.svelte';
   import { panes, openRight, closeRight } from '../lib/panes.svelte';
@@ -190,6 +191,7 @@
   let data = $state<FileResponse | null>(null);
   let loading = $state(false);
   let error = $state<string | null>(null);
+  let pinned = $derived(isPinned(path));
 
   // viewer controls
   let wrap = $state(readWrapPref());
@@ -2375,6 +2377,13 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     }
   }
 
+  function togglePinnedFile(): void {
+    if (!path) return;
+    ensurePinsRoot(repo.root);
+    const result = pinned ? unpinFile(path) : pinFile(path);
+    announce(result.message);
+  }
+
   function onContextMenu(e: MouseEvent) {
     if (!path) return;
     // Keep the native menu for text inputs (find bar) — spellcheck, paste, etc.
@@ -2390,6 +2399,12 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
         label: 'Open to the Side',
         disabled: isMobile || (panes.rightOpen && panes.rightPath === path),
         run: () => openRight(path),
+      },
+      {
+        id: pinned ? 'unpin-file' : 'pin-file',
+        label: pinned ? 'Unpin File' : 'Pin File',
+        disabled: !repo.root,
+        run: togglePinnedFile,
       },
       {
         id: 'copy-path',
@@ -2465,6 +2480,14 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
         {/each}
       </nav>
       <div class="actions">
+        <button
+          type="button"
+          class="action"
+          aria-label={pinned ? 'Unpin this file' : 'Pin this file'}
+          aria-pressed={pinned}
+          onclick={togglePinnedFile}
+          disabled={!repo.root}
+        >{pinned ? 'Pinned' : 'Pin'}</button>
         <button
           type="button"
           class="action"

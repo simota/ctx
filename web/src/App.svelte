@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { route, navigate, toTreeHash, toBudgetHash, toFileHash, toGitLogHash, toLargestHash } from './lib/router.svelte';
+  import { route, navigate, toTreeHash, toBudgetHash, toFileHash, toGitLogHash, toLargestHash, toPinsHash } from './lib/router.svelte';
   import ThemePicker from './components/ThemePicker.svelte';
   import { openFinder } from './lib/finder.svelte';
   import TreeView from './components/TreeView.svelte';
@@ -19,6 +19,7 @@
   import TabBar from './components/TabBar.svelte';
   import GitLogList from './components/GitLogList.svelte';
   import LargestFiles from './components/LargestFiles.svelte';
+  import PinnedFilesBoard from './components/PinnedFilesBoard.svelte';
   import GitRefsPanel from './components/GitRefsPanel.svelte';
   import GitCommitDetail from './components/GitCommitDetail.svelte';
   import GitCoChangeGraph from './components/GitCoChangeGraph.svelte';
@@ -35,6 +36,7 @@
   import { basename } from './lib/format';
   import { COMMANDS } from './lib/commands';
   import { tabs, openTab, closeTab, setTabs } from './lib/tabs.svelte';
+  import { ensurePinsRoot } from './lib/pins.svelte';
   import { panes, openRight, closeRight, setFocused } from './lib/panes.svelte';
   import { view, toggleTree, toggleSymbols, toggleTokens, toggleTreeGitignore } from './lib/view.svelte';
   import { reloadTree } from './lib/tree-state.svelte';
@@ -44,12 +46,13 @@
   let searchMatchMode = $derived(route.name === 'search' ? (route.searchMatch ?? 'all') : 'all');
   let searchExact = $derived(route.name === 'search' ? (route.searchExact ?? false) : false);
 
-  let rightTab: 'file' | 'search' | 'budget' | 'dir' | 'gitlog' | 'largest' = $derived.by(() => {
+  let rightTab: 'file' | 'search' | 'budget' | 'dir' | 'gitlog' | 'largest' | 'pins' = $derived.by(() => {
     if (route.name === 'search') return 'search';
     if (route.name === 'budget') return 'budget';
     if (route.name === 'dir') return 'dir';
     if (route.name === 'gitlog') return 'gitlog';
     if (route.name === 'largest') return 'largest';
+    if (route.name === 'pins') return 'pins';
     return 'file';
   });
 
@@ -385,6 +388,11 @@
     untrack(() => void loadRoots());
   });
 
+  $effect(() => {
+    if (!repo.root) return;
+    untrack(() => ensurePinsRoot(repo.root));
+  });
+
   // Subtitle for the header brand. Prefer the registry entry's name (matches
   // what the user typed into `ctx roots add`) and fall back to the basename
   // of the served repo root. Pre-load shows "browse" as the legacy default.
@@ -430,6 +438,11 @@
         class:active={route.name === 'largest'}
         onclick={(e) => { e.preventDefault(); navigate(toLargestHash()); }}
       >Largest</a>
+      <a
+        href={toPinsHash()}
+        class:active={route.name === 'pins'}
+        onclick={(e) => { e.preventDefault(); navigate(toPinsHash()); }}
+      >Pins</a>
       <a
         href={toGitLogHash()}
         class:active={route.name === 'gitlog'}
@@ -535,6 +548,8 @@
           {/if}
         {:else if rightTab === 'largest'}
           <LargestFiles />
+        {:else if rightTab === 'pins'}
+          <PinnedFilesBoard />
         {/if}
       </section>
     {:else if !selectedPath}

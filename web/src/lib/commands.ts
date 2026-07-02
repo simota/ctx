@@ -17,17 +17,22 @@ import {
   toTreeHash,
   toBudgetHash,
   toLargestHash,
+  toPinsHash,
   route,
 } from './router.svelte';
 import { openFinder } from './finder.svelte';
 import { openCheatsheet } from './cheatsheet.svelte';
 import { openRootsPicker } from './roots-picker.svelte';
+import { repo } from './repo.svelte';
+import { ensurePinsRoot, isPinned, pinFile, unpinFile } from './pins.svelte';
+import { announce } from './announce.svelte';
 
 export type CommandCategory =
   | 'Navigation'
   | 'Find'
   | 'View'
   | 'Tabs'
+  | 'Pins'
   | 'Help';
 
 // Stable category display order — drives the section headers in the palette
@@ -37,6 +42,7 @@ export const CATEGORY_ORDER: CommandCategory[] = [
   'Find',
   'View',
   'Tabs',
+  'Pins',
   'Help',
 ];
 
@@ -119,6 +125,13 @@ export const COMMANDS: Command[] = [
     run: () => navigate(toLargestHash()),
   },
   {
+    id: 'nav.pins',
+    label: 'Open Pins Board',
+    category: 'Navigation',
+    keywords: ['pins', 'pinned', 'pin board', 'board', 'files'],
+    run: () => navigate(toPinsHash()),
+  },
+  {
     id: 'roots.switch',
     label: 'Switch Project Root…',
     category: 'Navigation',
@@ -198,6 +211,30 @@ export const COMMANDS: Command[] = [
       // After closing all tabs, route home so the user isn't stranded on
       // a "ghost" file route whose tab no longer exists.
       navigate(toTreeHash());
+    },
+  },
+  {
+    id: 'pins.pinActive',
+    label: 'Pin Active File',
+    category: 'Pins',
+    keywords: ['pin', 'pinned', 'file', 'active', 'favorite'],
+    when: () => hasActiveFile() && !!repo.root && !isPinned(activeFilePath()),
+    run: () => {
+      ensurePinsRoot(repo.root);
+      const result = pinFile(activeFilePath());
+      announce(result.message);
+    },
+  },
+  {
+    id: 'pins.unpinActive',
+    label: 'Unpin Active File',
+    category: 'Pins',
+    keywords: ['unpin', 'pin', 'pinned', 'file', 'active', 'remove'],
+    when: () => hasActiveFile() && !!repo.root && isPinned(activeFilePath()),
+    run: () => {
+      ensurePinsRoot(repo.root);
+      const result = unpinFile(activeFilePath());
+      announce(result.message);
     },
   },
   {

@@ -22,6 +22,8 @@
         return `search: ${route.query}`;
       case 'budget':
         return 'budget';
+      case 'pins':
+        return 'pins';
       case 'dir':
         return route.path ? `dir: ${route.path}` : 'dir';
       default:
