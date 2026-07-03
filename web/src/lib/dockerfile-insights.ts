@@ -172,14 +172,21 @@ function scanInstructions(content: string): Instruction[] {
       i++;
       continue;
     }
-    // Join backslash continuations into a single logical instruction.
+    // Join backslash continuations into a single logical instruction. A
+    // comment-only continuation line never itself ends in a backslash, so
+    // whether to keep joining is tracked separately (`continues`) from the
+    // last-read `line` — otherwise a trailing comment line would falsely
+    // look like the end of the continuation and truncate the instruction.
     let joined = line.replace(/\\\s*$/, '');
-    while (/\\\s*$/.test(line) && i + 1 < raws.length) {
+    let continues = /\\\s*$/.test(line);
+    while (continues && i + 1 < raws.length) {
       i++;
       line = raws[i];
-      // Drop comment-only continuation lines (legal inside RUN blocks).
-      const cont = line.replace(/\\\s*$/, '');
+      // Drop comment-only continuation lines (legal inside RUN blocks); the
+      // block keeps waiting on the last real line's continuation state.
       if (line.trim().startsWith('#')) continue;
+      const cont = line.replace(/\\\s*$/, '');
+      continues = /\\\s*$/.test(line);
       joined += ' ' + cont.trim();
     }
     i++;

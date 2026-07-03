@@ -1,6 +1,6 @@
 <script lang="ts">
   import { fetchTree, type TreeNode } from '../lib/api';
-  import { formatSize, isSourceCode } from '../lib/format';
+  import { basename, formatSize, isSourceCode } from '../lib/format';
   import { navigate, toFileHash } from '../lib/router.svelte';
   import { announce } from '../lib/announce.svelte';
 
@@ -41,7 +41,7 @@
   let pathQuery = $state('');
 
   function extOf(path: string): string {
-    const base = path.slice(path.lastIndexOf('/') + 1).toLowerCase();
+    const base = basename(path).toLowerCase();
     const dot = base.lastIndexOf('.');
     return dot > 0 ? base.slice(dot + 1) : '';
   }

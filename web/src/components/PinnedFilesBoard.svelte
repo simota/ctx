@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fetchTree, ApiCallError } from '../lib/api';
+  import { basename } from '../lib/format';
   import { announce } from '../lib/announce.svelte';
   import { navigate, route, toFileHash } from '../lib/router.svelte';
   import { openRight } from '../lib/panes.svelte';
@@ -79,11 +80,6 @@
       });
     }
   });
-
-  function basename(path: string): string {
-    const idx = path.lastIndexOf('/');
-    return idx === -1 ? path : path.slice(idx + 1);
-  }
 
   async function validateFile(path: string): Promise<boolean> {
     try {

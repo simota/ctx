@@ -9,6 +9,8 @@
 
 import type { Component } from 'svelte';
 
+import { basename } from './format';
+
 import IconDefault from '~icons/vscode-icons/default-file';
 import IconBinary from '~icons/vscode-icons/file-type-binary';
 import IconText from '~icons/vscode-icons/file-type-text';
@@ -183,8 +185,7 @@ const EXT_ICON: Record<string, Component> = {
 // IconDefault. Always returns a component so callers can render unconditionally.
 export function pickFileIcon(path: string | undefined | null): Component {
   if (!path) return IconDefault;
-  const slash = path.lastIndexOf('/');
-  const name = (slash === -1 ? path : path.slice(slash + 1)).toLowerCase();
+  const name = basename(path).toLowerCase();
   if (name in BASENAME_ICON) return BASENAME_ICON[name];
   if (name.endsWith('.d.ts')) return IconTypeScriptDef;
   const dot = name.lastIndexOf('.');

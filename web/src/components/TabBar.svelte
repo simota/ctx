@@ -6,6 +6,7 @@
   import { openContextMenu, type ContextMenuItem } from '../lib/context-menu.svelte';
   import { repo } from '../lib/repo.svelte';
   import { ensurePinsRoot, isPinned, pinFile, unpinFile } from '../lib/pins.svelte';
+  import { basename } from '../lib/format';
 
   let {
     activePath,
@@ -35,11 +36,6 @@
     mql.addEventListener('change', onChange);
     return () => mql.removeEventListener('change', onChange);
   });
-
-  function basename(p: string): string {
-    const i = p.lastIndexOf('/');
-    return i === -1 ? p : p.slice(i + 1);
-  }
 
   function onTabClick(path: string) {
     if (path === activePath) return;

@@ -13,22 +13,30 @@ export const gitlog = $state<{
   ref: string | null; // selected ref (null = HEAD / default)
 }>({ commits: [], truncated: false, loading: false, error: null, loaded: false, ref: null });
 
+// Monotonic request token so a superseding call (new ref while one is still
+// in flight) wins: a completion only applies its result if it's still the
+// latest request, instead of being silently dropped by the `loading` guard.
+let requestToken = 0;
+
 // `ref` switches the log's starting point (null = HEAD); a changed ref forces a reload.
 export async function loadGitLog(limit = 100, ref: string | null = null, force = false): Promise<void> {
   if (gitlog.loaded && gitlog.ref === ref && !force) return;
-  if (gitlog.loading) return;
+  if (gitlog.loading && gitlog.ref === ref && !force) return;
+  const token = ++requestToken;
   gitlog.loading = true;
   gitlog.error = null;
   gitlog.ref = ref;
   try {
     const r = await fetchGitLog(limit, ref ?? undefined);
+    if (token !== requestToken) return; // superseded by a newer request
     gitlog.commits = r.commits;
     gitlog.truncated = r.truncated;
     gitlog.loaded = true;
   } catch (e) {
+    if (token !== requestToken) return;
     gitlog.error = e instanceof ApiCallError ? e.message : 'Failed to load git log.';
   } finally {
-    gitlog.loading = false;
+    if (token === requestToken) gitlog.loading = false;
   }
 }
 

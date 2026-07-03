@@ -1,3 +1,5 @@
+import { basename } from './format';
+
 export interface PinEntry {
   path: string;
   pinnedAt: number;
@@ -51,8 +53,7 @@ function normalizePath(path: string): string | null {
 }
 
 function entryLabel(path: string): string {
-  const idx = path.lastIndexOf('/');
-  return idx === -1 ? path : path.slice(idx + 1);
+  return basename(path);
 }
 
 function safeNow(): number {

@@ -143,8 +143,11 @@ export class ApiCallError extends Error {
   }
 }
 
-async function getJSON<T>(path: string): Promise<T> {
-  const res = await fetch(path, { headers: { Accept: 'application/json' } });
+// parseResponse: shared fetch-response handling for JSON endpoints — reads
+// the body as text (so a non-JSON error page still yields a message instead
+// of a raw parse exception), parses it, and throws ApiCallError on either a
+// parse failure or a non-2xx status. `path` is only used for error messages.
+async function parseResponse<T>(res: Response, path: string): Promise<T> {
   const text = await res.text();
   let body: unknown = null;
   if (text) {
@@ -159,6 +162,11 @@ async function getJSON<T>(path: string): Promise<T> {
     throw new ApiCallError(res.status, err?.code ?? 'http_error', err?.message ?? res.statusText);
   }
   return body as T;
+}
+
+async function getJSON<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(path, { headers: { Accept: 'application/json' }, signal });
+  return parseResponse<T>(res, path);
 }
 
 function qs(params: Record<string, string | number | boolean | undefined>): string {
@@ -261,28 +269,7 @@ export function fetchDefinition(
   opts: FetchDefinitionOpts = {},
 ): Promise<DefinitionResponse> {
   const url = `/api/definition${qs({ name, from: opts.from, kind: opts.kind })}`;
-  return getJSONSig<DefinitionResponse>(url, opts.signal);
-}
-
-async function getJSONSig<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(path, {
-    headers: { Accept: 'application/json' },
-    signal,
-  });
-  const text = await res.text();
-  let body: unknown = null;
-  if (text) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      throw new ApiCallError(res.status, 'parse_error', `Invalid JSON from ${path}`);
-    }
-  }
-  if (!res.ok) {
-    const err = (body as ApiError | null)?.error;
-    throw new ApiCallError(res.status, err?.code ?? 'http_error', err?.message ?? res.statusText);
-  }
-  return body as T;
+  return getJSON<DefinitionResponse>(url, opts.signal);
 }
 
 // fetchDir: root is fetched with `path=''` — the `qs` helper omits empty
@@ -738,19 +725,7 @@ export async function deleteRoot(name: string): Promise<void> {
     headers: { Accept: 'application/json' },
   });
   if (res.status === 204) return;
-  const text = await res.text();
-  let body: unknown = null;
-  if (text) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      throw new ApiCallError(res.status, 'parse_error', `Invalid JSON from ${url}`);
-    }
-  }
-  if (!res.ok) {
-    const err = (body as ApiError | null)?.error;
-    throw new ApiCallError(res.status, err?.code ?? 'http_error', err?.message ?? res.statusText);
-  }
+  await parseResponse<void>(res, url);
 }
 
 async function postJSON<T>(path: string, req: unknown): Promise<T> {
@@ -762,18 +737,5 @@ async function postJSON<T>(path: string, req: unknown): Promise<T> {
     },
     body: JSON.stringify(req),
   });
-  const text = await res.text();
-  let body: unknown = null;
-  if (text) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      throw new ApiCallError(res.status, 'parse_error', `Invalid JSON from ${path}`);
-    }
-  }
-  if (!res.ok) {
-    const err = (body as ApiError | null)?.error;
-    throw new ApiCallError(res.status, err?.code ?? 'http_error', err?.message ?? res.statusText);
-  }
-  return body as T;
+  return parseResponse<T>(res, path);
 }

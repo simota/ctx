@@ -3,6 +3,7 @@
   import { navigate, toFileHash } from '../lib/router.svelte';
   import { openTab } from '../lib/tabs.svelte';
   import { announce } from '../lib/announce.svelte';
+  import { basename } from '../lib/format';
 
   let { path }: { path: string } = $props();
 
@@ -40,10 +41,6 @@
 
   // Render only the basename in the label so two-column layouts stay compact.
   // The full repo-relative path is kept in `title` for hover disclosure.
-  function basename(p: string): string {
-    const slash = p.lastIndexOf('/');
-    return slash >= 0 ? p.slice(slash + 1) : p;
-  }
   function dirname(p: string): string {
     const slash = p.lastIndexOf('/');
     return slash >= 0 ? p.slice(0, slash) : '';
