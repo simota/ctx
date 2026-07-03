@@ -6,12 +6,15 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, OnceLock, RwLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use serde::{Deserialize, Serialize};
 
+use crate::handlers::file::relative_to_root;
 use crate::response;
 use crate::safepath;
 use crate::AppState;
@@ -92,11 +95,7 @@ fn handle_symbols_sync(state: AppState, params: SymbolsParams) -> Response {
         Ok(m) => m,
         Err(e) => {
             if e.kind() == std::io::ErrorKind::NotFound {
-                return response::error(
-                    StatusCode::NOT_FOUND,
-                    "not_found",
-                    &format!("stat {}: no such file or directory", target.display()),
-                );
+                return response::stat_not_found(&target);
             }
             return response::error(StatusCode::INTERNAL_SERVER_ERROR, "stat", &e.to_string());
         }
@@ -117,7 +116,7 @@ fn handle_symbols_sync(state: AppState, params: SymbolsParams) -> Response {
                 );
             }
         };
-        let key = relative_to_root(root_str, &target);
+        let key = dotted_relative_to_root(root_str, &target);
         files.insert(key.clone(), convert_symbols(syms));
         return response::json(StatusCode::OK, &SymbolsResponse { path: key, files });
     }
@@ -125,7 +124,7 @@ fn handle_symbols_sync(state: AppState, params: SymbolsParams) -> Response {
     // Directory path: walk + extract like Go's handleSymbols directory branch
     collect_symbols_from_dir(&target, root_str, &mut files);
 
-    let path_key = relative_to_root(root_str, &target);
+    let path_key = dotted_relative_to_root(root_str, &target);
     response::json(
         StatusCode::OK,
         &SymbolsResponse {
@@ -183,18 +182,44 @@ fn handle_definition_sync(state: AppState, params: DefinitionParams) -> Response
         }
     };
 
-    // Walk the repo and build a corpus of FileSymbols (mirrors LookupByName).
-    let mut corpus: Vec<ctx_symbols::FileSymbols> = Vec::new();
-    let mut meta_index: HashMap<String, FileMeta> = HashMap::new();
-
-    collect_definition_corpus(&root_path, root_str, &mut corpus, &mut meta_index);
+    // Walk the repo and build a corpus of FileSymbols (mirrors LookupByName),
+    // reusing a cached corpus when nothing under root has changed since it
+    // was last built (see `corpus_cache`).
+    let fingerprint = corpus_fingerprint(&root_path);
+    let cached = corpus_cache().read().ok().and_then(|guard| {
+        guard
+            .get(&root_path)
+            .filter(|entry| entry.fingerprint == fingerprint)
+            .map(|entry| (Arc::clone(&entry.corpus), Arc::clone(&entry.meta_index)))
+    });
+    let (corpus, meta_index) = match cached {
+        Some(pair) => pair,
+        None => {
+            let mut corpus: Vec<ctx_symbols::FileSymbols> = Vec::new();
+            let mut meta_index: HashMap<String, FileMeta> = HashMap::new();
+            collect_definition_corpus(&root_path, root_str, &mut corpus, &mut meta_index);
+            let corpus = Arc::new(corpus);
+            let meta_index = Arc::new(meta_index);
+            if let Ok(mut guard) = corpus_cache().write() {
+                guard.insert(
+                    root_path.clone(),
+                    CorpusCacheEntry {
+                        fingerprint,
+                        corpus: Arc::clone(&corpus),
+                        meta_index: Arc::clone(&meta_index),
+                    },
+                );
+            }
+            (corpus, meta_index)
+        }
+    };
 
     let args = ctx_symbols::LookupArgs {
         name: params.name.clone(),
         from: from.clone(),
         kind: params.kind.clone(),
     };
-    let hits = ctx_symbols::resolve(&corpus, &args);
+    let hits = ctx_symbols::resolve(corpus.as_slice(), &args);
 
     let candidates: Vec<DefinitionCandidate> = hits
         .into_iter()
@@ -244,29 +269,15 @@ pub fn convert_symbols(syms: Vec<ctx_symbols::Symbol>) -> Option<Vec<SymbolWire>
     )
 }
 
-/// Relative slash-separated path from root to target; mirrors Go's
-/// `relativeToRoot`. Uses the memoized canonical root shared with `file.rs`
-/// (canonicalize is a syscall and this runs once per walked file).
-fn relative_to_root(root: &str, target: &Path) -> String {
-    let abs_root = crate::handlers::file::canonical_root(root);
-    match target.strip_prefix(&abs_root) {
-        Ok(rel) => {
-            let s = rel.to_string_lossy().replace('\\', "/");
-            if s.is_empty() {
-                ".".to_string()
-            } else {
-                s
-            }
-        }
-        Err(_) => {
-            // target IS the abs_root (strip_prefix fails when paths are equal
-            // on some platforms). Fallback: compare directly.
-            if *target == abs_root {
-                ".".to_string()
-            } else {
-                target.to_string_lossy().replace('\\', "/")
-            }
-        }
+/// `relative_to_root` with the served root ("") mapped to "." — the same
+/// fallback `dir.rs`/`tree.rs` apply inline at their single call site; named
+/// here because `/api/symbols` and `/api/definition` need it at four.
+fn dotted_relative_to_root(root: &str, target: &Path) -> String {
+    let s = relative_to_root(root, target);
+    if s.is_empty() {
+        ".".to_string()
+    } else {
+        s
     }
 }
 
@@ -314,7 +325,7 @@ fn collect_symbols_from_dir(
             Ok(s) if !s.is_empty() => s,
             _ => continue,
         };
-        let key = relative_to_root(root, &path);
+        let key = dotted_relative_to_root(root, &path);
         files.insert(key, convert_symbols(syms));
     }
 }
@@ -324,6 +335,69 @@ fn collect_symbols_from_dir(
 struct FileMeta {
     role: String,
     tokens: i64,
+}
+
+/// One cached `/api/definition` corpus build, valid only while `fingerprint`
+/// still matches a fresh [`corpus_fingerprint`] call.
+struct CorpusCacheEntry {
+    fingerprint: SystemTime,
+    corpus: Arc<Vec<ctx_symbols::FileSymbols>>,
+    meta_index: Arc<HashMap<String, FileMeta>>,
+}
+
+/// Process-lifetime cache for `/api/definition`'s repo-wide symbol corpus,
+/// keyed by canonical root. Without it, `handle_definition_sync` re-walks and
+/// tree-sitter-parses every file in the repo on every request; a fingerprint
+/// hit skips straight to `ctx_symbols::resolve`. A global cache keyed by an
+/// absolute path (rather than threading a field through `AppState`, as
+/// `FileCache`/`DiffCache` do) follows `tree.rs`'s `cached_file_stats`
+/// precedent in this same crate — safe here because entries are validated by
+/// fingerprint before use, so a stale or unrelated root simply misses.
+fn corpus_cache() -> &'static RwLock<HashMap<PathBuf, CorpusCacheEntry>> {
+    static CACHE: OnceLock<RwLock<HashMap<PathBuf, CorpusCacheEntry>>> = OnceLock::new();
+    CACHE.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+/// Cheap fingerprint for the corpus cache: the max mtime seen across a
+/// stat-only walk of the same file set `collect_definition_corpus` would
+/// visit (same skip filter, no file reads or tree-sitter parsing). Any file
+/// add/edit/delete under root bumps some directory's or file's mtime, so
+/// comparing this single timestamp across requests is enough to detect
+/// "nothing changed" without repeating the expensive walk.
+fn corpus_fingerprint(root_path: &Path) -> SystemTime {
+    let mut max = std::fs::metadata(root_path)
+        .and_then(|m| m.modified())
+        .unwrap_or(UNIX_EPOCH);
+    fingerprint_walk(root_path, &mut max);
+    max
+}
+
+fn fingerprint_walk(dir: &Path, max: &mut SystemTime) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if name_str.starts_with('.')
+            || name_str == "node_modules"
+            || name_str == "dist"
+            || name_str == "coverage"
+        {
+            continue;
+        }
+        let Ok(meta) = entry.metadata() else {
+            continue;
+        };
+        if let Ok(mtime) = meta.modified() {
+            if mtime > *max {
+                *max = mtime;
+            }
+        }
+        if meta.is_dir() {
+            fingerprint_walk(&entry.path(), max);
+        }
+    }
 }
 
 /// Walk `root_path` and build both the symbol corpus and the file-meta index.
@@ -372,11 +446,11 @@ fn collect_definition_inner(
             continue;
         }
 
-        let rel_key = relative_to_root(root_str, &path);
+        let rel_key = dotted_relative_to_root(root_str, &path);
 
         // Build meta index (role + token estimate from file size).
         let file_size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-        let role = infer_role(&rel_key);
+        let role = crate::handlers::role::infer_role(&rel_key);
         meta_index.insert(
             rel_key.clone(),
             FileMeta {
@@ -395,73 +469,4 @@ fn collect_definition_inner(
             symbols: syms,
         });
     }
-}
-
-/// Infer file role from path, mirroring Go's `inferRole` in internal/walk/walk.go.
-fn infer_role(path: &str) -> String {
-    let lower_path = path.to_lowercase();
-    let base = path.rsplit('/').next().unwrap_or(path);
-    let lower_base = base.to_lowercase();
-    let ext = Path::new(base)
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| format!(".{}", e.to_lowercase()))
-        .unwrap_or_default();
-
-    // Test
-    if lower_path.starts_with("tests/")
-        || lower_path.contains("/tests/")
-        || lower_base.ends_with("_test.go")
-        || is_dotted_test_name(&lower_base)
-    {
-        return "test".to_string();
-    }
-    // Doc
-    if ext == ".md" || lower_base.starts_with("license") || lower_base.starts_with("readme") {
-        return "doc".to_string();
-    }
-    // Config
-    if is_config_file(&lower_base, &ext) {
-        return "config".to_string();
-    }
-    // Entry
-    if base == "main.ts"
-        || base == "main.go"
-        || base == "main.py"
-        || base == "index.ts"
-        || base == "index.tsx"
-        || base == "index.js"
-        || (path.starts_with("cmd/") && path.ends_with("/main.go"))
-    {
-        return "entry".to_string();
-    }
-    // Route
-    if base.contains("router") || base.contains("route") || base.contains("Router") {
-        return "route".to_string();
-    }
-    // Core
-    if matches!(
-        ext.as_str(),
-        ".ts" | ".tsx" | ".js" | ".go" | ".py" | ".rs" | ".swift" | ".kt" | ".kts" | ".java"
-    ) {
-        return "core".to_string();
-    }
-    // Unknown / no role → empty string (omitempty in Go)
-    String::new()
-}
-
-fn is_dotted_test_name(base: &str) -> bool {
-    for suffix in &[".test.ts", ".test.tsx", ".test.js", ".test.go", ".test.py"] {
-        if base.ends_with(suffix) {
-            return true;
-        }
-    }
-    false
-}
-
-fn is_config_file(base: &str, ext: &str) -> bool {
-    matches!(
-        base,
-        "package.json" | "go.mod" | "cargo.toml" | "pyproject.toml" | "dockerfile" | "makefile"
-    ) || matches!(ext, ".toml" | ".yaml" | ".yml")
 }
