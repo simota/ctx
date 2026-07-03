@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
 
+use crate::handlers::file::relative_to_root;
 use crate::response;
 use crate::safepath;
 use crate::AppState;
@@ -412,8 +413,7 @@ fn handle_file_log_sync(state: AppState, params: FileLogParams) -> Response {
     };
     let rel_slash = relative_to_root(&state.root, &target);
     let (git_root, git_rel_slash) = git_context(&state.root, &target, &rel_slash);
-    let mut limit = params.limit.parse::<i32>().unwrap_or(50);
-    limit = limit.clamp(1, 200);
+    let limit = crate::handlers::limit::parse_limit(&params.limit, 50, 1, 200);
 
     match ctx_git::file_log(&git_root, &git_rel_slash, limit as usize) {
         Ok((entries, truncated)) => response::json(
@@ -476,8 +476,7 @@ pub async fn handle_repo_log(
 
 fn handle_repo_log_sync(state: AppState, params: RepoLogParams) -> Response {
     let git_root = git_root_only(&state.root);
-    let mut limit = params.limit.parse::<i32>().unwrap_or(50);
-    limit = limit.clamp(1, 200);
+    let limit = crate::handlers::limit::parse_limit(&params.limit, 50, 1, 200);
 
     // Empty ref keeps the default-HEAD behaviour; a non-empty ref is validated
     // before it reaches git so a leading dash can't smuggle in an option.
@@ -786,7 +785,7 @@ fn handle_co_change_sync(state: AppState, params: CoChangeParams) -> Response {
     // Co-change wants a wide window, so the limit cap is larger than the
     // commit-log handler's; default 500, default min_weight 2 drops one-off
     // accidental pairs server-side.
-    let limit = params.limit.parse::<i32>().unwrap_or(500).clamp(1, 2000) as usize;
+    let limit = crate::handlers::limit::parse_limit(&params.limit, 500, 1, 2000) as usize;
     let min_weight = params.min_weight.parse::<u32>().unwrap_or(2);
     let since = if params.since.is_empty() {
         None
@@ -955,16 +954,6 @@ fn is_zero_u32(value: &u32) -> bool {
 
 fn is_zero_i64(value: &i64) -> bool {
     *value == 0
-}
-
-fn relative_to_root(root: &str, target: &Path) -> String {
-    // Memoized in file.rs — the root is stable for the server's lifetime.
-    let abs_root = crate::handlers::file::canonical_root(root);
-    target
-        .strip_prefix(&abs_root)
-        .unwrap_or(target)
-        .to_string_lossy()
-        .replace(std::path::MAIN_SEPARATOR, "/")
 }
 
 /// Resolve the enclosing git repository root for repo-level queries (log,

@@ -100,11 +100,7 @@ fn handle_sync(state: AppState, params: TestsParams) -> Response {
         Ok(m) => m,
         Err(e) => {
             if e.kind() == std::io::ErrorKind::NotFound {
-                return response::error(
-                    StatusCode::NOT_FOUND,
-                    "not_found",
-                    &format!("stat {}: no such file or directory", target.display()),
-                );
+                return response::stat_not_found(&target);
             }
             return response::error(StatusCode::INTERNAL_SERVER_ERROR, "stat", &e.to_string());
         }
@@ -120,7 +116,7 @@ fn handle_sync(state: AppState, params: TestsParams) -> Response {
             return response::error(StatusCode::INTERNAL_SERVER_ERROR, "tests", &e.to_string())
         }
     };
-    let limit = clamp_limit(&params.limit);
+    let limit = crate::handlers::limit::parse_limit(&params.limit, 8, 1, 50) as usize;
 
     let resp = TestInsightResponse {
         path: insight.path,
@@ -166,17 +162,6 @@ fn handle_sync(state: AppState, params: TestsParams) -> Response {
         }),
     };
     response::json(StatusCode::OK, &resp)
-}
-
-fn clamp_limit(s: &str) -> usize {
-    let mut limit = s.parse::<i32>().unwrap_or(8);
-    if limit < 1 {
-        limit = 1;
-    }
-    if limit > 50 {
-        limit = 50;
-    }
-    limit as usize
 }
 
 fn is_zero(v: &i32) -> bool {

@@ -9,6 +9,8 @@
 //!   * field order follows struct declaration order; we use
 //!     `serde_json` with `preserve_order` and ordered structs to match.
 
+use std::path::Path;
+
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
@@ -67,6 +69,17 @@ pub fn error(status: StatusCode, code: &str, message: &str) -> Response {
 /// Mirror of `writeBadPath` — maps a [`PathError`] to its status/code/message.
 pub fn bad_path(err: PathError) -> Response {
     error(StatusCode::BAD_REQUEST, err.code(), err.message())
+}
+
+/// The `not_found` envelope every handler returns when `std::fs::metadata`
+/// (or an equivalent stat) fails with `NotFound`. Matches Go's `os.Stat`
+/// error string exactly: `"stat <path>: no such file or directory"`.
+pub fn stat_not_found(path: &Path) -> Response {
+    error(
+        StatusCode::NOT_FOUND,
+        "not_found",
+        &format!("stat {}: no such file or directory", path.display()),
+    )
 }
 
 /// Convert a typed `Query<T>` extraction rejection into the standard JSON

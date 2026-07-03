@@ -183,12 +183,7 @@ fn handle_sync(state: AppState, params: FileParams) -> Response {
         Ok(m) => m,
         Err(e) => {
             if e.kind() == std::io::ErrorKind::NotFound {
-                // Match Go's `os.Stat` error string exactly.
-                return response::error(
-                    StatusCode::NOT_FOUND,
-                    "not_found",
-                    &format!("stat {}: no such file or directory", target.display()),
-                );
+                return response::stat_not_found(&target);
             }
             return response::error(StatusCode::INTERNAL_SERVER_ERROR, "stat", &e.to_string());
         }

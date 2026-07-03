@@ -223,7 +223,13 @@ struct MixListResponse {
 // GET /api/mix (list) — mirrored from handleMixList
 // ---------------------------------------------------------------------------
 
-pub async fn handle_list(State(_state): State<AppState>) -> Response {
+pub async fn handle_list(State(state): State<AppState>) -> Response {
+    // Store listing does blocking fs I/O (readdir + one read per mix file);
+    // keep it off the tokio workers like every other handler.
+    crate::blocking::run(move || handle_list_sync(state)).await
+}
+
+fn handle_list_sync(_state: AppState) -> Response {
     let dir = match resolve_store() {
         Ok(d) => d,
         Err(_) => {
@@ -281,10 +287,15 @@ pub async fn handle_list(State(_state): State<AppState>) -> Response {
 // GET /api/mix/{id} — mirrored from handleMixGet
 // ---------------------------------------------------------------------------
 
-pub async fn handle_get(State(_state): State<AppState>, uri: axum::http::Uri) -> Response {
-    let path = uri.path();
+pub async fn handle_get(State(state): State<AppState>, uri: axum::http::Uri) -> Response {
     // Strip the "/api/mix/" prefix to get the id.
-    let id = path.trim_start_matches("/api/mix/");
+    let id = uri.path().trim_start_matches("/api/mix/").to_string();
+    // Store lookup does blocking fs I/O; keep it off the tokio workers like
+    // every other handler.
+    crate::blocking::run(move || handle_get_sync(state, id)).await
+}
+
+fn handle_get_sync(_state: AppState, id: String) -> Response {
     if id.is_empty() {
         return response::error(StatusCode::BAD_REQUEST, "bad_request", "id is required");
     }
@@ -325,7 +336,7 @@ pub async fn handle_get(State(_state): State<AppState>, uri: axum::http::Uri) ->
         Ok(_) => {}
     }
 
-    match store_load(&dir, id) {
+    match store_load(&dir, &id) {
         Ok(m) => response::json(StatusCode::OK, &m),
         Err(e) => store_error_response(e),
     }

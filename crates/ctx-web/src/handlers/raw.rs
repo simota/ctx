@@ -104,11 +104,7 @@ fn handle_sync(state: AppState, method: Method, uri: Uri) -> Response {
         Ok(m) => m,
         Err(e) => {
             if e.kind() == std::io::ErrorKind::NotFound {
-                return response::error(
-                    StatusCode::NOT_FOUND,
-                    "not_found",
-                    &format!("stat {}: no such file or directory", target.display()),
-                );
+                return response::stat_not_found(&target);
             }
             return response::error(StatusCode::INTERNAL_SERVER_ERROR, "stat", &e.to_string());
         }

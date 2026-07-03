@@ -305,7 +305,7 @@ fn collect_files(root: &str, dir: &Path, out: &mut Vec<FileInfo>) {
             }
             let rel_path = rel_raw.replace('\\', "/");
             let size = meta.len() as i64;
-            let role = infer_role(&rel_path);
+            let role = crate::handlers::role::infer_role(&rel_path);
 
             out.push(FileInfo {
                 rel_path,
@@ -326,68 +326,4 @@ fn count_tokens_for_file(abs_path: &str, size: i64) -> i64 {
         Ok(n) => n as i64,
         Err(_) => ctx_tokens::estimate_by_size(size) as i64,
     }
-}
-
-/// Infer role for a file, mirroring `internal/walk/walk.go:inferRole`.
-/// Returns "" for unknown/unclassified (same as Go returning "").
-fn infer_role(rel_slash: &str) -> String {
-    let base = rel_slash.rsplit('/').next().unwrap_or(rel_slash);
-    let lower_path = rel_slash.to_ascii_lowercase();
-    let lower_base = base.to_ascii_lowercase();
-    let ext = if lower_base.contains('.') {
-        lower_base.rsplit('.').next().unwrap_or("")
-    } else {
-        ""
-    };
-
-    if lower_path.starts_with("tests/")
-        || lower_path.contains("/tests/")
-        || lower_base.ends_with("_test.go")
-        || is_dotted_test_name(&lower_base)
-    {
-        return "test".to_string();
-    }
-    if ext == "md" || lower_base.starts_with("license") || lower_base.starts_with("readme") {
-        return "doc".to_string();
-    }
-    if is_config_file(&lower_base, ext) {
-        return "config".to_string();
-    }
-    if base == "main.ts"
-        || base == "main.go"
-        || base == "main.py"
-        || base == "index.ts"
-        || base == "index.tsx"
-        || base == "index.js"
-        || (rel_slash.starts_with("cmd/") && rel_slash.ends_with("/main.go"))
-    {
-        return "entry".to_string();
-    }
-    if base.contains("router") || base.contains("route") || base.contains("Router") {
-        return "route".to_string();
-    }
-    if is_core_extension(ext) {
-        return "core".to_string();
-    }
-    String::new()
-}
-
-fn is_dotted_test_name(base: &str) -> bool {
-    for suffix in &[".test.ts", ".test.tsx", ".test.js", ".test.go", ".test.py"] {
-        if base.ends_with(suffix) {
-            return true;
-        }
-    }
-    false
-}
-
-fn is_config_file(base: &str, ext: &str) -> bool {
-    matches!(
-        base,
-        "package.json" | "go.mod" | "cargo.toml" | "pyproject.toml" | "dockerfile" | "makefile"
-    ) || matches!(ext, "toml" | "yaml" | "yml")
-}
-
-fn is_core_extension(ext: &str) -> bool {
-    matches!(ext, "ts" | "tsx" | "js" | "go" | "py" | "rs")
 }
