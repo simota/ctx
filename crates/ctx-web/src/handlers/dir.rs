@@ -110,13 +110,7 @@ fn handle_sync(state: AppState, params: DirParams) -> Response {
         Ok(m) => m,
         Err(e) => {
             if e.kind() == std::io::ErrorKind::NotFound {
-                // Match Go's `os.Stat` error string exactly:
-                //   "stat <abs_path>: no such file or directory"
-                return response::error(
-                    StatusCode::NOT_FOUND,
-                    "not_found",
-                    &format!("stat {}: no such file or directory", target.display()),
-                );
+                return response::stat_not_found(&target);
             }
             return response::error(StatusCode::INTERNAL_SERVER_ERROR, "stat", &e.to_string());
         }
@@ -287,11 +281,11 @@ fn walk_counts_inner(
         } else {
             *file_count += 1;
             // Use tiktoken exact count (mirrors Go countTokens using counter.CountFile).
-            let tok = match ctx_tokens::count_file(path.to_str().unwrap_or("")) {
-                Ok(n) => n,
-                Err(_) => ctx_tokens::estimate_by_size(info.len() as i64),
-            };
-            *total_tokens += tok;
+            // Reuses the same (mtime, size)-keyed cache as `/api/tree` so a file
+            // already seen by either route isn't re-read/re-encoded (PERF-4).
+            let size = info.len() as i64;
+            let (_, tok) = crate::handlers::tree::cached_file_stats(&path, &info, size, true);
+            *total_tokens += tok as i64;
         }
     }
 }
@@ -308,7 +302,7 @@ fn find_readme(abs_dir: &Path, dir_rel: &str, entries: &[std::fs::DirEntry]) -> 
     // Build a set of present non-directory file names.
     let present: std::collections::HashSet<String> = entries
         .iter()
-        .filter(|e| !e.path().is_dir())
+        .filter(|e| e.file_type().map(|t| !t.is_dir()).unwrap_or(false))
         .map(|e| e.file_name().to_string_lossy().into_owned())
         .collect();
 

@@ -303,11 +303,7 @@ fn handle_sync(state: AppState, params: TreeParams) -> Response {
         }
         Err(e) => {
             if e.kind() == std::io::ErrorKind::NotFound {
-                return response::error(
-                    StatusCode::NOT_FOUND,
-                    "not_found",
-                    &format!("stat {}: no such file or directory", target.display()),
-                );
+                return response::stat_not_found(&target);
             }
             return response::error(
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -453,19 +449,28 @@ fn walk_tree(
     }
 
     let (lines, tokens) = if !is_dir {
-        let l = count_lines_file(dir);
-        let tok = if opts.with_tokens {
-            cached_file_tokens(dir, &meta, size)
+        if meta.file_type().is_symlink() {
+            // lstat metadata (see the depth>0 comment above) means this entry
+            // is itself a symlink; reading through it would follow the link
+            // and leak the target's content/stats outside root (e.g. a
+            // symlink to /etc/passwd). Skip the content read entirely and
+            // report a size-based estimate consistent with the lstat `size`
+            // already recorded above.
+            let tok = if opts.with_tokens {
+                ctx_tokens::estimate_by_size(size) as i32
+            } else {
+                0
+            };
+            (0, tok)
         } else {
-            0
-        };
-        (l, tok)
+            cached_file_stats(dir, &meta, size, opts.with_tokens)
+        }
     } else {
         (0, 0)
     };
 
     let role = if !is_dir {
-        infer_role(&rel)
+        crate::handlers::role::infer_role(&rel)
     } else {
         String::new()
     };
@@ -540,49 +545,81 @@ fn walk_tree(
     Ok(Some(node))
 }
 
-/// Exact tiktoken token count for `path`, memoized across requests. `/api/tree`
-/// recomputes the whole tree on every navigation, so without this each request
-/// re-runs the BPE encoder over every file — by far the dominant cost of a
-/// `tokens=true` tree. The cache is keyed by absolute path and validated by
-/// (mtime, size); an edited file re-counts. Falls back to a size-based estimate
-/// when the file cannot be read, matching the previous inline behaviour. Result
-/// is identical to a fresh `ctx_tokens::count_file`, so JSON output is unchanged.
-fn cached_file_tokens(path: &Path, meta: &std::fs::Metadata, size: i64) -> i32 {
+/// `(lines, tokens)` for `path`, memoized across requests and keyed by
+/// (mtime, size). `/api/tree` recomputes the whole tree on every navigation;
+/// before this cache, line counts were re-read from disk on every request
+/// even though token counts were already memoized separately. Folding both
+/// into one entry means a file is read at most once per on-disk change:
+/// lines are counted (and cached) even when `with_tokens` is false, and a
+/// later `tokens=true` request for the same fingerprint only computes the
+/// still-missing token count rather than re-reading lines too. An edited
+/// file (new mtime/size) re-counts both. Falls back to a size-based token
+/// estimate when the file cannot be read, matching the previous inline
+/// behaviour — results are identical to fresh `count_lines_file` +
+/// `ctx_tokens::count_file` calls, so JSON output is unchanged.
+///
+/// `pub(crate)` so `dir.rs`'s `/api/dir` token walk can reuse the same cache
+/// instead of calling `ctx_tokens::count_file` uncached (PERF-4).
+pub(crate) fn cached_file_stats(
+    path: &Path,
+    meta: &std::fs::Metadata,
+    size: i64,
+    with_tokens: bool,
+) -> (i32, i32) {
     use std::collections::HashMap;
     use std::sync::{OnceLock, RwLock};
     use std::time::SystemTime;
 
-    /// path → (mtime, size, token count). The first two validate the third.
-    type TokenCache = HashMap<PathBuf, (SystemTime, u64, i32)>;
+    /// path → (mtime, size, lines, tokens). `tokens` is `None` until a
+    /// `with_tokens=true` call computes it for this fingerprint.
+    type StatsCache = HashMap<PathBuf, (SystemTime, u64, i32, Option<i32>)>;
     /// Bounds memory during long browse sessions over large trees.
-    const TOKEN_CACHE_CAP: usize = 1 << 16;
-    static CACHE: OnceLock<RwLock<TokenCache>> = OnceLock::new();
+    const STATS_CACHE_CAP: usize = 1 << 16;
+    static CACHE: OnceLock<RwLock<StatsCache>> = OnceLock::new();
     let cache = CACHE.get_or_init(|| RwLock::new(HashMap::new()));
 
     let fingerprint = meta.modified().ok().map(|mtime| (mtime, meta.len()));
+
     if let Some((mtime, len)) = fingerprint {
         if let Ok(guard) = cache.read() {
-            if let Some(&(cm, cl, tok)) = guard.get(path) {
+            if let Some(&(cm, cl, lines, tokens)) = guard.get(path) {
                 if cm == mtime && cl == len {
-                    return tok;
+                    match (with_tokens, tokens) {
+                        (false, _) => return (lines, 0),
+                        (true, Some(tok)) => return (lines, tok),
+                        (true, None) => {
+                            let tok = count_file_tokens(path, size);
+                            if let Ok(mut wguard) = cache.write() {
+                                wguard.insert(path.to_path_buf(), (mtime, len, lines, Some(tok)));
+                            }
+                            return (lines, tok);
+                        }
+                    }
                 }
             }
         }
     }
 
-    let tokens = match ctx_tokens::count_file(path.to_str().unwrap_or("")) {
-        Ok(n) => n as i32,
-        Err(_) => ctx_tokens::estimate_by_size(size) as i32,
-    };
+    let lines = count_lines_file(path);
+    let tokens = with_tokens.then(|| count_file_tokens(path, size));
 
     if let Some((mtime, len)) = fingerprint {
         if let Ok(mut guard) = cache.write() {
-            if guard.len() < TOKEN_CACHE_CAP || guard.contains_key(path) {
-                guard.insert(path.to_path_buf(), (mtime, len, tokens));
+            if guard.len() < STATS_CACHE_CAP || guard.contains_key(path) {
+                guard.insert(path.to_path_buf(), (mtime, len, lines, tokens));
             }
         }
     }
-    tokens
+    (lines, tokens.unwrap_or(0))
+}
+
+/// Exact tiktoken token count, falling back to a size-based estimate when the
+/// file cannot be read.
+fn count_file_tokens(path: &Path, size: i64) -> i32 {
+    match ctx_tokens::count_file(path.to_str().unwrap_or("")) {
+        Ok(n) => n as i32,
+        Err(_) => ctx_tokens::estimate_by_size(size) as i32,
+    }
 }
 
 #[derive(Default)]
@@ -731,69 +768,6 @@ fn count_lines_file(path: &Path) -> i32 {
         n += 1;
     }
     n
-}
-
-/// `inferRole` — mirrors Go walk/walk.go `inferRole`.
-fn infer_role(rel_slash: &str) -> String {
-    let base = rel_slash.rsplit('/').next().unwrap_or(rel_slash);
-    let lower_path = rel_slash.to_ascii_lowercase();
-    let lower_base = base.to_ascii_lowercase();
-    let ext = if lower_base.contains('.') {
-        lower_base.rsplit('.').next().unwrap_or("")
-    } else {
-        ""
-    };
-
-    if lower_path.starts_with("tests/")
-        || lower_path.contains("/tests/")
-        || lower_base.ends_with("_test.go")
-        || is_dotted_test_name(&lower_base)
-    {
-        return "test".to_string();
-    }
-    if ext == "md" || lower_base.starts_with("license") || lower_base.starts_with("readme") {
-        return "doc".to_string();
-    }
-    if is_config_file(&lower_base, ext) {
-        return "config".to_string();
-    }
-    if base == "main.ts"
-        || base == "main.go"
-        || base == "main.py"
-        || base == "index.ts"
-        || base == "index.tsx"
-        || base == "index.js"
-        || (rel_slash.starts_with("cmd/") && rel_slash.ends_with("/main.go"))
-    {
-        return "entry".to_string();
-    }
-    if base.contains("router") || base.contains("route") || base.contains("Router") {
-        return "route".to_string();
-    }
-    if is_core_extension(ext) {
-        return "core".to_string();
-    }
-    String::new()
-}
-
-fn is_dotted_test_name(base: &str) -> bool {
-    for suffix in &[".test.ts", ".test.tsx", ".test.js", ".test.go", ".test.py"] {
-        if base.ends_with(suffix) {
-            return true;
-        }
-    }
-    false
-}
-
-fn is_config_file(base: &str, ext: &str) -> bool {
-    matches!(
-        base,
-        "package.json" | "go.mod" | "cargo.toml" | "pyproject.toml" | "dockerfile" | "makefile"
-    ) || matches!(ext, "toml" | "yaml" | "yml")
-}
-
-fn is_core_extension(ext: &str) -> bool {
-    matches!(ext, "ts" | "tsx" | "js" | "go" | "py" | "rs")
 }
 
 #[cfg(test)]
