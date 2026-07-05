@@ -9,6 +9,7 @@
   import { formatRelative, langFromPath } from '../lib/format';
   import { findCommit, loadGitLog } from '../lib/gitlog.svelte';
   import { toFileHash, navigate } from '../lib/router.svelte';
+  import { view, toggleDiffContextOnly } from '../lib/view.svelte';
   import hljs from '../lib/highlight';
 
   let { hash = '' }: { hash?: string } = $props();
@@ -16,6 +17,46 @@
   // Soft-wrap long diff lines (off by default = horizontal scroll, matching
   // the file-detail diff view).
   let wrap = $state(false);
+
+  // Context lines kept on each side of a change when context-only folding is
+  // on (view.diffContextOnly). Mirrors FileDetail.svelte's diff folding.
+  const DIFF_CONTEXT = 3;
+
+  type DiffRow =
+    | { fold: true; count: number }
+    | { fold: false; idx: number; ln: GitDiffResponse['lines'][number] };
+
+  // Collapse long runs of unchanged (`eq`) lines to a single fold marker,
+  // keeping DIFF_CONTEXT lines around each change. Off (full file) when
+  // view.diffContextOnly is false.
+  function foldRows(lines: GitDiffResponse['lines']): DiffRow[] {
+    if (!view.diffContextOnly) {
+      return lines.map((ln, idx) => ({ fold: false, idx, ln }));
+    }
+    const n = lines.length;
+    const keep = new Array<boolean>(n).fill(false);
+    for (let i = 0; i < n; i++) {
+      if (lines[i].type !== 'eq') {
+        for (let j = Math.max(0, i - DIFF_CONTEXT); j <= Math.min(n - 1, i + DIFF_CONTEXT); j++) {
+          keep[j] = true;
+        }
+      }
+    }
+    const rows: DiffRow[] = [];
+    let i = 0;
+    while (i < n) {
+      if (keep[i]) {
+        rows.push({ fold: false, idx: i, ln: lines[i] });
+        i++;
+      } else {
+        let j = i;
+        while (j < n && !keep[j]) j++;
+        rows.push({ fold: true, count: j - i });
+        i = j;
+      }
+    }
+    return rows;
+  }
 
   // Syntax-highlight a single diff line for `path`'s language. Falls back to
   // escaped plaintext when the language is unknown or hljs throws.
@@ -221,6 +262,13 @@
             aria-pressed={allOpen}
             onclick={toggleAll}
           >{allOpen ? 'Collapse all' : 'Expand all'}</button>
+          <button
+            type="button"
+            class="all-toggle"
+            aria-pressed={view.diffContextOnly}
+            title={view.diffContextOnly ? 'Showing changes only — click to expand full file' : 'Showing full file — click to collapse unchanged lines'}
+            onclick={toggleDiffContextOnly}
+          >Context: {view.diffContextOnly ? 'changes' : 'full'}</button>
           <label class="wrap-toggle">
             <input type="checkbox" bind:checked={wrap} />
             <span>Wrap</span>
@@ -268,7 +316,7 @@
               {:else if diffByPath[f.path].no_change && !diffByPath[f.path].added && !diffByPath[f.path].deleted}
                 <p class="muted note">No textual changes.</p>
               {:else}
-                <pre class="diff" class:wrap><code class="hljs">{#if diffByPath[f.path].added}<div class="diff-meta">New file</div>{/if}{#if diffByPath[f.path].deleted}<div class="diff-meta">File deleted</div>{/if}{#each diffByPath[f.path].lines as ln (ln)}<div class="diff-line diff-{ln.type}"><span class="gutter" aria-hidden="true"><span class="g-old">{ln.old_num || ''}</span><span class="g-new">{ln.new_num || ''}</span><span class="g-sign">{ln.type === 'add' ? '+' : ln.type === 'del' ? '-' : ' '}</span></span><span class="ln-text">{@html hl(ln.text, f.path) || ' '}</span></div>{/each}{#if diffByPath[f.path].truncated}<div class="diff-meta">Diff truncated — use the CLI for the full diff.</div>{/if}</code></pre>
+                <pre class="diff" class:wrap><code class="hljs">{#if diffByPath[f.path].added}<div class="diff-meta">New file</div>{/if}{#if diffByPath[f.path].deleted}<div class="diff-meta">File deleted</div>{/if}{#each foldRows(diffByPath[f.path].lines) as row, ri (ri)}{#if row.fold}<div class="diff-fold" aria-hidden="true">⋯ {row.count} unchanged line{row.count === 1 ? '' : 's'}</div>{:else}<div class="diff-line diff-{row.ln.type}"><span class="gutter" aria-hidden="true"><span class="g-old">{row.ln.old_num || ''}</span><span class="g-new">{row.ln.new_num || ''}</span><span class="g-sign">{row.ln.type === 'add' ? '+' : row.ln.type === 'del' ? '-' : ' '}</span></span><span class="ln-text">{@html hl(row.ln.text, f.path) || ' '}</span></div>{/if}{/each}{#if diffByPath[f.path].truncated}<div class="diff-meta">Diff truncated — use the CLI for the full diff.</div>{/if}</code></pre>
               {/if}
             {/if}
           </li>
@@ -462,6 +510,15 @@
     color: var(--ctx-fg-dim);
     padding: 2px 12px;
     font-style: italic;
+  }
+  .diff-fold {
+    padding: 2px 12px;
+    color: var(--ctx-fg-dim);
+    background: var(--ctx-bg-elev);
+    border-top: 1px solid var(--ctx-border);
+    border-bottom: 1px solid var(--ctx-border);
+    font-size: 11px;
+    user-select: none;
   }
   .diff-line {
     display: flex;
