@@ -72,8 +72,24 @@ struct LogCommit {
 #[derive(Debug, Clone, Default)]
 struct CommitDetail {
     files: Vec<ctx_git::CommitFile>,
+    // Lines that precede any per-file diff body (commit meta, subject, file
+    // stat summary, or the "diff not loaded" hint). Unaffected by context-only
+    // folding, so kept separate from `lines` to avoid re-fetching diffs when
+    // the fold toggle flips.
+    header_lines: Vec<String>,
+    // One block per changed file, holding its static header/banner lines plus
+    // the raw diff lines needed to re-fold without re-running git.
+    file_blocks: Vec<FileDiffBlock>,
+    // Flattened, render-ready lines — `header_lines` plus each block's header
+    // and (folded or full) diff lines. Recomputed on load and on toggle.
     lines: Vec<String>,
     diff_loaded: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+struct FileDiffBlock {
+    header: Vec<String>,
+    diff_lines: Vec<ctx_git::WorktreeDiffLine>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,6 +116,11 @@ struct LogState {
     diff_loading: bool,
     error: Option<String>,
     active_panel: ActivePanel,
+    // Collapse long runs of unchanged diff lines, keeping DIFF_CONTEXT lines
+    // around each change. On by default — full-file diffs bury the actual
+    // change; toggle (key `c`) to expand the whole file. Mirrors the web UI's
+    // `view.diffContextOnly`.
+    diff_context_only: bool,
 }
 
 pub(crate) fn run_log_command(args: &[OsString]) -> Option<ExitCode> {
@@ -583,6 +604,7 @@ fn run_viewer(root: PathBuf, data: LogData) -> Result<(), String> {
             }
             KeyCode::Home | KeyCode::Char('g') => state.move_home(),
             KeyCode::End | KeyCode::Char('G') => state.move_end(),
+            KeyCode::Char('c') => state.toggle_diff_context_only(),
             KeyCode::Enter | KeyCode::Char('d') => {
                 state.focus_detail();
                 if !state.detail.diff_loaded {
@@ -610,9 +632,24 @@ impl LogState {
             diff_loading: false,
             error: None,
             active_panel: ActivePanel::Commits,
+            diff_context_only: true,
         };
         state.load_selected_summary();
         state
+    }
+
+    /// Toggle context-only diff folding and re-flatten the currently loaded
+    /// detail in place — no git re-fetch needed, since `file_blocks` retains
+    /// the raw diff lines.
+    fn toggle_diff_context_only(&mut self) {
+        self.diff_context_only = !self.diff_context_only;
+        self.detail.lines = flatten_detail(
+            &self.detail.header_lines,
+            &self.detail.file_blocks,
+            self.diff_context_only,
+        );
+        let max = self.detail.lines.len().saturating_sub(1);
+        self.diff_scroll = self.diff_scroll.min(max);
     }
 
     fn focus_commits(&mut self) {
@@ -693,7 +730,7 @@ impl LogState {
             self.error = None;
             return;
         };
-        match build_commit_detail(&self.root, commit, false) {
+        match build_commit_detail(&self.root, commit, false, self.diff_context_only) {
             Ok(detail) => {
                 self.detail = detail;
                 self.error = None;
@@ -715,7 +752,7 @@ impl LogState {
             self.diff_loading = false;
             return;
         };
-        match build_commit_detail(&self.root, commit, true) {
+        match build_commit_detail(&self.root, commit, true, self.diff_context_only) {
             Ok(detail) => {
                 self.detail = detail;
                 self.error = None;
@@ -735,63 +772,69 @@ fn build_commit_detail(
     root: &Path,
     commit: &LogCommit,
     include_diff: bool,
+    context_only: bool,
 ) -> Result<CommitDetail, String> {
     if commit.is_worktree {
-        return build_worktree_detail(root, commit, include_diff);
+        return build_worktree_detail(root, commit, include_diff, context_only);
     }
 
     let files = ctx_git::commit_files(root, &commit.hash_full).map_err(|err| err.to_string())?;
-    let mut lines = Vec::new();
-    lines.push(format!("commit {}", commit.hash_full));
-    lines.push(format!(
+    let mut header_lines = Vec::new();
+    header_lines.push(format!("commit {}", commit.hash_full));
+    header_lines.push(format!(
         "Author: {} <{}>",
         commit.author, commit.author_email
     ));
-    lines.push(format!("Date:   {}", format_commit_date(commit.date)));
-    lines.push(String::new());
-    lines.push(format!("    {}", commit.subject));
-    lines.push(String::new());
-    lines.push(format!("{} file(s) changed", files.len()));
+    header_lines.push(format!("Date:   {}", format_commit_date(commit.date)));
+    header_lines.push(String::new());
+    header_lines.push(format!("    {}", commit.subject));
+    header_lines.push(String::new());
+    header_lines.push(format!("{} file(s) changed", files.len()));
     for file in &files {
-        lines.push(format_file_stat(file));
+        header_lines.push(format_file_stat(file));
     }
-    lines.push(String::new());
+    header_lines.push(String::new());
 
     if !include_diff {
-        lines.push("diff body not loaded for faster navigation".to_string());
-        lines.push("press Enter or d to load the selected commit diff".to_string());
+        header_lines.push("diff body not loaded for faster navigation".to_string());
+        header_lines.push("press Enter or d to load the selected commit diff".to_string());
+        let lines = header_lines.clone();
         return Ok(CommitDetail {
             files,
+            header_lines,
+            file_blocks: Vec::new(),
             lines,
             diff_loaded: false,
         });
     }
 
     let from = format!("{}^", commit.hash_full);
+    let mut file_blocks = Vec::with_capacity(files.len());
     for file in &files {
-        lines.push(format!("diff -- {}", file.path));
-        lines.push(format_file_stat(file));
+        let mut header = vec![format!("diff -- {}", file.path), format_file_stat(file)];
+        let mut diff_lines = Vec::new();
         match ctx_git::commit_diff(root, &from, &commit.hash_full, &file.path) {
-            Ok(diff) if diff.binary => lines.push("  [binary] file changed".to_string()),
-            Ok(diff) if diff.no_change => lines.push("  [no text changes]".to_string()),
+            Ok(diff) if diff.binary => header.push("  [binary] file changed".to_string()),
+            Ok(diff) if diff.no_change => header.push("  [no text changes]".to_string()),
             Ok(diff) => {
                 if diff.truncated {
-                    lines.push("  [diff truncated]".to_string());
+                    header.push("  [diff truncated]".to_string());
                 }
                 if !diff.lines.is_empty() {
-                    lines.push(DIFF_COLUMN_HEADER.to_string());
+                    header.push(DIFF_COLUMN_HEADER.to_string());
                 }
-                for line in diff.lines {
-                    lines.push(format_diff_line(&line));
-                }
+                diff_lines = diff.lines;
             }
-            Err(err) => lines.push(format!("  diff unavailable: {err}")),
+            Err(err) => header.push(format!("  diff unavailable: {err}")),
         }
-        lines.push(String::new());
+        file_blocks.push(FileDiffBlock { header, diff_lines });
     }
 
+    let lines = flatten_detail(&header_lines, &file_blocks, context_only);
     Ok(CommitDetail {
         files,
+        header_lines,
+        file_blocks,
         lines,
         diff_loaded: true,
     })
@@ -801,6 +844,7 @@ fn build_worktree_detail(
     root: &Path,
     commit: &LogCommit,
     include_diff: bool,
+    context_only: bool,
 ) -> Result<CommitDetail, String> {
     let mut files = ctx_git::worktree_files(root).map_err(|err| err.to_string())?;
     if !commit.matched_paths.is_empty() {
@@ -812,56 +856,116 @@ fn build_worktree_detail(
         });
     }
 
-    let mut lines = Vec::new();
-    lines.push("commit worktree".to_string());
-    lines.push("Author: working tree".to_string());
-    lines.push("Date:   uncommitted".to_string());
-    lines.push(String::new());
-    lines.push(format!("    {}", commit.subject));
-    lines.push(String::new());
-    lines.push(format!("{} file(s) changed", files.len()));
+    let mut header_lines = Vec::new();
+    header_lines.push("commit worktree".to_string());
+    header_lines.push("Author: working tree".to_string());
+    header_lines.push("Date:   uncommitted".to_string());
+    header_lines.push(String::new());
+    header_lines.push(format!("    {}", commit.subject));
+    header_lines.push(String::new());
+    header_lines.push(format!("{} file(s) changed", files.len()));
     for file in &files {
-        lines.push(format_file_stat(file));
+        header_lines.push(format_file_stat(file));
     }
-    lines.push(String::new());
+    header_lines.push(String::new());
 
     if !include_diff {
-        lines.push("diff body not loaded for faster navigation".to_string());
-        lines.push("press Enter or d to load the selected commit diff".to_string());
+        header_lines.push("diff body not loaded for faster navigation".to_string());
+        header_lines.push("press Enter or d to load the selected commit diff".to_string());
+        let lines = header_lines.clone();
         return Ok(CommitDetail {
             files,
+            header_lines,
+            file_blocks: Vec::new(),
             lines,
             diff_loaded: false,
         });
     }
 
+    let mut file_blocks = Vec::with_capacity(files.len());
     for file in &files {
-        lines.push(format!("diff -- {}", file.path));
-        lines.push(format_file_stat(file));
+        let mut header = vec![format!("diff -- {}", file.path), format_file_stat(file)];
+        let mut diff_lines = Vec::new();
         match ctx_git::worktree_diff(root, &file.path) {
-            Ok(diff) if diff.binary => lines.push("  [binary] file changed".to_string()),
-            Ok(diff) if diff.no_change => lines.push("  [no text changes]".to_string()),
+            Ok(diff) if diff.binary => header.push("  [binary] file changed".to_string()),
+            Ok(diff) if diff.no_change => header.push("  [no text changes]".to_string()),
             Ok(diff) => {
                 if diff.truncated {
-                    lines.push("  [diff truncated]".to_string());
+                    header.push("  [diff truncated]".to_string());
                 }
                 if !diff.lines.is_empty() {
-                    lines.push(DIFF_COLUMN_HEADER.to_string());
+                    header.push(DIFF_COLUMN_HEADER.to_string());
                 }
-                for line in diff.lines {
-                    lines.push(format_diff_line(&line));
-                }
+                diff_lines = diff.lines;
             }
-            Err(err) => lines.push(format!("  diff unavailable: {err}")),
+            Err(err) => header.push(format!("  diff unavailable: {err}")),
         }
-        lines.push(String::new());
+        file_blocks.push(FileDiffBlock { header, diff_lines });
     }
 
+    let lines = flatten_detail(&header_lines, &file_blocks, context_only);
     Ok(CommitDetail {
         files,
+        header_lines,
+        file_blocks,
         lines,
         diff_loaded: true,
     })
+}
+
+/// Flatten static header lines and per-file diff blocks into render-ready
+/// lines, folding each block's diff lines when `context_only` is set.
+fn flatten_detail(header_lines: &[String], file_blocks: &[FileDiffBlock], context_only: bool) -> Vec<String> {
+    let mut lines = header_lines.to_vec();
+    for block in file_blocks {
+        lines.extend(block.header.iter().cloned());
+        lines.extend(fold_diff_lines(&block.diff_lines, context_only));
+        lines.push(String::new());
+    }
+    lines
+}
+
+// Context lines kept on each side of a change when context-only folding is
+// on. Mirrors the web UI's DIFF_CONTEXT in view.svelte.ts-driven components.
+const DIFF_CONTEXT: usize = 3;
+
+/// Format each diff line, or — when `context_only` is set — collapse long
+/// runs of unchanged (`eq`) lines to a single fold marker, keeping
+/// DIFF_CONTEXT lines around each change.
+fn fold_diff_lines(diff_lines: &[ctx_git::WorktreeDiffLine], context_only: bool) -> Vec<String> {
+    if !context_only {
+        return diff_lines.iter().map(format_diff_line).collect();
+    }
+    let n = diff_lines.len();
+    let mut keep = vec![false; n];
+    for (i, line) in diff_lines.iter().enumerate() {
+        if line.typ != "eq" {
+            let lo = i.saturating_sub(DIFF_CONTEXT);
+            let hi = (i + DIFF_CONTEXT).min(n.saturating_sub(1));
+            for slot in keep.iter_mut().take(hi + 1).skip(lo) {
+                *slot = true;
+            }
+        }
+    }
+    let mut rows = Vec::with_capacity(n);
+    let mut i = 0;
+    while i < n {
+        if keep[i] {
+            rows.push(format_diff_line(&diff_lines[i]));
+            i += 1;
+        } else {
+            let start = i;
+            while i < n && !keep[i] {
+                i += 1;
+            }
+            let count = i - start;
+            rows.push(format!(
+                "⋯ {count} unchanged line{}",
+                if count == 1 { "" } else { "s" }
+            ));
+        }
+    }
+    rows
 }
 
 struct TerminalGuard;
@@ -1155,7 +1259,10 @@ fn detail_title(state: &LogState, visible: usize, active: bool) -> String {
             let hint = if state.diff_loading {
                 " | wait".to_string()
             } else if state.detail.diff_loaded {
-                String::new()
+                format!(
+                    " | c ctx:{}",
+                    if state.diff_context_only { "on" } else { "off" }
+                )
             } else {
                 " | d diff".to_string()
             };
@@ -1184,6 +1291,7 @@ enum DetailLineKind {
     Add,
     Delete,
     Context,
+    Fold,
     Notice,
     Hint,
     Warning,
@@ -1259,6 +1367,8 @@ fn classify_detail_line(line: &str) -> DetailLineKind {
         DetailLineKind::Blank
     } else if line == DIFF_COLUMN_HEADER {
         DetailLineKind::DiffColumnHeader
+    } else if line.starts_with('⋯') {
+        DetailLineKind::Fold
     } else if line.starts_with('+') && line.contains(" | ") {
         DetailLineKind::Add
     } else if line.starts_with('-') && line.contains(" | ") {
@@ -1321,6 +1431,7 @@ fn detail_line_style(kind: DetailLineKind) -> Style {
             .fg(Color::DarkGray)
             .add_modifier(Modifier::BOLD),
         DetailLineKind::Context => Style::default().fg(Color::Gray),
+        DetailLineKind::Fold => Style::default().fg(Color::DarkGray),
         DetailLineKind::Notice => Style::default().fg(Color::LightMagenta),
         DetailLineKind::Hint => Style::default().fg(Color::LightYellow),
         DetailLineKind::Error => Style::default()
@@ -1365,7 +1476,7 @@ fn footer_text(state: &LogState, width: u16) -> String {
         );
     }
     format!(
-        "commit {position} | focus {} | {detail_mode} | {primary_action} | left/right focus | j/k move/scroll | f/b page | n/p file | q",
+        "commit {position} | focus {} | {detail_mode} | {primary_action} | left/right focus | j/k move/scroll | f/b page | n/p file | c context | q",
         state.active_panel.label()
     )
 }
@@ -1547,10 +1658,12 @@ mod tests {
                     "+         1 | added".to_string(),
                 ],
                 diff_loaded: true,
+                ..Default::default()
             },
             diff_loading: false,
             error: None,
             active_panel: ActivePanel::Commits,
+            diff_context_only: true,
         }
     }
 
@@ -1663,7 +1776,8 @@ mod tests {
         assert!(data.commits[0].is_worktree);
         assert_eq!(data.commits[0].hash, "worktree");
 
-        let detail = build_commit_detail(&root, &data.commits[0], true).expect("worktree detail");
+        let detail =
+            build_commit_detail(&root, &data.commits[0], true, true).expect("worktree detail");
         let body = detail.lines.join("\n");
         assert!(body.contains("commit worktree"));
         assert!(body.contains(" M    1+    0- tracked.txt"));
@@ -1733,6 +1847,94 @@ mod tests {
         assert!(context.contains("   3    3 | same"));
     }
 
+    fn diff_line(typ: &str, old_num: i32, new_num: i32, text: &str) -> ctx_git::WorktreeDiffLine {
+        ctx_git::WorktreeDiffLine {
+            typ: typ.to_string(),
+            old_num,
+            new_num,
+            text: text.to_string(),
+        }
+    }
+
+    #[test]
+    fn fold_diff_lines_passes_through_when_context_only_is_off() {
+        let lines = vec![
+            diff_line("eq", 1, 1, "a"),
+            diff_line("add", 0, 2, "b"),
+            diff_line("eq", 2, 3, "c"),
+        ];
+        let rendered = fold_diff_lines(&lines, false);
+        assert_eq!(rendered.len(), 3);
+        assert!(!rendered.iter().any(|l| l.starts_with('⋯')));
+    }
+
+    #[test]
+    fn fold_diff_lines_collapses_runs_beyond_context_window() {
+        // 10 unchanged lines, then one change, then 10 more unchanged lines.
+        let mut lines = Vec::new();
+        for i in 0..10 {
+            lines.push(diff_line("eq", i + 1, i + 1, "same"));
+        }
+        lines.push(diff_line("add", 0, 11, "changed"));
+        for i in 0..10 {
+            lines.push(diff_line("eq", 11 + i, 12 + i, "same"));
+        }
+
+        let rendered = fold_diff_lines(&lines, true);
+        // DIFF_CONTEXT=3 either side of the single change, plus two fold
+        // markers for the remaining 7 unchanged lines on each side.
+        assert_eq!(rendered.len(), 3 + 1 + 3 + 2);
+        let folds: Vec<&String> = rendered.iter().filter(|l| l.starts_with('⋯')).collect();
+        assert_eq!(folds.len(), 2);
+        assert!(folds[0].contains("7 unchanged lines"));
+        assert!(folds[1].contains("7 unchanged lines"));
+    }
+
+    #[test]
+    fn fold_diff_lines_keeps_short_runs_uncollapsed() {
+        // Only 2 unchanged lines between two changes — within DIFF_CONTEXT,
+        // so nothing should fold.
+        let lines = vec![
+            diff_line("add", 0, 1, "one"),
+            diff_line("eq", 1, 2, "mid1"),
+            diff_line("eq", 2, 3, "mid2"),
+            diff_line("del", 3, 0, "two"),
+        ];
+        let rendered = fold_diff_lines(&lines, true);
+        assert_eq!(rendered.len(), 4);
+        assert!(!rendered.iter().any(|l| l.starts_with('⋯')));
+    }
+
+    #[test]
+    fn toggle_diff_context_only_reflows_without_rebuilding_blocks() {
+        let mut lines = vec![diff_line("add", 0, 1, "changed")];
+        for i in 0..10 {
+            lines.push(diff_line("eq", i + 2, i + 2, "same"));
+        }
+        let header_lines = vec!["commit abc".to_string()];
+        let file_blocks = vec![FileDiffBlock {
+            header: vec!["diff -- f.txt".to_string()],
+            diff_lines: lines,
+        }];
+
+        let mut state = test_log_state();
+        state.detail.header_lines = header_lines.clone();
+        state.detail.file_blocks = file_blocks.clone();
+        state.detail.lines = flatten_detail(&header_lines, &file_blocks, true);
+        state.diff_context_only = true;
+        let folded_len = state.detail.lines.len();
+        assert!(state.detail.lines.iter().any(|l| l.starts_with('⋯')));
+
+        state.toggle_diff_context_only();
+        assert!(!state.diff_context_only);
+        assert!(!state.detail.lines.iter().any(|l| l.starts_with('⋯')));
+        assert!(state.detail.lines.len() > folded_len);
+
+        state.toggle_diff_context_only();
+        assert!(state.diff_context_only);
+        assert_eq!(state.detail.lines.len(), folded_len);
+    }
+
     #[test]
     fn detail_line_classification_matches_git_diff_semantics() {
         assert_eq!(
@@ -1750,6 +1952,10 @@ mod tests {
         assert_eq!(
             classify_detail_line(DIFF_COLUMN_HEADER),
             DetailLineKind::DiffColumnHeader
+        );
+        assert_eq!(
+            classify_detail_line("⋯ 7 unchanged lines"),
+            DetailLineKind::Fold
         );
         assert_eq!(
             classify_detail_line("diff -- src/main.rs"),
@@ -1880,10 +2086,12 @@ mod tests {
                     diff_line.clone(),
                 ],
                 diff_loaded: true,
+                ..Default::default()
             },
             diff_loading: false,
             error: None,
             active_panel: ActivePanel::Detail,
+            diff_context_only: true,
         };
 
         let backend = TestBackend::new(100, 20);
