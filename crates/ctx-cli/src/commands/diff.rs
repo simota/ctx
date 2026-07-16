@@ -171,20 +171,81 @@ fn git_diff(options: &DiffOptions) -> Result<Vec<u8>, String> {
         .args(&options.paths)
         .output()
         .map_err(|error| format!("failed to run git: {error}"))?;
-    git_output(output)
+    let mut snapshot = git_output(output, "diff", false)?;
+
+    let output = StdCommand::new("git")
+        .arg("-C")
+        .arg(&options.root)
+        .args([
+            "-c",
+            "core.quotepath=false",
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            "--",
+        ])
+        .args(&options.paths)
+        .output()
+        .map_err(|error| format!("failed to run git: {error}"))?;
+    let untracked = git_output(output, "ls-files", false)?;
+    for path in parse_untracked_paths(&untracked)? {
+        let output = StdCommand::new("git")
+            .arg("-C")
+            .arg(&options.root)
+            .args([
+                "diff",
+                "--no-index",
+                "--no-ext-diff",
+                "--no-textconv",
+                "--no-color",
+                "--",
+                "/dev/null",
+            ])
+            .arg(path)
+            .output()
+            .map_err(|error| format!("failed to run git: {error}"))?;
+        snapshot.extend(git_output(output, "diff --no-index", true)?);
+    }
+    Ok(snapshot)
 }
 
-fn git_output(output: Output) -> Result<Vec<u8>, String> {
-    if output.status.success() {
+fn git_output(
+    output: Output,
+    operation: &str,
+    differences_are_success: bool,
+) -> Result<Vec<u8>, String> {
+    if output.status.success() || (differences_are_success && output.status.code() == Some(1)) {
         return Ok(output.stdout);
     }
     let message = String::from_utf8_lossy(&output.stderr);
     let message = message.trim();
     if message.is_empty() {
-        Err(format!("git diff failed with {}", output.status))
+        Err(format!("git {operation} failed with {}", output.status))
     } else {
         Err(message.to_string())
     }
+}
+
+fn parse_untracked_paths(output: &[u8]) -> Result<Vec<OsString>, String> {
+    output
+        .split(|byte| *byte == 0)
+        .filter(|path| !path.is_empty())
+        .map(os_string_from_git_path)
+        .collect()
+}
+
+#[cfg(unix)]
+fn os_string_from_git_path(path: &[u8]) -> Result<OsString, String> {
+    use std::os::unix::ffi::OsStringExt;
+    Ok(OsString::from_vec(path.to_vec()))
+}
+
+#[cfg(not(unix))]
+fn os_string_from_git_path(path: &[u8]) -> Result<OsString, String> {
+    String::from_utf8(path.to_vec())
+        .map(OsString::from)
+        .map_err(|error| format!("git returned a non-UTF-8 path: {error}"))
 }
 
 async fn git_diff_async(options: &DiffOptions) -> Result<Vec<u8>, String> {
@@ -206,7 +267,51 @@ async fn git_diff_async(options: &DiffOptions) -> Result<Vec<u8>, String> {
         .output()
         .await
         .map_err(|error| format!("failed to run git: {error}"))?;
-    git_output(output)
+    let mut snapshot = git_output(output, "diff", false)?;
+
+    let mut command = tokio::process::Command::new("git");
+    command
+        .arg("-C")
+        .arg(&options.root)
+        .args([
+            "-c",
+            "core.quotepath=false",
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            "--",
+        ])
+        .args(&options.paths)
+        .kill_on_drop(true);
+    let output = command
+        .output()
+        .await
+        .map_err(|error| format!("failed to run git: {error}"))?;
+    let untracked = git_output(output, "ls-files", false)?;
+    for path in parse_untracked_paths(&untracked)? {
+        let mut command = tokio::process::Command::new("git");
+        command
+            .arg("-C")
+            .arg(&options.root)
+            .args([
+                "diff",
+                "--no-index",
+                "--no-ext-diff",
+                "--no-textconv",
+                "--no-color",
+                "--",
+                "/dev/null",
+            ])
+            .arg(path)
+            .kill_on_drop(true);
+        let output = command
+            .output()
+            .await
+            .map_err(|error| format!("failed to run git: {error}"))?;
+        snapshot.extend(git_output(output, "diff --no-index", true)?);
+    }
+    Ok(snapshot)
 }
 
 fn run_watch(options: &DiffOptions) -> Result<(), String> {

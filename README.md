@@ -125,8 +125,8 @@ ctx noise --top 20
 
 詳細は各コマンドの `--help` を確認してください。
 
-`ctx diff [ROOT]` は staged / unstaged の両方を含む `HEAD` との差分を raw patch として出力します。
-`ctx diff [ROOT] --watch [--debounce 200ms] [--path PATH]...` は 100ms 間隔で監視し、変更が静止した時点の完全な patch snapshot（clean 遷移を含む）をイベント境界付きで出力します。未追跡ファイルは対象外です。
+`ctx diff [ROOT]` は staged / unstaged / untracked（ignore 対象外）の変更を raw patch として出力します。
+`ctx diff [ROOT] --watch [--debounce 200ms] [--path PATH]...` は 100ms 間隔で監視し、変更が静止した時点の完全な patch snapshot（clean 遷移を含む）をイベント境界付きで出力します。
 
 ## MCP
 

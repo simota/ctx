@@ -67,6 +67,26 @@ fn raw_git_diff(root: &Path, paths: &[&str]) -> Vec<u8> {
     output.stdout
 }
 
+fn raw_untracked_diff(root: &Path, path: &str) -> Vec<u8> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args([
+            "diff",
+            "--no-index",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--no-color",
+            "--",
+            "/dev/null",
+            path,
+        ])
+        .output()
+        .expect("run git diff --no-index");
+    assert_eq!(output.status.code(), Some(1));
+    output.stdout
+}
+
 fn ctx(args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_ctx"))
         .args(args)
@@ -93,14 +113,20 @@ fn one_shot_is_raw_head_diff_with_path_filter() {
     let root = temp_repo("once");
     commit_files(
         &root,
-        &[("tracked.txt", "base\n"), ("staged.txt", "base\n")],
+        &[
+            ("tracked.txt", "base\n"),
+            ("staged.txt", "base\n"),
+            (".gitignore", "ignored.txt\n"),
+        ],
     );
 
     fs::write(root.join("tracked.txt"), "unstaged\n").unwrap();
     fs::write(root.join("staged.txt"), "staged\n").unwrap();
     git(&root, &["add", "staged.txt"]);
     fs::write(root.join("staged.txt"), "staged and unstaged\n").unwrap();
-    fs::write(root.join("untracked.txt"), "excluded\n").unwrap();
+    fs::write(root.join("empty.txt"), "").unwrap();
+    fs::write(root.join("untracked.txt"), "included\n").unwrap();
+    fs::write(root.join("ignored.txt"), "excluded\n").unwrap();
 
     let root_arg = root.to_str().unwrap();
     let output = ctx(&["diff", root_arg]);
@@ -109,16 +135,31 @@ fn one_shot_is_raw_head_diff_with_path_filter() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(output.stdout, raw_git_diff(&root, &[]));
+    let mut expected = raw_git_diff(&root, &[]);
+    expected.extend(raw_untracked_diff(&root, "empty.txt"));
+    expected.extend(raw_untracked_diff(&root, "untracked.txt"));
+    assert_eq!(output.stdout, expected);
     let patch = String::from_utf8_lossy(&output.stdout);
     assert!(patch.contains("tracked.txt"), "unstaged change is included");
     assert!(patch.contains("staged.txt"), "staged change is included");
-    assert!(!patch.contains("untracked.txt"));
+    assert!(
+        patch.contains("untracked.txt"),
+        "untracked change is included"
+    );
+    assert!(
+        patch.contains("empty.txt"),
+        "empty untracked file is included"
+    );
+    assert!(!patch.contains("ignored.txt"), "ignored file is excluded");
 
     let filtered = ctx(&["diff", root_arg, "--path", "tracked.txt"]);
     assert!(filtered.status.success());
     assert_eq!(filtered.stdout, raw_git_diff(&root, &["tracked.txt"]));
     assert!(!String::from_utf8_lossy(&filtered.stdout).contains("staged.txt"));
+
+    let untracked = ctx(&["diff", root_arg, "--path", "untracked.txt"]);
+    assert!(untracked.status.success());
+    assert_eq!(untracked.stdout, raw_untracked_diff(&root, "untracked.txt"));
 
     let repeated = ctx(&[
         "diff",
@@ -127,12 +168,14 @@ fn one_shot_is_raw_head_diff_with_path_filter() {
         "tracked.txt",
         "--path",
         "staged.txt",
+        "--path",
+        "untracked.txt",
     ]);
     assert!(repeated.status.success());
-    assert_eq!(
-        repeated.stdout,
-        raw_git_diff(&root, &["tracked.txt", "staged.txt"])
-    );
+    let mut repeated_expected =
+        raw_git_diff(&root, &["tracked.txt", "staged.txt", "untracked.txt"]);
+    repeated_expected.extend(raw_untracked_diff(&root, "untracked.txt"));
+    assert_eq!(repeated.stdout, repeated_expected);
 }
 
 struct WatchProcess {
@@ -220,7 +263,10 @@ fn text(event: &[u8]) -> String {
 #[cfg(unix)]
 fn watch_emits_initial_debounced_deduplicated_and_clean_events() {
     let root = temp_repo("watch");
-    commit_files(&root, &[("tracked.txt", "base\n")]);
+    commit_files(
+        &root,
+        &[("tracked.txt", "base\n"), (".gitignore", "ignored.txt\n")],
+    );
     let root_arg = root.to_str().unwrap();
     let watch = WatchProcess::spawn(&["diff", root_arg, "--watch"]);
 
@@ -229,26 +275,39 @@ fn watch_emits_initial_debounced_deduplicated_and_clean_events() {
         "@@ ctx-diff event=1 state=clean\n@@ ctx-diff end event=1\n"
     );
 
+    fs::write(root.join("ignored.txt"), "ignored\n").unwrap();
+    watch.assert_no_event(Duration::from_millis(350));
+
+    fs::write(root.join("untracked.txt"), "new\n").unwrap();
+    let untracked = text(&watch.next_event());
+    assert!(untracked.contains("event=2 state=dirty"));
+    assert!(untracked.contains("untracked.txt"));
+    assert!(untracked.contains("+new"));
+    assert!(!untracked.contains("ignored.txt"));
+
+    fs::remove_file(root.join("untracked.txt")).unwrap();
+    assert_eq!(
+        text(&watch.next_event()),
+        "@@ ctx-diff event=3 state=clean\n@@ ctx-diff end event=3\n"
+    );
+
     fs::write(root.join("tracked.txt"), "intermediate\n").unwrap();
     std::thread::sleep(Duration::from_millis(150));
     fs::write(root.join("tracked.txt"), "settled\n").unwrap();
     let dirty = text(&watch.next_event());
     let expected = format!(
-        "@@ ctx-diff event=2 state=dirty\n{}@@ ctx-diff end event=2\n",
+        "@@ ctx-diff event=4 state=dirty\n{}@@ ctx-diff end event=4\n",
         String::from_utf8(raw_git_diff(&root, &[])).unwrap()
     );
     assert_eq!(dirty, expected, "watch emits the complete raw snapshot");
     assert!(dirty.contains("+settled"));
     assert!(!dirty.contains("+intermediate"));
-    assert!(dirty.ends_with("@@ ctx-diff end event=2\n"));
-
-    fs::write(root.join("untracked.txt"), "ignored\n").unwrap();
-    watch.assert_no_event(Duration::from_millis(450));
+    assert!(dirty.ends_with("@@ ctx-diff end event=4\n"));
 
     fs::write(root.join("tracked.txt"), "base\n").unwrap();
     assert_eq!(
         text(&watch.next_event()),
-        "@@ ctx-diff event=3 state=clean\n@@ ctx-diff end event=3\n"
+        "@@ ctx-diff event=5 state=clean\n@@ ctx-diff end event=5\n"
     );
     watch.assert_no_event(Duration::from_millis(350));
     watch.interrupt();
@@ -271,16 +330,21 @@ fn watch_path_filter_ignores_other_tracked_files() {
         "50ms",
         "--path",
         "included.txt",
+        "--path",
+        "new.txt",
     ]);
     assert!(text(&watch.next_event()).contains("event=1 state=clean"));
 
     fs::write(root.join("other.txt"), "ignored\n").unwrap();
     watch.assert_no_event(Duration::from_millis(350));
-    fs::write(root.join("included.txt"), "included\n").unwrap();
+    fs::write(root.join("other-untracked.txt"), "ignored\n").unwrap();
+    watch.assert_no_event(Duration::from_millis(350));
+    fs::write(root.join("new.txt"), "included\n").unwrap();
     let event = text(&watch.next_event());
     assert!(event.contains("event=2 state=dirty"));
-    assert!(event.contains("included.txt"));
+    assert!(event.contains("new.txt"));
     assert!(!event.contains("other.txt"));
+    assert!(!event.contains("other-untracked.txt"));
     watch.interrupt();
 }
 
@@ -316,14 +380,14 @@ fn ctrl_c_during_initial_git_kills_child_and_exits_promptly() {
         .spawn()
         .expect("spawn watch with slow fake git");
 
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
     while !pid_file.exists() && std::time::Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(20));
     }
     if !pid_file.exists() {
         let _ = child.kill();
         let _ = child.wait();
-        panic!("fake git did not start within 2s");
+        panic!("fake git did not start within 5s");
     }
     let fake_pid = fs::read_to_string(&pid_file).unwrap();
     let fake_pid = fake_pid.trim();
