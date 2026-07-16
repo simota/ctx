@@ -109,6 +109,7 @@ ctx noise --top 20
 | `ctx skim` | 単一ファイルを予算内に縮約 |
 | `ctx map` | token / file / symbol / churn の heatmap を表示 |
 | `ctx digest` | 最近の変更を要約 |
+| `ctx diff [ROOT]` | HEAD からの差分を表示（`--watch` で変更をストリーム） |
 | `ctx replay` | pack snapshot を管理 |
 | `ctx noise` | context noise 候補を検出 |
 | `ctx echo` | bundle が問いに答えられるか評価 |
@@ -123,6 +124,9 @@ ctx noise --top 20
 | `ctx doctor` | 実行環境を診断 |
 
 詳細は各コマンドの `--help` を確認してください。
+
+`ctx diff [ROOT]` は staged / unstaged の両方を含む `HEAD` との差分を raw patch として出力します。
+`ctx diff [ROOT] --watch [--debounce 200ms] [--path PATH]...` は 100ms 間隔で監視し、変更が静止した時点の完全な patch snapshot（clean 遷移を含む）をイベント境界付きで出力します。未追跡ファイルは対象外です。
 
 ## MCP
 

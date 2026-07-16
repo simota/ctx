@@ -14,6 +14,7 @@ use crate::commands::browse::run_browse_command;
 use crate::commands::browse::run_mcp_command;
 use crate::commands::browse::run_tui_command;
 use crate::commands::contract::run_contract_verify;
+use crate::commands::diff::run_diff_command;
 use crate::commands::digest::run_digest_command;
 use crate::commands::doctor::run_doctor;
 use crate::commands::echo::run_echo_command;
@@ -52,6 +53,7 @@ const COMMANDS: &[(&str, &str)] = &[
     ("focus", "Build a symbol-anchored mini-pack"),
     ("noise", "Inspect low-signal files"),
     ("digest", "Summarize recent repository changes"),
+    ("diff", "Show or watch the working tree diff"),
     ("onboarding", "Generate onboarding guidance"),
     ("echo", "Evaluate pack answerability"),
     ("contract", "Verify pack-as-contract evidence"),
@@ -160,6 +162,9 @@ fn try_run_native(args: &[OsString]) -> Option<ExitCode> {
         || flag_then_command(args, "digest")
     {
         return run_digest_command(args);
+    }
+    if args.first().is_some_and(|arg| arg == OsStr::new("diff")) {
+        return run_diff_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("skim")) || flag_then_command(args, "skim")
     {
@@ -318,17 +323,21 @@ fn cli() -> ClapCommand {
         .subcommand_required(false);
 
     for (name, about) in COMMANDS {
-        cmd = cmd.subcommand(
-            ClapCommand::new(*name)
-                .about(*about)
-                .allow_external_subcommands(true)
-                .arg(
-                    Arg::new("args")
-                        .num_args(0..)
-                        .trailing_var_arg(true)
-                        .allow_hyphen_values(true),
-                ),
-        );
+        let mut subcommand = ClapCommand::new(*name)
+            .about(*about)
+            .allow_external_subcommands(true)
+            .arg(
+                Arg::new("args")
+                    .num_args(0..)
+                    .trailing_var_arg(true)
+                    .allow_hyphen_values(true),
+            );
+        if *name == "diff" {
+            // `diff` validates its own arguments and renders option-specific
+            // help rather than the generic passthrough-subcommand help.
+            subcommand = subcommand.disable_help_flag(true);
+        }
+        cmd = cmd.subcommand(subcommand);
     }
     cmd
 }
