@@ -22,6 +22,10 @@ pub(crate) struct WhereArgs {
     literal: String,
     explain: bool,
     plain: bool,
+    repos_only: bool,
+    no_gitignore: bool,
+    no_ctxignore: bool,
+    no_deps: bool,
 }
 
 pub(crate) fn run_where_command(args: &[OsString]) -> Option<ExitCode> {
@@ -38,6 +42,10 @@ pub(crate) fn run_where_command(args: &[OsString]) -> Option<ExitCode> {
 pub(crate) fn parse_where_args(args: &[OsString]) -> Option<WhereArgs> {
     let mut json = false;
     let mut plain = false;
+    let mut repos_only = false;
+    let mut no_gitignore = false;
+    let mut no_ctxignore = false;
+    let mut no_deps = false;
     let mut limit = 10;
     let mut format = "default".to_string();
     let mut context_n = 0;
@@ -55,6 +63,23 @@ pub(crate) fn parse_where_args(args: &[OsString]) -> Option<WhereArgs> {
             json = true;
         } else if arg == OsStr::new("--plain") {
             plain = true;
+        } else if arg == OsStr::new("--repos-only")
+            || arg == OsStr::new("--only-repos")
+            || arg == OsStr::new("--repos")
+        {
+            repos_only = true;
+        } else if arg == OsStr::new("--no-ignore") {
+            no_gitignore = true;
+            no_ctxignore = true;
+        } else if arg == OsStr::new("--no-gitignore") {
+            no_gitignore = true;
+        } else if arg == OsStr::new("--no-ctxignore") {
+            no_ctxignore = true;
+        } else if arg == OsStr::new("--no-deps")
+            || arg == OsStr::new("--exclude-deps")
+            || arg == OsStr::new("--skip-deps")
+        {
+            no_deps = true;
         } else if arg == OsStr::new("where") {
             if saw_where {
                 return None;
@@ -128,6 +153,10 @@ pub(crate) fn parse_where_args(args: &[OsString]) -> Option<WhereArgs> {
         literal,
         explain,
         plain,
+        repos_only,
+        no_gitignore,
+        no_ctxignore,
+        no_deps,
     })
 }
 
@@ -147,7 +176,20 @@ pub(crate) fn where_command(args: WhereArgs) -> Result<(), String> {
             .map_err(|err| err.to_string())?
             .join(&args.root)
     };
-    let files = where_files(&root)?;
+    let mut extra_ignore = WalkIgnoreOptions::default_where().extra_ignore;
+    if args.no_deps {
+        for pattern in WalkIgnoreOptions::deps_ignore() {
+            if !extra_ignore.contains(&pattern) {
+                extra_ignore.push(pattern);
+            }
+        }
+    }
+    let walk_opts = WalkIgnoreOptions {
+        respect_gitignore: !args.no_gitignore,
+        respect_ctxignore: !args.no_ctxignore,
+        extra_ignore,
+    };
+    let files = where_files_with(&root, &walk_opts)?;
     let opts = ctx_where::Options {
         limit: args.limit,
         context_n: args.context_n,
@@ -179,6 +221,27 @@ pub(crate) struct WalkIgnoreOptions {
 }
 
 impl WalkIgnoreOptions {
+    /// Common dependency, build artifact, and cache directory ignore patterns.
+    pub(crate) fn deps_ignore() -> Vec<String> {
+        [
+            ".git/",
+            "node_modules/",
+            "target/",
+            "vendor/",
+            "pkg/",
+            ".venv/",
+            "venv/",
+            "__pycache__/",
+            "dist/",
+            "build/",
+            "coverage/",
+            ".cargo/",
+        ]
+        .iter()
+        .map(ToString::to_string)
+        .collect()
+    }
+
     /// Mirror of Go `walk.DefaultOptions()` — used by `where` (and by the Go
     /// oracle's noise / braid / focus loaders, which share these options).
     pub(crate) fn default_where() -> Self {
@@ -496,11 +559,96 @@ pub(crate) fn go_json_escape(body: &str) -> String {
         .replace('>', "\\u003e")
 }
 
+pub(crate) fn extract_repositories(
+    root: &Path,
+    results: &[ctx_where::SearchResult],
+) -> Vec<String> {
+    let mut repos = Vec::new();
+    let mut has_sub_repos = false;
+
+    for res in results {
+        let abs_file_path = root.join(&res.path);
+        let mut curr = if abs_file_path.is_dir() {
+            abs_file_path.clone()
+        } else {
+            abs_file_path
+                .parent()
+                .unwrap_or(&abs_file_path)
+                .to_path_buf()
+        };
+
+        let mut found_repo: Option<PathBuf> = None;
+        while curr.starts_with(root) {
+            if curr.join(".git").exists() {
+                found_repo = Some(curr.clone());
+                break;
+            }
+            if curr == root || !curr.pop() {
+                break;
+            }
+        }
+
+        let repo_str = if let Some(repo_path) = found_repo {
+            let rel = repo_path.strip_prefix(root).unwrap_or(&repo_path);
+            if rel.as_os_str().is_empty() {
+                ".".to_string()
+            } else {
+                rel.to_string_lossy().replace('\\', "/")
+            }
+        } else {
+            let path = Path::new(&res.path);
+            if let Some(first) = path.components().next() {
+                let s = first.as_os_str().to_string_lossy().to_string();
+                if path.components().count() == 1 {
+                    ".".to_string()
+                } else {
+                    s
+                }
+            } else {
+                ".".to_string()
+            }
+        };
+
+        if repo_str != "." {
+            has_sub_repos = true;
+        }
+
+        if !repos.contains(&repo_str) {
+            repos.push(repo_str);
+        }
+    }
+
+    if has_sub_repos {
+        repos.retain(|r| r != ".");
+    }
+
+    repos
+}
+
 pub(crate) fn render_where(
     results: &[ctx_where::SearchResult],
     suggestions: &[ctx_where::Suggestion],
     args: &WhereArgs,
 ) -> Result<(), String> {
+    if args.repos_only {
+        let root = if args.root.is_absolute() {
+            args.root.clone()
+        } else {
+            env::current_dir()
+                .unwrap_or_else(|_| PathBuf::from("."))
+                .join(&args.root)
+        };
+        let repos = extract_repositories(&root, results);
+        if args.format == "json" {
+            let body = serde_json::to_string_pretty(&repos).map_err(|err| err.to_string())?;
+            println!("{}", go_json_escape(&body));
+        } else {
+            for r in repos {
+                println!("{r}");
+            }
+        }
+        return Ok(());
+    }
     match args.format.as_str() {
         "json" => {
             if args.explain {
@@ -923,5 +1071,97 @@ mod tests {
         let root = fx.0.clone();
         let files = finishes_within(30, move || where_files(&root).unwrap());
         assert_eq!(paths(&files), vec!["main.rs"]);
+    }
+
+    #[test]
+    fn parse_where_repos_only_flag() {
+        let args = [
+            OsString::from("where"),
+            OsString::from("query"),
+            OsString::from("--repos-only"),
+        ];
+        let parsed = parse_where_args(&args).expect("where args parse");
+        assert!(parsed.repos_only);
+
+        let args_alias = [
+            OsString::from("where"),
+            OsString::from("query"),
+            OsString::from("--only-repos"),
+        ];
+        let parsed_alias = parse_where_args(&args_alias).expect("where args parse");
+        assert!(parsed_alias.repos_only);
+    }
+
+    #[test]
+    fn test_extract_repositories() {
+        let fx = TempFixture::new("extract-repos");
+        fx.write("repo-a/.git/config", "");
+        fx.write("repo-a/src/main.rs", "fn main() {}");
+        fx.write("repo-b/.git/config", "");
+        fx.write("repo-b/README.md", "# Repo B");
+        fx.write("Cargo.toml", "");
+
+        let results = vec![
+            ctx_where::SearchResult {
+                path: "repo-a/src/main.rs".to_string(),
+                ..Default::default()
+            },
+            ctx_where::SearchResult {
+                path: "repo-a/src/lib.rs".to_string(),
+                ..Default::default()
+            },
+            ctx_where::SearchResult {
+                path: "repo-b/README.md".to_string(),
+                ..Default::default()
+            },
+            ctx_where::SearchResult {
+                path: "Cargo.toml".to_string(),
+                ..Default::default()
+            },
+        ];
+        let repos = extract_repositories(&fx.0, &results);
+        assert_eq!(repos, vec!["repo-a", "repo-b"]);
+    }
+
+    #[test]
+    fn parse_where_no_ignore_flags() {
+        let args = [
+            OsString::from("where"),
+            OsString::from("query"),
+            OsString::from("--no-ignore"),
+        ];
+        let parsed = parse_where_args(&args).expect("where args parse");
+        assert!(parsed.no_gitignore);
+        assert!(parsed.no_ctxignore);
+
+        let args_gi = [
+            OsString::from("where"),
+            OsString::from("query"),
+            OsString::from("--no-gitignore"),
+        ];
+        let parsed_gi = parse_where_args(&args_gi).expect("where args parse");
+        assert!(parsed_gi.no_gitignore);
+        assert!(!parsed_gi.no_ctxignore);
+    }
+
+    #[test]
+    fn parse_where_no_deps_flag() {
+        let args = [
+            OsString::from("where"),
+            OsString::from("query"),
+            OsString::from("--no-gitignore"),
+            OsString::from("--no-deps"),
+        ];
+        let parsed = parse_where_args(&args).expect("where args parse");
+        assert!(parsed.no_gitignore);
+        assert!(parsed.no_deps);
+
+        let args_alias = [
+            OsString::from("where"),
+            OsString::from("query"),
+            OsString::from("--exclude-deps"),
+        ];
+        let parsed_alias = parse_where_args(&args_alias).expect("where args parse");
+        assert!(parsed_alias.no_deps);
     }
 }

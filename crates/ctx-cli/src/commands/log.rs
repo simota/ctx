@@ -915,7 +915,11 @@ fn build_worktree_detail(
 
 /// Flatten static header lines and per-file diff blocks into render-ready
 /// lines, folding each block's diff lines when `context_only` is set.
-fn flatten_detail(header_lines: &[String], file_blocks: &[FileDiffBlock], context_only: bool) -> Vec<String> {
+fn flatten_detail(
+    header_lines: &[String],
+    file_blocks: &[FileDiffBlock],
+    context_only: bool,
+) -> Vec<String> {
     let mut lines = header_lines.to_vec();
     for block in file_blocks {
         lines.extend(block.header.iter().cloned());
