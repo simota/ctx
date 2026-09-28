@@ -17,6 +17,7 @@ pub(crate) fn build_git_commit_time_index(
         "log".to_string(),
         "--all".to_string(),
         "--name-only".to_string(),
+        "-z".to_string(),
         "--format=%x00%ct".to_string(),
         "--diff-filter=ACDMRT".to_string(),
     ];
@@ -24,31 +25,64 @@ pub(crate) fn build_git_commit_time_index(
         args.push(format!("--since={since}"));
     }
     let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
-    let log = git_output_in(root, &arg_refs).ok()?;
-    let head = git_output_in(root, &["ls-tree", "-r", "--name-only", "HEAD"]).ok()?;
+    let log = git_output_bytes_in(root, &arg_refs).ok()?;
+    let head = git_output_bytes_in(root, &["ls-tree", "-r", "-z", "--name-only", "HEAD"]).ok()?;
 
+    Some(GitTimeIndex {
+        commit_times: parse_git_time_log_z(&log),
+        head_paths: parse_git_path_list_z(&head),
+    })
+}
+
+/// Parse `git log --name-only -z --format=%x00%ct`.
+///
+/// Git inserts one formatting newline before the first name of each commit;
+/// remove exactly that delimiter byte while leaving any newline that is part
+/// of the filename intact.
+fn parse_git_time_log_z(output: &[u8]) -> std::collections::BTreeMap<String, SystemTime> {
     let mut commit_times = std::collections::BTreeMap::new();
+    let mut fields = output.split(|byte| *byte == 0);
     let mut current_time = None;
-    for line in log.lines() {
-        if let Some(raw_ts) = line.strip_prefix('\0') {
-            current_time = raw_ts
-                .parse::<u64>()
+    let mut first_path = false;
+
+    while let Some(field) = fields.next() {
+        if field.is_empty() {
+            let Some(raw_ts) = fields.next() else {
+                break;
+            };
+            current_time = std::str::from_utf8(raw_ts)
                 .ok()
-                .map(|ts| UNIX_EPOCH + Duration::from_secs(ts));
+                .and_then(|raw| raw.parse::<u64>().ok())
+                .and_then(|ts| UNIX_EPOCH.checked_add(Duration::from_secs(ts)));
+            first_path = true;
             continue;
         }
-        if line.is_empty() {
+
+        let path = if first_path && field.first() == Some(&b'\n') {
+            &field[1..]
+        } else {
+            field
+        };
+        first_path = false;
+        if path.is_empty() {
             continue;
         }
         if let Some(time) = current_time {
-            commit_times.entry(line.replace('\\', "/")).or_insert(time);
+            commit_times
+                .entry(String::from_utf8_lossy(path).into_owned())
+                .or_insert(time);
         }
     }
-    let head_paths = head.lines().map(|line| line.replace('\\', "/")).collect();
-    Some(GitTimeIndex {
-        commit_times,
-        head_paths,
-    })
+
+    commit_times
+}
+
+fn parse_git_path_list_z(output: &[u8]) -> std::collections::BTreeSet<String> {
+    output
+        .split(|byte| *byte == 0)
+        .filter(|path| !path.is_empty())
+        .map(|path| String::from_utf8_lossy(path).into_owned())
+        .collect()
 }
 
 pub(crate) fn system_time_unix_seconds(time: SystemTime) -> Option<u64> {
@@ -182,6 +216,38 @@ pub(crate) fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn git_time_log_z_preserves_special_paths() {
+        let raw = b"\0" b"200" b"\0\nline\nbreak.rs\0tab\tname.rs\0literal\\name.rs\0"
+            b"\0" b"100" b"\0\nolder.rs\0";
+        let times = parse_git_time_log_z(raw);
+
+        assert_eq!(
+            times.get("line\nbreak.rs").and_then(|time| system_time_unix_seconds(*time)),
+            Some(200)
+        );
+        assert_eq!(
+            times.get("tab\tname.rs").and_then(|time| system_time_unix_seconds(*time)),
+            Some(200)
+        );
+        assert_eq!(
+            times.get(r"literal\name.rs").and_then(|time| system_time_unix_seconds(*time)),
+            Some(200)
+        );
+        assert_eq!(
+            times.get("older.rs").and_then(|time| system_time_unix_seconds(*time)),
+            Some(100)
+        );
+    }
+
+    #[test]
+    fn git_path_list_z_preserves_embedded_newlines_tabs_and_backslashes() {
+        let paths = parse_git_path_list_z(b"line\nbreak.rs\0tab\tname.rs\0literal\\name.rs\0");
+        assert!(paths.contains("line\nbreak.rs"));
+        assert!(paths.contains("tab\tname.rs"));
+        assert!(paths.contains(r"literal\name.rs"));
+    }
 
     #[test]
     fn absolute_date_parser_validates_calendar_dates() {
