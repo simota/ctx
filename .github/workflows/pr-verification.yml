@@ -1,0 +1,57 @@
+name: PR verification
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format changed Rust crates
+        run: |
+          cargo fmt --manifest-path crates/ctx-replay/Cargo.toml -- --check
+          cargo fmt --manifest-path crates/ctx-contract/Cargo.toml -- --check
+          cargo fmt --manifest-path crates/ctx-web/Cargo.toml -- --check
+          cargo fmt --manifest-path crates/ctx-cli/Cargo.toml -- --check
+      - name: Replay tests
+        run: cargo test --manifest-path crates/ctx-replay/Cargo.toml
+      - name: Contract tests
+        run: cargo test --manifest-path crates/ctx-contract/Cargo.toml
+      - name: Web library tests
+        run: cargo test --manifest-path crates/ctx-web/Cargo.toml --lib
+      - name: CLI unit tests
+        run: cargo test --manifest-path crates/ctx-cli/Cargo.toml --bin ctx
+      - name: Clippy
+        run: |
+          cargo clippy --manifest-path crates/ctx-replay/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path crates/ctx-contract/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path crates/ctx-web/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path crates/ctx-cli/Cargo.toml --bin ctx -- -D warnings
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.20.0
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm build
