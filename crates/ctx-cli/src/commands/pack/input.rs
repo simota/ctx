@@ -482,7 +482,6 @@ pub(crate) fn clean_pack_input_path(raw: &str) -> String {
     }
 }
 
-
 #[cfg(test)]
 mod special_path_tests {
     use super::*;
@@ -528,6 +527,9 @@ mod special_path_tests {
     #[cfg(unix)]
     #[test]
     fn clean_pack_input_path_preserves_literal_backslash_on_unix() {
-        assert_eq!(clean_pack_input_path(r"literal\name.rs"), r"literal\name.rs");
+        assert_eq!(
+            clean_pack_input_path(r"literal\name.rs"),
+            r"literal\name.rs"
+        );
     }
 }
