@@ -126,18 +126,46 @@ pub(crate) fn subtract_filter_duration(
 }
 
 pub(crate) fn parse_yyyy_mm_dd_utc(input: &str) -> Option<SystemTime> {
-    let mut parts = input.split('-');
-    let year = parts.next()?.parse::<i64>().ok()?;
-    let month = parts.next()?.parse::<u32>().ok()?;
-    let day = parts.next()?.parse::<u32>().ok()?;
-    if parts.next().is_some() || !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+    let bytes = input.as_bytes();
+    if bytes.len() != 10
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes
+            .iter()
+            .enumerate()
+            .any(|(index, byte)| index != 4 && index != 7 && !byte.is_ascii_digit())
+    {
         return None;
     }
+
+    let year = input[0..4].parse::<i64>().ok()?;
+    let month = input[5..7].parse::<u32>().ok()?;
+    let day = input[8..10].parse::<u32>().ok()?;
+    let max_day = days_in_month(year, month)?;
+    if day == 0 || day > max_day {
+        return None;
+    }
+
     let days = days_from_civil(year, month, day);
     if days < 0 {
         return None;
     }
-    Some(UNIX_EPOCH + Duration::from_secs(days as u64 * 24 * 60 * 60))
+    let seconds = (days as u64).checked_mul(24 * 60 * 60)?;
+    UNIX_EPOCH.checked_add(Duration::from_secs(seconds))
+}
+
+fn is_leap_year(year: i64) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+}
+
+fn days_in_month(year: i64, month: u32) -> Option<u32> {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => Some(31),
+        4 | 6 | 9 | 11 => Some(30),
+        2 if is_leap_year(year) => Some(29),
+        2 => Some(28),
+        _ => None,
+    }
 }
 
 pub(crate) fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
@@ -149,4 +177,46 @@ pub(crate) fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
     let doy = (153 * (month + if month > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     era * 146097 + doe - 719468
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn absolute_date_parser_validates_calendar_dates() {
+        assert!(parse_yyyy_mm_dd_utc("2024-02-29").is_some());
+        assert!(parse_yyyy_mm_dd_utc("2026-01-31").is_some());
+
+        for invalid in [
+            "2023-02-29",
+            "2024-02-30",
+            "2026-04-31",
+            "2026-00-10",
+            "2026-13-10",
+            "2026-01-00",
+        ] {
+            assert!(
+                parse_yyyy_mm_dd_utc(invalid).is_none(),
+                "{invalid} must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn absolute_date_parser_requires_yyyy_mm_dd_shape() {
+        for invalid in [
+            "2026-1-01",
+            "2026-01-1",
+            "26-01-01",
+            "20260101",
+            "2026/01/01",
+            "9223372036854775807-01-01",
+        ] {
+            assert!(
+                parse_yyyy_mm_dd_utc(invalid).is_none(),
+                "{invalid} must be rejected"
+            );
+        }
+    }
 }
