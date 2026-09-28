@@ -5,7 +5,14 @@ use super::*;
 
 pub(crate) fn git_changed_paths(root: &Path) -> Result<std::collections::BTreeSet<String>, String> {
     let output = Command::new("git")
-        .args(["-C", &root.to_string_lossy(), "status", "--porcelain"])
+        .arg("-C")
+        .arg(root)
+        .args([
+            "status",
+            "--porcelain=v1",
+            "-z",
+            "--untracked-files=all",
+        ])
         .output();
     let output = match output {
         Ok(output) if output.status.success() => output,
@@ -21,18 +28,37 @@ pub(crate) fn git_changed_paths(root: &Path) -> Result<std::collections::BTreeSe
             return Ok(std::collections::BTreeSet::new());
         }
     };
+    Ok(parse_git_changed_paths(&output.stdout))
+}
+
+fn parse_git_changed_paths(output: &[u8]) -> std::collections::BTreeSet<String> {
     let mut changed = std::collections::BTreeSet::new();
-    for line in String::from_utf8_lossy(&output.stdout).lines() {
-        if line.len() < 4 {
+    let mut fields = output.split(|byte| *byte == 0);
+
+    while let Some(record) = fields.next() {
+        if record.is_empty() {
             continue;
         }
-        let path = line[3..].trim();
-        let path = path.split(" -> ").last().unwrap_or(path);
+        if record.len() < 4 || record[2] != b' ' {
+            continue;
+        }
+
+        let status = &record[..2];
+        let path = &record[3..];
         if !path.is_empty() {
-            changed.insert(path.replace('\\', "/"));
+            // The pack walker also uses to_string_lossy for filesystem paths,
+            // so applying the same conversion keeps non-UTF-8 names comparable.
+            changed.insert(String::from_utf8_lossy(path).into_owned());
+        }
+
+        // In porcelain v1 -z, rename/copy records put the destination path in
+        // the main record and the source path in the following NUL field.
+        if status.iter().any(|byte| matches!(*byte, b'R' | b'C')) {
+            let _ = fields.next();
         }
     }
-    Ok(changed)
+
+    changed
 }
 
 pub(crate) fn git_diff_entries(
@@ -143,5 +169,22 @@ pub(crate) fn git_output_allow_empty(root: &Path, args: &[&str]) -> Result<Strin
         Ok(out) => Ok(out),
         Err(err) if err.contains("exists on disk, but not in") => Ok(String::new()),
         Err(err) => Err(err),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn porcelain_z_parser_preserves_special_paths_and_rename_target() {
+        let raw = b"?? dir/a b.rs\0 M literal\\name.rs\0R  dst -> literal.rs\0src old.rs\0?? comma,name.rs\0";
+        let paths = parse_git_changed_paths(raw);
+
+        assert!(paths.contains("dir/a b.rs"));
+        assert!(paths.contains(r"literal\name.rs"));
+        assert!(paths.contains("dst -> literal.rs"));
+        assert!(paths.contains("comma,name.rs"));
+        assert!(!paths.contains("src old.rs"));
     }
 }
