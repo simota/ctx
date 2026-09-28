@@ -64,7 +64,10 @@ pub(crate) fn git_diff_entries(
     let (base, head) = parse_diff_revspec(revspec)?;
     let before_commit = git_output_in(root, &["rev-parse", "--short=7", base])?;
     let after_commit = git_output_in(root, &["rev-parse", "--short=7", head])?;
-    let name_status = git_output_bytes_in(root, &["diff", "--name-status", "-z", base, head, "--"])?;
+    let name_status = git_output_bytes_in(
+        root,
+        &["diff", "--name-status", "-z", base, head, "--"],
+    )?;
     let mut entries = Vec::new();
     for (status, path, before_path) in parse_git_name_status_z(&name_status) {
         let added = status.starts_with('A');
