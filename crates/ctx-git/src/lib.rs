@@ -435,76 +435,52 @@ pub fn commit_files(repo_root: impl AsRef<Path>, hash: &str) -> Result<Vec<Commi
         return Err(GitError::new("hash is required"));
     }
     let git_dir = git_dir(repo_root.as_ref());
-    let status_args = [
-        "-c",
-        "core.quotepath=false",
-        "diff-tree",
-        "--no-commit-id",
-        "--name-status",
-        "--no-renames",
-        "-r",
-        "--root",
-        hash,
-    ];
-    let status_out = git_output(&git_dir, &status_args)?;
-    let status_text = String::from_utf8_lossy(&status_out);
+    let status_out = git_output(
+        &git_dir,
+        &[
+            "diff-tree",
+            "--no-commit-id",
+            "--name-status",
+            "-z",
+            "--no-renames",
+            "-r",
+            "--root",
+            hash,
+        ],
+    )?;
 
-    // `--numstat` gives `<additions>\t<deletions>\t<path>` per file (a binary
-    // file reports `-\t-\t<path>`). Run it alongside name-status and merge by
-    // path so each row carries both its A/M/D status and its +/- line counts.
-    let numstat_args = [
-        "-c",
-        "core.quotepath=false",
-        "diff-tree",
-        "--no-commit-id",
-        "--numstat",
-        "--no-renames",
-        "-r",
-        "--root",
-        hash,
-    ];
-    let numstat_out = git_output(&git_dir, &numstat_args)?;
-    let numstat_text = String::from_utf8_lossy(&numstat_out);
-    let mut stats: HashMap<String, (u32, u32, bool)> = HashMap::new();
-    for line in numstat_text.lines() {
-        let mut parts = line.splitn(3, '\t');
-        let Some(add_raw) = parts.next() else {
-            continue;
-        };
-        let Some(del_raw) = parts.next() else {
-            continue;
-        };
-        let Some(path) = parts.next() else { continue };
-        if path.is_empty() {
-            continue;
-        }
-        let binary = add_raw == "-" || del_raw == "-";
-        let additions = add_raw.parse::<u32>().unwrap_or(0);
-        let deletions = del_raw.parse::<u32>().unwrap_or(0);
-        stats.insert(path.to_string(), (additions, deletions, binary));
-    }
+    // `--numstat -z` keeps path bytes unquoted and NUL-delimited, so legal
+    // newlines/tabs/backslashes in names cannot be mistaken for separators.
+    let numstat_out = git_output(
+        &git_dir,
+        &[
+            "diff-tree",
+            "--no-commit-id",
+            "--numstat",
+            "-z",
+            "--no-renames",
+            "-r",
+            "--root",
+            hash,
+        ],
+    )?;
+    let stats = parse_numstat_z(&numstat_out);
 
     let mut files = Vec::new();
-    for line in status_text.lines() {
-        let mut parts = line.splitn(2, '\t');
-        let Some(status_raw) = parts.next() else {
-            continue;
-        };
-        let Some(path) = parts.next() else {
-            continue;
-        };
+    for (status_raw, path, _) in parse_name_status_z(&status_out) {
         if status_raw.is_empty() || path.is_empty() {
             continue;
         }
-        let status = match status_raw.chars().next() {
-            Some('A') => "added",
-            Some('D') => "deleted",
+        let status = match status_raw.as_bytes().first() {
+            Some(b'A') => "added",
+            Some(b'D') => "deleted",
             _ => "modified",
         };
-        let (additions, deletions, binary) = stats.get(path).copied().unwrap_or((0, 0, false));
+        let (additions, deletions, binary) =
+            stats.get(&path).copied().unwrap_or((0, 0, false));
         files.push(CommitFile {
             status: status.to_string(),
-            path: path.to_string(),
+            path,
             additions,
             deletions,
             binary,
@@ -553,52 +529,31 @@ pub fn changed_files_between(
     let status_out = git_output(
         &git_dir,
         &[
-            "-c",
-            "core.quotepath=false",
             "diff",
             "--name-status",
+            "-z",
             "-M",
             &effective_base,
             &head_oid,
             "--",
         ],
     )?;
-    let status_text = String::from_utf8_lossy(&status_out);
     let mut files = Vec::new();
-    for line in status_text.lines() {
-        if line.is_empty() {
+    for (raw_status, path, old_path) in parse_name_status_z(&status_out) {
+        if raw_status.is_empty() || path.is_empty() {
             continue;
         }
-        let mut parts = line.split('\t');
-        let raw_status = parts.next().unwrap_or("").to_string();
-        if raw_status.is_empty() {
-            continue;
-        }
-        let Some(first_path) = parts.next() else {
-            continue;
+        let status_code = raw_status.as_bytes().first().copied().unwrap_or(b'M');
+        let (status, old_path) = match status_code {
+            b'A' => ("added", None),
+            b'D' => ("deleted", None),
+            b'R' => ("renamed", old_path),
+            _ => ("modified", None),
         };
-        if first_path.is_empty() {
-            continue;
-        }
-        let status_code = raw_status.chars().next().unwrap_or('M');
-        let (status, old_path, path) = match status_code {
-            'A' => ("added", None, first_path),
-            'D' => ("deleted", None, first_path),
-            'R' => {
-                let Some(new_path) = parts.next() else {
-                    continue;
-                };
-                ("renamed", Some(first_path.to_string()), new_path)
-            }
-            _ => ("modified", None, first_path),
-        };
-        if path.is_empty() {
-            continue;
-        }
-        let (additions, deletions, binary) = stats.remove(path).unwrap_or((0, 0, false));
+        let (additions, deletions, binary) = stats.remove(&path).unwrap_or((0, 0, false));
         files.push(ChangedFile {
             status: status.to_string(),
-            path: path.to_string(),
+            path,
             old_path,
             additions,
             deletions,
@@ -641,20 +596,58 @@ fn diff_numstat(
     let numstat_out = git_output(
         git_dir,
         &[
-            "-c",
-            "core.quotepath=false",
             "diff",
             "--numstat",
+            "-z",
             "-M",
             effective_base,
             effective_head,
             "--",
         ],
     )?;
-    let numstat_text = String::from_utf8_lossy(&numstat_out);
+    Ok(parse_numstat_z(&numstat_out))
+}
+
+/// Parse Git's `--name-status -z` / `diff-tree --name-status -z` format.
+/// The returned tuple is (raw status, destination/current path, old path).
+fn parse_name_status_z(output: &[u8]) -> Vec<(String, String, Option<String>)> {
+    let mut fields = output.split(|byte| *byte == 0).filter(|field| !field.is_empty());
+    let mut out = Vec::new();
+
+    while let Some(status_bytes) = fields.next() {
+        let status = String::from_utf8_lossy(status_bytes).into_owned();
+        let Some(first_path) = fields.next() else {
+            break;
+        };
+        let first_path = String::from_utf8_lossy(first_path).into_owned();
+        if matches!(status.as_bytes().first(), Some(b'R' | b'C')) {
+            let Some(new_path) = fields.next() else {
+                break;
+            };
+            out.push((
+                status,
+                String::from_utf8_lossy(new_path).into_owned(),
+                Some(first_path),
+            ));
+        } else {
+            out.push((status, first_path, None));
+        }
+    }
+
+    out
+}
+
+/// Parse Git's `--numstat -z` format. For rename/copy records Git emits an
+/// empty path field in the stats record, followed by old and new path fields.
+fn parse_numstat_z(output: &[u8]) -> HashMap<String, (u32, u32, bool)> {
+    let mut fields = output.split(|byte| *byte == 0);
     let mut stats = HashMap::new();
-    for line in numstat_text.lines() {
-        let mut parts = line.splitn(3, '\t');
+
+    while let Some(record) = fields.next() {
+        if record.is_empty() {
+            continue;
+        }
+        let mut parts = record.splitn(3, |byte| *byte == b'\t');
         let Some(add_raw) = parts.next() else {
             continue;
         };
@@ -664,32 +657,86 @@ fn diff_numstat(
         let Some(path_raw) = parts.next() else {
             continue;
         };
-        if path_raw.is_empty() {
+
+        let path = if path_raw.is_empty() {
+            let Some(_old_path) = fields.next() else {
+                break;
+            };
+            let Some(new_path) = fields.next() else {
+                break;
+            };
+            new_path
+        } else {
+            path_raw
+        };
+        if path.is_empty() {
             continue;
         }
-        let binary = add_raw == "-" || del_raw == "-";
-        let additions = add_raw.parse::<u32>().unwrap_or(0);
-        let deletions = del_raw.parse::<u32>().unwrap_or(0);
-        stats.insert(numstat_path_key(path_raw), (additions, deletions, binary));
+
+        let binary = add_raw == b"-" || del_raw == b"-";
+        let additions = std::str::from_utf8(add_raw)
+            .ok()
+            .and_then(|raw| raw.parse::<u32>().ok())
+            .unwrap_or(0);
+        let deletions = std::str::from_utf8(del_raw)
+            .ok()
+            .and_then(|raw| raw.parse::<u32>().ok())
+            .unwrap_or(0);
+        stats.insert(
+            String::from_utf8_lossy(path).into_owned(),
+            (additions, deletions, binary),
+        );
     }
-    Ok(stats)
+
+    stats
 }
 
-fn numstat_path_key(path_raw: &str) -> String {
-    if let Some((prefix, suffix)) = path_raw.split_once(" => ") {
-        if let Some((_, close)) = suffix.split_once('}') {
-            if let Some((before_open, _old_part)) = prefix.rsplit_once('{') {
-                let new_part = suffix
-                    .split_once('}')
-                    .map(|(new_part, _)| new_part)
-                    .unwrap_or(suffix);
-                return format!("{before_open}{new_part}{close}");
+/// Parse `git log --name-only -z --format=%x00%ct` into commits.
+///
+/// Git inserts one formatting newline before the first path after each pretty
+/// header. Strip exactly that delimiter, preserving any additional newline
+/// byte that belongs to the filename itself.
+fn parse_log_name_only_z(output: &[u8]) -> Vec<(i64, Vec<String>)> {
+    let mut commits = Vec::new();
+    let mut fields = output.split(|byte| *byte == 0);
+    let mut current: Option<(i64, Vec<String>)> = None;
+    let mut first_path = false;
+
+    while let Some(field) = fields.next() {
+        if field.is_empty() {
+            let Some(raw_time) = fields.next() else {
+                break;
+            };
+            if let Some(commit) = current.take() {
+                commits.push(commit);
             }
-            return suffix.trim_start_matches('}').to_string();
+            let commit_time = std::str::from_utf8(raw_time)
+                .ok()
+                .and_then(|raw| raw.parse::<i64>().ok())
+                .unwrap_or(0);
+            current = Some((commit_time, Vec::new()));
+            first_path = true;
+            continue;
         }
-        return suffix.to_string();
+
+        let path = if first_path && field.first() == Some(&b'\n') {
+            &field[1..]
+        } else {
+            field
+        };
+        first_path = false;
+        if path.is_empty() {
+            continue;
+        }
+        if let Some((_, paths)) = current.as_mut() {
+            paths.push(String::from_utf8_lossy(path).into_owned());
+        }
     }
-    path_raw.to_string()
+
+    if let Some(commit) = current {
+        commits.push(commit);
+    }
+    commits
 }
 
 pub fn worktree_files(repo_root: impl AsRef<Path>) -> Result<Vec<CommitFile>> {
@@ -774,11 +821,10 @@ pub fn file_churn(
     }
 
     let mut args: Vec<String> = vec![
-        "-c".into(),
-        "core.quotepath=false".into(),
         "log".into(),
         "--no-renames".into(),
         "--name-only".into(),
+        "-z".into(),
         "--format=%x00%ct".into(),
     ];
     if let Some(since) = since.filter(|s| !s.is_empty()) {
@@ -786,22 +832,15 @@ pub fn file_churn(
     }
     let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
     let output = git_output(&git_dir, &arg_refs)?;
-    let text = String::from_utf8_lossy(&output);
 
     let mut churn: HashMap<String, ChurnStat> = HashMap::new();
-    let mut commit_time = 0i64;
-    for line in text.lines() {
-        if let Some(rest) = line.strip_prefix('\0') {
-            commit_time = rest.trim().parse::<i64>().unwrap_or(0);
-            continue;
-        }
-        if line.is_empty() {
-            continue;
-        }
-        let entry = churn.entry(line.to_string()).or_default();
-        entry.commits = entry.commits.saturating_add(1);
-        if commit_time > entry.last_commit_time {
-            entry.last_commit_time = commit_time;
+    for (commit_time, paths) in parse_log_name_only_z(&output) {
+        for path in paths {
+            let entry = churn.entry(path).or_default();
+            entry.commits = entry.commits.saturating_add(1);
+            if commit_time > entry.last_commit_time {
+                entry.last_commit_time = commit_time;
+            }
         }
     }
     Ok(churn)
@@ -870,14 +909,11 @@ pub fn co_change_graph(
         return Ok(CoChangeGraph::default());
     }
 
-    // Same 1-pass shape as `file_churn`, but probe one extra commit so we can
-    // tell whether history was truncated, and bound the scan with `-n`.
     let mut args: Vec<String> = vec![
-        "-c".into(),
-        "core.quotepath=false".into(),
         "log".into(),
         "--no-renames".into(),
         "--name-only".into(),
+        "-z".into(),
         "--format=%x00%ct".into(),
         format!("-n{}", limit.saturating_add(1)),
     ];
@@ -886,7 +922,8 @@ pub fn co_change_graph(
     }
     let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
     let output = git_output(&git_dir, &arg_refs)?;
-    let text = String::from_utf8_lossy(&output);
+    let commits = parse_log_name_only_z(&output);
+    let truncated = commits.len() > limit;
 
     // Intern paths to dense ids; per-id churn accumulates alongside, indexed
     // by id. `paths` is the reverse map (id -> path) for the final node build.
@@ -895,60 +932,25 @@ pub fn co_change_graph(
     let mut churn: Vec<ChurnStat> = Vec::new();
     let mut pair_weights: HashMap<(usize, usize), u32> = HashMap::new();
 
-    let mut commit_time = 0i64;
-    let mut current: Vec<usize> = Vec::new();
-    let mut seen: std::collections::HashSet<usize> = std::collections::HashSet::new();
-    let mut commits_scanned: u32 = 0;
-    let mut truncated = false;
-    let mut commit_open = false;
-
-    for line in text.lines() {
-        if let Some(rest) = line.strip_prefix('\0') {
-            // A commit boundary closes the previous commit (if any).
-            if commit_open {
-                if commits_scanned as usize >= limit {
-                    // The just-finished commit is the probe beyond `limit`;
-                    // drop it and stop — older history is truncated.
-                    truncated = true;
-                    break;
-                }
-                fold_commit(&current, commit_time, &mut churn, &mut pair_weights);
-                commits_scanned += 1;
+    let mut commits_scanned = 0u32;
+    for (commit_time, commit_paths) in commits.into_iter().take(limit) {
+        let mut current: Vec<usize> = Vec::new();
+        let mut seen: std::collections::HashSet<usize> = std::collections::HashSet::new();
+        for path in commit_paths {
+            let id = *ids.entry(path.clone()).or_insert_with(|| {
+                let id = paths.len();
+                paths.push(path);
+                churn.push(ChurnStat::default());
+                id
+            });
+            if seen.insert(id) {
+                current.push(id);
             }
-            commit_open = true;
-            current.clear();
-            seen.clear();
-            commit_time = rest.trim().parse::<i64>().unwrap_or(0);
-            continue;
         }
-        if line.is_empty() {
-            continue;
-        }
-        let id = *ids.entry(line.to_string()).or_insert_with(|| {
-            let id = paths.len();
-            paths.push(line.to_string());
-            churn.push(ChurnStat::default());
-            id
-        });
-        // Dedupe paths within a commit so a file listed twice counts once.
-        if seen.insert(id) {
-            current.push(id);
-        }
-    }
-    // Fold the final commit (the log ends without a trailing `\0`), unless it
-    // is the probe commit beyond `limit`.
-    if commit_open {
-        if commits_scanned as usize >= limit {
-            truncated = true;
-        } else {
-            fold_commit(&current, commit_time, &mut churn, &mut pair_weights);
-            commits_scanned += 1;
-        }
+        fold_commit(&current, commit_time, &mut churn, &mut pair_weights);
+        commits_scanned = commits_scanned.saturating_add(1);
     }
 
-    // Keep edges at or above the weight floor, then compact node ids so the
-    // returned nodes are exactly the surviving edges' endpoints (isolated
-    // nodes are dropped to shrink the payload).
     let mut compact: HashMap<usize, usize> = HashMap::new();
     let mut nodes: Vec<CoChangeNode> = Vec::new();
     let mut edges: Vec<CoChangeEdge> = Vec::new();
