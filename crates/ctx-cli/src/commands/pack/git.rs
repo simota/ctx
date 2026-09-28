@@ -7,12 +7,7 @@ pub(crate) fn git_changed_paths(root: &Path) -> Result<std::collections::BTreeSe
     let output = Command::new("git")
         .arg("-C")
         .arg(root)
-        .args([
-            "status",
-            "--porcelain=v1",
-            "-z",
-            "--untracked-files=all",
-        ])
+        .args(["status", "--porcelain=v1", "-z", "--untracked-files=all"])
         .output();
     let output = match output {
         Ok(output) if output.status.success() => output,
