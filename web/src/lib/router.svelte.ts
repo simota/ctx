@@ -49,18 +49,36 @@ export interface Route {
   gitMode?: GitReviewMode;
 }
 
+function safeDecodeURIComponent(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    // Hashes can be supplied by hand or by external links. A malformed
+    // percent escape should remain literal instead of crashing the SPA.
+    return raw;
+  }
+}
+
+// The open query value is a comma-delimited list whose individual paths are
+// URI-encoded. Read its raw value before URLSearchParams decodes it so an
+// encoded comma (%2C) inside a filename is not mistaken for a list separator.
+function rawQueryParam(rawQuery: string, name: string): string | null {
+  for (const field of rawQuery.split('&')) {
+    const eq = field.indexOf('=');
+    const rawName = eq === -1 ? field : field.slice(0, eq);
+    if (safeDecodeURIComponent(rawName.replace(/\+/g, ' ')) !== name) continue;
+    return eq === -1 ? '' : field.slice(eq + 1);
+  }
+  return null;
+}
+
 function parseOpenParam(raw: string | null): string[] {
   if (!raw) return [];
   const out: string[] = [];
   const seen = new Set<string>();
   for (const token of raw.split(',')) {
     if (!token) continue;
-    let decoded: string;
-    try {
-      decoded = decodeURIComponent(token);
-    } catch {
-      decoded = token;
-    }
+    const decoded = safeDecodeURIComponent(token.replace(/\+/g, ' '));
     if (!decoded || seen.has(decoded)) continue;
     seen.add(decoded);
     out.push(decoded);
@@ -119,24 +137,18 @@ function parse(rawHash: string): Route {
     const modeRaw = queryParams.get('mode');
     const mode: FileViewMode | undefined =
       modeRaw === 'diff' || modeRaw === 'history' ? modeRaw : undefined;
-    const rightRaw = queryParams.get('right');
-    let rightPath = '';
-    if (rightRaw) {
-      try {
-        rightPath = decodeURIComponent(rightRaw);
-      } catch {
-        rightPath = rightRaw;
-      }
-    }
+    // URLSearchParams already percent-decodes query values once. Decoding
+    // right a second time corrupts literal "%xx" sequences in filenames.
+    const rightPath = queryParams.get('right') ?? '';
     const since = queryParams.get('since') ?? undefined;
     const until = queryParams.get('until') ?? undefined;
     const useMtime = queryParams.get('use_mtime') === 'true' ? true : undefined;
     return {
       name: 'file',
-      path: decodeURIComponent(p.slice('file/'.length)),
+      path: safeDecodeURIComponent(p.slice('file/'.length)),
       query: '',
       lineHint,
-      openPaths: parseOpenParam(queryParams.get('open')),
+      openPaths: parseOpenParam(rawQueryParam(afterQ, 'open')),
       rightPath,
       mode,
       since,
@@ -156,7 +168,7 @@ function parse(rawHash: string): Route {
     const useMtime = queryParams.get('use_mtime') === 'true' ? true : undefined;
     return {
       name: 'dir',
-      path: decodeURIComponent(p.slice('dir/'.length)),
+      path: safeDecodeURIComponent(p.slice('dir/'.length)),
       query: '',
       openPaths: [],
       rightPath: '',
@@ -186,7 +198,7 @@ function parse(rawHash: string): Route {
     // path segment is the selected commit's full hash (opaque, no slashes).
     return {
       name: 'gitlog',
-      path: decodeURIComponent(p.slice('gitlog/'.length)),
+      path: safeDecodeURIComponent(p.slice('gitlog/'.length)),
       query: '',
       openPaths: [],
       rightPath: '',
