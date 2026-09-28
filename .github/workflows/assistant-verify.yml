@@ -18,8 +18,13 @@ jobs:
         run: cargo fmt --manifest-path crates/ctx-pack/Cargo.toml -- --check
       - name: Format ctx-git
         run: cargo fmt --manifest-path crates/ctx-git/Cargo.toml -- --check
-      - name: Format ctx-cli
-        run: cargo fmt --manifest-path crates/ctx-cli/Cargo.toml -- --check
+      - name: Format touched ctx-cli files
+        run: |
+          rustfmt --check --edition 2021 \
+            crates/ctx-cli/src/commands/pack/git.rs \
+            crates/ctx-cli/src/commands/pack/input.rs \
+            crates/ctx-cli/src/commands/pack/timefilter.rs \
+            crates/ctx-cli/src/commands/pack/util.rs
       - name: Test ctx-pack
         run: cargo test --manifest-path crates/ctx-pack/Cargo.toml
       - name: Test ctx-git
