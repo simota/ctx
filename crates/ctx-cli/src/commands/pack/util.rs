@@ -13,3 +13,19 @@ pub(crate) fn current_rfc3339_utc() -> String {
 pub(crate) fn lang_for_path(path: &str) -> &'static str {
     ctx_pack::assemble::lang_for_path(path)
 }
+
+
+/// Render a filesystem path with forward slashes on Windows while preserving
+/// literal backslashes on Unix. This matches Go's filepath.ToSlash semantics:
+/// only the platform path separator is rewritten.
+pub(crate) fn path_to_slash_lossy(path: &std::path::Path) -> String {
+    let value = path.to_string_lossy();
+    #[cfg(windows)]
+    {
+        value.replace('\\', "/")
+    }
+    #[cfg(not(windows))]
+    {
+        value.into_owned()
+    }
+}
