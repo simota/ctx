@@ -231,11 +231,15 @@ mod tests {
             Some(200)
         );
         assert_eq!(
-            times.get(r"literal\name.rs").and_then(|time| system_time_unix_seconds(*time)),
+            times
+                .get(r"literal\name.rs")
+                .and_then(|time| system_time_unix_seconds(*time)),
             Some(200)
         );
         assert_eq!(
-            times.get("older.rs").and_then(|time| system_time_unix_seconds(*time)),
+            times
+                .get("older.rs")
+                .and_then(|time| system_time_unix_seconds(*time)),
             Some(100)
         );
     }
