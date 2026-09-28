@@ -125,6 +125,7 @@ pub fn clean_input_path(raw: &str) -> String {
         return String::new();
     }
     let cleaned = filepath_clean(trimmed);
+    #[cfg(windows)]
     let cleaned = cleaned.replace('\\', "/");
     if cleaned == "." {
         return String::new();
@@ -136,7 +137,10 @@ pub fn clean_input_path(raw: &str) -> String {
 /// (forward-slash + simple dot/double-dot resolution). Matches the
 /// "FromSlash → Clean → ToSlash" path the Go code takes.
 fn filepath_clean(input: &str) -> String {
+    #[cfg(windows)]
     let p = input.replace('\\', "/");
+    #[cfg(not(windows))]
+    let p = input.to_string();
     if p.is_empty() {
         return ".".to_string();
     }
@@ -209,6 +213,12 @@ mod tests {
     #[test]
     fn clean_input_path_strips_quotes() {
         assert_eq!(clean_input_path("\"foo.go\""), "foo.go");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn clean_input_path_preserves_literal_backslash_on_unix() {
+        assert_eq!(clean_input_path(r"dir\name.rs"), r"dir\name.rs");
     }
 
     #[test]
