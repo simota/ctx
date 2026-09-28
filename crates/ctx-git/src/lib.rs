@@ -2679,6 +2679,142 @@ mod tests {
         let _ = fs::remove_dir_all(root);
     }
 
+    #[test]
+    fn nul_delimited_parsers_preserve_special_paths() {
+        let statuses = parse_name_status_z(
+            b"M\x00line\nbreak.rs\x00R100\x00old\tname.rs\x00new -> name.rs\x00",
+        );
+        assert_eq!(
+            statuses,
+            vec![
+                (
+                    "M".to_string(),
+                    "line\nbreak.rs".to_string(),
+                    None,
+                ),
+                (
+                    "R100".to_string(),
+                    "new -> name.rs".to_string(),
+                    Some("old\tname.rs".to_string()),
+                ),
+            ]
+        );
+
+        let stats = parse_numstat_z(
+            b"1\t2\tline\nbreak.rs\x00-\t-\tliteral\\name.bin\x000\t0\t\x00old name.rs\x00new -> name.rs\x00",
+        );
+        assert_eq!(stats.get("line\nbreak.rs"), Some(&(1, 2, false)));
+        assert_eq!(stats.get(r"literal\name.bin"), Some(&(0, 0, true)));
+        assert_eq!(stats.get("new -> name.rs"), Some(&(0, 0, false)));
+
+        let commits = parse_log_name_only_z(
+            b"\x00200\x00\nline\nbreak.rs\x00tab\tname.rs\x00literal\\name.rs\x00\x00100\x00\nolder.rs\x00",
+        );
+        assert_eq!(
+            commits,
+            vec![
+                (
+                    200,
+                    vec![
+                        "line\nbreak.rs".to_string(),
+                        "tab\tname.rs".to_string(),
+                        r"literal\name.rs".to_string(),
+                    ],
+                ),
+                (100, vec!["older.rs".to_string()]),
+            ]
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn git_history_views_preserve_special_paths() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+
+        let names = [
+            "with space.txt",
+            "line\nbreak.txt",
+            "tab\tname.txt",
+            r"literal\name.txt",
+        ];
+        for (index, name) in names.iter().enumerate() {
+            fs::write(root.join(name), format!("line {index}\n")).expect("write special path");
+        }
+        commit_all(&root, "special paths", "2021-06-07T08:09:10+00:00");
+
+        let head = git_capture(&root, &["rev-parse", "HEAD"]);
+        let files = commit_files(&root, head.trim()).expect("commit files");
+        let file_paths: std::collections::HashSet<&str> =
+            files.iter().map(|file| file.path.as_str()).collect();
+        for name in names {
+            assert!(file_paths.contains(name), "missing commit path {name:?}");
+        }
+
+        let churn = file_churn(&root, None).expect("file churn");
+        for name in names {
+            assert_eq!(
+                churn.get(name).map(|stat| stat.commits),
+                Some(1),
+                "missing churn path {name:?}"
+            );
+        }
+
+        let graph = co_change_graph(&root, 10, None, 1).expect("co-change graph");
+        let graph_paths: std::collections::HashSet<&str> =
+            graph.nodes.iter().map(|node| node.path.as_str()).collect();
+        for name in names {
+            assert!(graph_paths.contains(name), "missing graph path {name:?}");
+        }
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn changed_files_between_preserves_special_rename_paths() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+
+        fs::write(root.join("old\tname.txt"), "rename me\n").expect("write old");
+        fs::write(root.join("keep\nname.txt"), "before\n").expect("write keep");
+        commit_all(&root, "base", "2020-01-02T03:04:05+00:00");
+        let base = git_capture(&root, &["rev-parse", "HEAD"]);
+
+        fs::rename(root.join("old\tname.txt"), root.join("new\tname.txt")).expect("rename");
+        fs::write(root.join("keep\nname.txt"), "after\n").expect("modify keep");
+        commit_all(&root, "feature", "2021-06-07T08:09:10+00:00");
+        let head = git_capture(&root, &["rev-parse", "HEAD"]);
+
+        let manifest = changed_files_between(
+            &root,
+            base.trim(),
+            head.trim(),
+            ChangedFilesMode::Direct,
+            100,
+        )
+        .expect("changed files");
+
+        let renamed = manifest
+            .files
+            .iter()
+            .find(|file| file.path == "new\tname.txt")
+            .expect("renamed special path");
+        assert_eq!(renamed.status, "renamed");
+        assert_eq!(renamed.old_path.as_deref(), Some("old\tname.txt"));
+        assert!(manifest.files.iter().any(|file| file.path == "keep\nname.txt"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
     fn git_capture(root: &Path, args: &[&str]) -> String {
         let mut cmd = Command::new("git");
         cmd.args(args).current_dir(root);
