@@ -21,7 +21,7 @@ pub(crate) fn read_pack_paths_ordered(
         }
         let abs = root.join(&clean);
         let rel = match abs.strip_prefix(root) {
-            Ok(path) => path.to_string_lossy().replace('\\', "/"),
+            Ok(path) => path_to_slash_lossy(path),
             Err(_) => clean.clone(),
         };
         let body = match std::fs::read_to_string(&abs) {
@@ -270,11 +270,7 @@ pub(crate) fn build_pack_input(
     path: &Path,
     ignore: &PackIgnore,
 ) -> Option<ctx_pack::FileInput> {
-    let rel = path
-        .strip_prefix(root)
-        .unwrap_or(path)
-        .to_string_lossy()
-        .replace('\\', "/");
+    let rel = path_to_slash_lossy(path.strip_prefix(root).unwrap_or(path));
     if ignore.is_ignored_rel(&rel, path.is_dir()) {
         return None;
     }
@@ -316,20 +312,140 @@ pub(crate) fn parse_pack_stdin_paths(text: &str) -> Vec<String> {
 pub(crate) fn parse_pack_git_diff_paths(text: &str) -> Vec<String> {
     let mut seen = std::collections::BTreeSet::new();
     let mut paths = Vec::new();
-    for line in text.lines() {
-        let fields: Vec<&str> = line.split_whitespace().collect();
-        if fields.len() < 4 || fields[0] != "diff" || fields[1] != "--git" {
-            continue;
-        }
-        for raw in &fields[2..4] {
-            let path = clean_pack_diff_path(raw);
-            if path.is_empty() || !seen.insert(path.clone()) {
-                continue;
-            }
+
+    let mut push = |raw: String| {
+        let path = clean_pack_diff_path(&raw);
+        if !path.is_empty() && seen.insert(path.clone()) {
             paths.push(path);
+        }
+    };
+
+    for line in text.lines() {
+        // Prefer the one-path-per-line headers when present. Unlike
+        // `diff --git a/<old> b/<new>`, these stay unambiguous when a path
+        // contains spaces.
+        for prefix in ["--- ", "+++ "] {
+            if let Some(raw) = line.strip_prefix(prefix).and_then(parse_git_path_line) {
+                push(raw);
+            }
+        }
+        for prefix in ["rename from ", "rename to ", "copy from ", "copy to "] {
+            if let Some(raw) = line.strip_prefix(prefix).and_then(parse_git_path_line) {
+                push(raw);
+            }
+        }
+
+        if let Some(rest) = line.strip_prefix("diff --git ") {
+            if let Some((before, after)) = parse_git_diff_header_paths(rest) {
+                push(before);
+                push(after);
+            }
         }
     }
     paths
+}
+
+/// Decode one complete Git path field. Git C-quotes control bytes and
+/// backslashes; ordinary paths (including spaces) are emitted verbatim.
+fn parse_git_path_line(raw: &str) -> Option<String> {
+    if raw.starts_with('"') {
+        let (path, rest) = parse_git_quoted_path(raw)?;
+        rest.trim().is_empty().then_some(path)
+    } else {
+        Some(raw.trim_end().to_string())
+    }
+}
+
+/// Parse the two paths from `diff --git a/<old> b/<new>`.
+///
+/// Git does not quote spaces, so the separator is not always the first space.
+/// When several ` b/` candidates exist, prefer the split whose a/ and b/
+/// sides name the same path (the overwhelmingly common non-rename case).
+/// Renames/copies with genuinely ambiguous headers are still recovered from
+/// their unambiguous `rename from/to` or `copy from/to` lines.
+fn parse_git_diff_header_paths(raw: &str) -> Option<(String, String)> {
+    if raw.starts_with('"') {
+        let (before, rest) = parse_git_quoted_path(raw)?;
+        let rest = rest.trim_start();
+        let (after, tail) = if rest.starts_with('"') {
+            parse_git_quoted_path(rest)?
+        } else {
+            (rest.to_string(), "")
+        };
+        if !tail.trim().is_empty() {
+            return None;
+        }
+        return Some((before, after));
+    }
+
+    let candidates: Vec<usize> = raw.match_indices(" b/").map(|(idx, _)| idx).collect();
+    if candidates.is_empty() {
+        return None;
+    }
+    for &idx in &candidates {
+        let before = &raw[..idx];
+        let after = &raw[idx + 1..];
+        if clean_pack_diff_path(before) == clean_pack_diff_path(after) {
+            return Some((before.to_string(), after.to_string()));
+        }
+    }
+    if candidates.len() == 1 {
+        let idx = candidates[0];
+        return Some((raw[..idx].to_string(), raw[idx + 1..].to_string()));
+    }
+    None
+}
+
+/// Parse Git's double-quoted path syntax, including C escapes and octal bytes.
+fn parse_git_quoted_path(input: &str) -> Option<(String, &str)> {
+    let bytes = input.as_bytes();
+    if bytes.first() != Some(&b'"') {
+        return None;
+    }
+    let mut out = Vec::new();
+    let mut i = 1usize;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'"' => {
+                let path = String::from_utf8_lossy(&out).into_owned();
+                return Some((path, &input[i + 1..]));
+            }
+            b'\\' => {
+                i += 1;
+                let escaped = *bytes.get(i)?;
+                match escaped {
+                    b'a' => out.push(0x07),
+                    b'b' => out.push(0x08),
+                    b't' => out.push(b'\t'),
+                    b'n' => out.push(b'\n'),
+                    b'v' => out.push(0x0b),
+                    b'f' => out.push(0x0c),
+                    b'r' => out.push(b'\r'),
+                    b'\\' | b'"' => out.push(escaped),
+                    b'0'..=b'7' => {
+                        let mut value = u16::from(escaped - b'0');
+                        let mut digits = 1;
+                        while digits < 3
+                            && i + 1 < bytes.len()
+                            && matches!(bytes[i + 1], b'0'..=b'7')
+                        {
+                            i += 1;
+                            digits += 1;
+                            value = value * 8 + u16::from(bytes[i] - b'0');
+                        }
+                        if value > u16::from(u8::MAX) {
+                            return None;
+                        }
+                        out.push(value as u8);
+                    }
+                    _ => return None,
+                }
+            }
+            byte => out.push(byte),
+        }
+        i += 1;
+    }
+    None
 }
 
 pub(crate) fn parse_pack_path_list(text: &str) -> Vec<String> {
@@ -358,10 +474,60 @@ pub(crate) fn clean_pack_input_path(raw: &str) -> String {
         return String::new();
     }
     let cleaned = Path::new(path).components().collect::<PathBuf>();
-    let cleaned = cleaned.to_string_lossy().replace('\\', "/");
+    let cleaned = path_to_slash_lossy(&cleaned);
     if cleaned == "." {
         String::new()
     } else {
         cleaned
+    }
+}
+
+
+#[cfg(test)]
+mod special_path_tests {
+    use super::*;
+
+    #[test]
+    fn git_diff_path_parser_handles_spaces_and_c_escapes() {
+        let patch = concat!(
+            "diff --git a/with space.rs b/with space.rs\n",
+            "--- a/with space.rs\n",
+            "+++ b/with space.rs\n",
+            "diff --git \"a/line\\nbreak.rs\" \"b/line\\nbreak.rs\"\n",
+            "--- \"a/line\\nbreak.rs\"\n",
+            "+++ \"b/line\\nbreak.rs\"\n",
+            "diff --git \"a/literal\\\\name.rs\" \"b/literal\\\\name.rs\"\n",
+            "--- \"a/literal\\\\name.rs\"\n",
+            "+++ \"b/literal\\\\name.rs\"\n",
+        );
+
+        assert_eq!(
+            parse_pack_git_diff_paths(patch),
+            vec![
+                "with space.rs".to_string(),
+                "line\nbreak.rs".to_string(),
+                r"literal\name.rs".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn git_diff_path_parser_uses_rename_headers_for_spaced_paths() {
+        let patch = concat!(
+            "diff --git a/old name.rs b/new name.rs\n",
+            "similarity index 100%\n",
+            "rename from old name.rs\n",
+            "rename to new name.rs\n",
+        );
+        assert_eq!(
+            parse_pack_git_diff_paths(patch),
+            vec!["old name.rs".to_string(), "new name.rs".to_string()]
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn clean_pack_input_path_preserves_literal_backslash_on_unix() {
+        assert_eq!(clean_pack_input_path(r"literal\name.rs"), r"literal\name.rs");
     }
 }
