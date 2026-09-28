@@ -130,7 +130,7 @@ fn parse_git_name_status_z(output: &[u8]) -> Vec<(String, String, String)> {
     entries
 }
 
-fn git_output_bytes_in(root: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
+pub(crate) fn git_output_bytes_in(root: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
     let output = Command::new("git")
         .arg("-C")
         .arg(root)
@@ -207,7 +207,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[test]
     fn name_status_z_parser_preserves_special_paths_and_copy_rename_pairs() {
         let raw = b"M\0line\nbreak.rs\0R100\0old name.rs\0new -> name.rs\0C075\0source.rs\0copy\\name.rs\0";
         let entries = parse_git_name_status_z(raw);
@@ -234,6 +233,7 @@ mod tests {
         );
     }
 
+    #[test]
     fn porcelain_z_parser_preserves_special_paths_and_rename_target() {
         let raw = b"?? dir/a b.rs\0 M literal\\name.rs\0R  dst -> literal.rs\0src old.rs\0?? comma,name.rs\0";
         let paths = parse_git_changed_paths(raw);
