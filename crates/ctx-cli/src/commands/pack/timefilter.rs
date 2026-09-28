@@ -219,8 +219,7 @@ mod tests {
 
     #[test]
     fn git_time_log_z_preserves_special_paths() {
-        let raw = b"\0" b"200" b"\0\nline\nbreak.rs\0tab\tname.rs\0literal\\name.rs\0"
-            b"\0" b"100" b"\0\nolder.rs\0";
+        let raw = b"\x00200\x00\nline\nbreak.rs\x00tab\tname.rs\x00literal\\name.rs\x00\x00100\x00\nolder.rs\x00";
         let times = parse_git_time_log_z(raw);
 
         assert_eq!(
