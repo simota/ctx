@@ -58,27 +58,27 @@ pub fn parse_duration(s: &str) -> Result<i64, String> {
         let num_str = &rest[num_start..unit_start];
         has_number = false;
 
-        match unit {
-            "d" => {
-                let d = atoi(num_str)?;
-                total += d * 24 * 3_600 * 1_000_000_000;
-            }
-            "w" => {
-                let d = atoi(num_str)?;
-                total += d * 7 * 24 * 3_600 * 1_000_000_000;
-            }
-            _ => {
-                let part = parse_go_duration_atom(num_str, unit)
-                    .map_err(|e| format!("replay: invalid duration {rest:?}: {e}"))?;
-                total += part;
-            }
-        }
+        let part = match unit {
+            "d" => atoi(num_str)?
+                .checked_mul(24 * 3_600 * 1_000_000_000)
+                .ok_or_else(|| format!("replay: duration {rest:?} out of range"))?,
+            "w" => atoi(num_str)?
+                .checked_mul(7 * 24 * 3_600 * 1_000_000_000)
+                .ok_or_else(|| format!("replay: duration {rest:?} out of range"))?,
+            _ => parse_go_duration_atom(num_str, unit)
+                .map_err(|e| format!("replay: invalid duration {rest:?}: {e}"))?,
+        };
+        total = total
+            .checked_add(part)
+            .ok_or_else(|| format!("replay: duration {rest:?} out of range"))?;
     }
     if has_number {
         return Err(format!("replay: duration {rest:?} missing unit"));
     }
     if neg {
-        total = -total;
+        total = total
+            .checked_neg()
+            .ok_or_else(|| format!("replay: duration {rest:?} out of range"))?;
     }
     Ok(total)
 }
@@ -92,7 +92,11 @@ fn atoi(s: &str) -> Result<i64, String> {
         if !c.is_ascii_digit() {
             return Err(format!("replay: invalid number {s:?}"));
         }
-        n = n * 10 + (c as i64 - '0' as i64);
+        let digit = c as i64 - '0' as i64;
+        n = n
+            .checked_mul(10)
+            .and_then(|value| value.checked_add(digit))
+            .ok_or_else(|| format!("replay: number {s:?} out of range"))?;
     }
     Ok(n)
 }
@@ -111,7 +115,8 @@ fn parse_go_duration_atom(num: &str, unit: &str) -> Result<i64, String> {
         "h" => 3_600 * 1_000_000_000,
         other => return Err(format!("unknown unit {other:?}")),
     };
-    Ok(n * mult)
+    n.checked_mul(mult)
+        .ok_or_else(|| format!("duration atom {num}{unit} out of range"))
 }
 
 /// Mirrors `replay.Prune`.
@@ -123,7 +128,7 @@ pub fn prune(store: &Store, now: &str, older_nanos: i64) -> Result<PruneResult, 
     let manifests = store.list()?;
     let now_secs = rfc3339_to_unix_nanos(now)
         .ok_or_else(|| StoreError::InvalidId(format!("now is not RFC3339: {now}")))?;
-    let cutoff = now_secs - older_nanos;
+    let cutoff = now_secs.saturating_sub(older_nanos);
     let mut result = PruneResult::default();
     for m in manifests {
         let ts = rfc3339_to_unix_nanos(&m.created_at).unwrap_or(i64::MAX);
@@ -139,7 +144,7 @@ pub fn prune(store: &Store, now: &str, older_nanos: i64) -> Result<PruneResult, 
 
 /// Minimal RFC3339 → unix-nanos parser. Handles the subset Go emits
 /// (`YYYY-MM-DDTHH:MM:SS[.fractional](Z|±HH:MM)`).
-fn rfc3339_to_unix_nanos(s: &str) -> Option<i64> {
+pub(crate) fn rfc3339_to_unix_nanos(s: &str) -> Option<i64> {
     let s = s.trim();
     let len = s.len();
     if len < 20 {
@@ -172,38 +177,54 @@ fn rfc3339_to_unix_nanos(s: &str) -> Option<i64> {
     let mut frac_nanos: i64 = 0;
     if idx < len && b[idx] == b'.' {
         idx += 1;
+        const MAX_FRACTION_DIGITS: usize = 9;
         let start = idx;
         while idx < len && b[idx].is_ascii_digit() {
             idx += 1;
         }
+        if idx == start {
+            return None;
+        }
         let frac = &b[start..idx];
-        // pad/truncate to 9 digits for nanoseconds.
-        let mut buf = [b'0'; 9];
-        for (i, &c) in frac.iter().take(9).enumerate() {
+        // Nanosecond precision matches Go's time.Time. Extra fractional
+        // digits are accepted but truncated, matching the previous parser.
+        let mut buf = [b'0'; MAX_FRACTION_DIGITS];
+        for (i, &c) in frac.iter().take(MAX_FRACTION_DIGITS).enumerate() {
             buf[i] = c;
         }
         frac_nanos = parse_int(&buf)?;
     }
+
     let offset_secs: i64 = if idx >= len {
         return None;
     } else if b[idx] == b'Z' || b[idx] == b'z' {
+        idx += 1;
         0
     } else if b[idx] == b'+' || b[idx] == b'-' {
         let sign = if b[idx] == b'+' { 1 } else { -1 };
-        if idx + 5 >= len {
+        // RFC3339 requires ±HH:MM and no trailing data.
+        if idx + 6 > len || b[idx + 3] != b':' {
             return None;
         }
         let oh = parse_int(&b[idx + 1..idx + 3])?;
-        // optional colon
-        let mm_start = if b[idx + 3] == b':' { idx + 4 } else { idx + 3 };
-        let om = parse_int(&b[mm_start..mm_start + 2])?;
-        sign * (oh * 3600 + om * 60)
+        let om = parse_int(&b[idx + 4..idx + 6])?;
+        if oh > 23 || om > 59 {
+            return None;
+        }
+        idx += 6;
+        sign * (oh * 3_600 + om * 60)
     } else {
         return None;
     };
+    if idx != len {
+        return None;
+    }
 
     let civil = civil_to_unix(y, mo, d, hh, mm, ss)?;
-    Some((civil - offset_secs) * 1_000_000_000 + frac_nanos)
+    civil
+        .checked_sub(offset_secs)?
+        .checked_mul(1_000_000_000)?
+        .checked_add(frac_nanos)
 }
 
 fn parse_int(bytes: &[u8]) -> Option<i64> {
@@ -212,19 +233,35 @@ fn parse_int(bytes: &[u8]) -> Option<i64> {
         if !b.is_ascii_digit() {
             return None;
         }
-        n = n * 10 + (b - b'0') as i64;
+        n = n.checked_mul(10)?.checked_add((b - b'0') as i64)?;
     }
     Some(n)
+}
+
+fn is_leap_year(year: i64) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+}
+
+fn days_in_month(year: i64, month: i64) -> Option<i64> {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => Some(31),
+        4 | 6 | 9 | 11 => Some(30),
+        2 if is_leap_year(year) => Some(29),
+        2 => Some(28),
+        _ => None,
+    }
 }
 
 /// Converts a civil (UTC) date-time to a Unix timestamp in seconds.
 ///
 /// Uses the Hinnant-style days-from-civil algorithm.
 fn civil_to_unix(y: i64, m: i64, d: i64, hh: i64, mm: i64, ss: i64) -> Option<i64> {
-    if !(1..=12).contains(&m) {
-        return None;
-    }
-    if !(1..=31).contains(&d) {
+    let max_day = days_in_month(y, m)?;
+    if !(1..=max_day).contains(&d)
+        || !(0..=23).contains(&hh)
+        || !(0..=59).contains(&mm)
+        || !(0..=59).contains(&ss)
+    {
         return None;
     }
     let y = if m <= 2 { y - 1 } else { y };
@@ -233,7 +270,10 @@ fn civil_to_unix(y: i64, m: i64, d: i64, hh: i64, mm: i64, ss: i64) -> Option<i6
     let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     let days = era * 146_097 + doe - 719_468;
-    Some(days * 86_400 + hh * 3600 + mm * 60 + ss)
+    days.checked_mul(86_400)?
+        .checked_add(hh.checked_mul(3_600)?)?
+        .checked_add(mm.checked_mul(60)?)?
+        .checked_add(ss)
 }
 
 #[cfg(test)]
@@ -273,6 +313,13 @@ mod tests {
     }
 
     #[test]
+    fn parse_duration_overflow_is_rejected() {
+        assert!(parse_duration("9223372036854775807h").is_err());
+        assert!(parse_duration("92233720368547758070ns").is_err());
+        assert!(parse_duration("9223372036854775807ns1ns").is_err());
+    }
+
+    #[test]
     fn rfc3339_round_trip() {
         let ns = rfc3339_to_unix_nanos("2026-05-29T12:00:00Z").unwrap();
         // 2026-05-29 12:00:00 UTC
@@ -286,5 +333,42 @@ mod tests {
         let a = rfc3339_to_unix_nanos("2026-05-29T12:00:00Z").unwrap();
         let b = rfc3339_to_unix_nanos("2026-05-29T13:00:00+01:00").unwrap();
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn rfc3339_validates_calendar_and_clock() {
+        assert!(rfc3339_to_unix_nanos("2024-02-29T23:59:59Z").is_some());
+
+        for invalid in [
+            "2026-02-29T12:00:00Z",
+            "2024-02-30T12:00:00Z",
+            "2026-04-31T12:00:00Z",
+            "2026-05-29T24:00:00Z",
+            "2026-05-29T12:60:00Z",
+            "2026-05-29T12:00:60Z",
+            "2026-05-29T12:00:00+24:00",
+            "2026-05-29T12:00:00+00:60",
+        ] {
+            assert!(
+                rfc3339_to_unix_nanos(invalid).is_none(),
+                "{invalid} must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn rfc3339_rejects_malformed_suffixes_and_range_overflow() {
+        for invalid in [
+            "2026-05-29T12:00:00.Z",
+            "2026-05-29T12:00:00Zjunk",
+            "2026-05-29T12:00:00+0100",
+            "2026-05-29T12:00:00+01:00junk",
+            "9999-01-01T00:00:00Z",
+        ] {
+            assert!(
+                rfc3339_to_unix_nanos(invalid).is_none(),
+                "{invalid} must be rejected"
+            );
+        }
     }
 }
