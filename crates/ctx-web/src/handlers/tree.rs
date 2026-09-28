@@ -658,7 +658,14 @@ struct GitStatusMap {
 impl GitStatusMap {
     fn load(root: &str) -> Self {
         let output = Command::new("git")
-            .args(["-C", root, "status", "--porcelain"])
+            .arg("-C")
+            .arg(root)
+            .args([
+                "status",
+                "--porcelain=v1",
+                "-z",
+                "--untracked-files=normal",
+            ])
             .output();
         let Ok(output) = output else {
             return Self::default();
@@ -667,23 +674,9 @@ impl GitStatusMap {
             return Self::default();
         }
 
-        let mut by_path = BTreeMap::new();
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        for line in stdout.lines() {
-            if line.len() < 4 {
-                continue;
-            }
-            let code = normalize_git_status(&line[..2]);
-            if code.is_empty() {
-                continue;
-            }
-            let raw_path = &line[3..];
-            let path = normalize_git_status_path(raw_path);
-            if !path.is_empty() {
-                by_path.insert(path, code);
-            }
+        Self {
+            by_path: parse_git_status_map(&output.stdout),
         }
-        Self { by_path }
     }
 
     fn status_for(&self, rel: &str, is_dir: bool) -> String {
@@ -753,12 +746,33 @@ pub(crate) fn normalize_git_status(status: &str) -> String {
     String::new()
 }
 
-pub(crate) fn normalize_git_status_path(raw: &str) -> String {
-    let mut path = raw.trim();
-    if let Some((_, new_path)) = path.split_once(" -> ") {
-        path = new_path;
+fn parse_git_status_map(output: &[u8]) -> BTreeMap<String, String> {
+    let mut by_path = BTreeMap::new();
+    let mut fields = output.split(|byte| *byte == 0);
+
+    while let Some(record) = fields.next() {
+        if record.is_empty() {
+            continue;
+        }
+        if record.len() < 4 || record[2] != b' ' {
+            continue;
+        }
+
+        let status = std::str::from_utf8(&record[..2]).unwrap_or("");
+        let code = normalize_git_status(status);
+        let path = &record[3..];
+        if !code.is_empty() && !path.is_empty() {
+            by_path.insert(String::from_utf8_lossy(path).into_owned(), code);
+        }
+
+        // Porcelain v1 -z writes rename/copy destinations first, followed by
+        // the original path as a second NUL-delimited field.
+        if status.bytes().any(|byte| matches!(byte, b'R' | b'C')) {
+            let _ = fields.next();
+        }
     }
-    path.trim_matches('"').replace('\\', "/")
+
+    by_path
 }
 
 fn git_status_rank(status: &str) -> i32 {
@@ -803,15 +817,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn git_status_path_normalizes_rename_target() {
+    fn git_status_z_parser_preserves_special_paths_and_rename_target() {
+        let raw = b"?? notes/a b.md\0 M literal\\name.rs\0R  dst -> literal.rs\0src old.rs\0";
+        let status = parse_git_status_map(raw);
+
+        assert_eq!(status.get("notes/a b.md").map(String::as_str), Some("?"));
         assert_eq!(
-            normalize_git_status_path("old/name.rs -> src/name.rs"),
-            "src/name.rs"
+            status.get(r"literal\name.rs").map(String::as_str),
+            Some("M")
         );
         assert_eq!(
-            normalize_git_status_path("\"web/src/App.svelte\""),
-            "web/src/App.svelte"
+            status.get("dst -> literal.rs").map(String::as_str),
+            Some("R")
         );
+        assert!(!status.contains_key("src old.rs"));
     }
 
     #[test]
