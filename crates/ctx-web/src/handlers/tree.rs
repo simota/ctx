@@ -746,7 +746,7 @@ pub(crate) fn normalize_git_status(status: &str) -> String {
     String::new()
 }
 
-fn parse_git_status_map(output: &[u8]) -> BTreeMap<String, String> {
+pub(crate) fn parse_git_status_map(output: &[u8]) -> BTreeMap<String, String> {
     let mut by_path = BTreeMap::new();
     let mut fields = output.split(|byte| *byte == 0);
 
