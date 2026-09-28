@@ -47,6 +47,7 @@ use std::sync::Mutex;
 use serde::Deserialize;
 
 use crate::diff::{compute, compute_selection_diff, sort_selection_diff, DiffOptions};
+use crate::prune::rfc3339_to_unix_nanos;
 use crate::store::{open_store, Store, StoreError};
 use crate::types::{DiffSummary, Manifest, SelectionSummary};
 
@@ -216,16 +217,12 @@ impl ReplaySession {
             return Err(QueryError::BadArgs);
         }
         let manifests = self.list_manifests()?;
-        // Reuse the prune module's RFC3339 → unix-nanos via parse_duration
-        // helpers — these are crate-private, so we inline the tiny call to
-        // store::Store::list_filtered indirectly by mirroring the prune
-        // function but read-only.
-        let now_nanos = rfc3339_to_nanos(&args.now).ok_or(QueryError::BadArgs)?;
+        let now_nanos = rfc3339_to_unix_nanos(&args.now).ok_or(QueryError::BadArgs)?;
         let cutoff = now_nanos.saturating_sub(args.older_nanos);
         let mut candidates: Vec<String> = Vec::new();
         let mut kept: i64 = 0;
         for m in &manifests {
-            let ts = rfc3339_to_nanos(&m.created_at).unwrap_or(i64::MAX);
+            let ts = rfc3339_to_unix_nanos(&m.created_at).unwrap_or(i64::MAX);
             if ts < cutoff {
                 candidates.push(m.id.clone());
             } else {
@@ -315,101 +312,6 @@ fn map_store_err(e: StoreError) -> QueryError {
         StoreError::InvalidId(s) => QueryError::BadArgs.with_detail(s),
         _ => QueryError::Io,
     }
-}
-
-/// Minimal RFC3339 → unix-nanos parser, duplicated from prune.rs because
-/// that helper is private. Same algorithm (Hinnant days-from-civil),
-/// covering Z and ±HH:MM offsets.
-fn rfc3339_to_nanos(s: &str) -> Option<i64> {
-    let s = s.trim();
-    let len = s.len();
-    if len < 20 {
-        return None;
-    }
-    let b = s.as_bytes();
-    let y = parse_int(&b[0..4])?;
-    if b[4] != b'-' {
-        return None;
-    }
-    let mo = parse_int(&b[5..7])?;
-    if b[7] != b'-' {
-        return None;
-    }
-    let d = parse_int(&b[8..10])?;
-    if b[10] != b'T' && b[10] != b't' && b[10] != b' ' {
-        return None;
-    }
-    let hh = parse_int(&b[11..13])?;
-    if b[13] != b':' {
-        return None;
-    }
-    let mm = parse_int(&b[14..16])?;
-    if b[16] != b':' {
-        return None;
-    }
-    let ss = parse_int(&b[17..19])?;
-
-    let mut idx = 19usize;
-    let mut frac_nanos: i64 = 0;
-    if idx < len && b[idx] == b'.' {
-        idx += 1;
-        let start = idx;
-        while idx < len && b[idx].is_ascii_digit() {
-            idx += 1;
-        }
-        let frac = &b[start..idx];
-        let mut buf = [b'0'; 9];
-        for (i, &c) in frac.iter().take(9).enumerate() {
-            buf[i] = c;
-        }
-        frac_nanos = parse_int(&buf)?;
-    }
-    let offset_secs: i64 = if idx >= len {
-        return None;
-    } else if b[idx] == b'Z' || b[idx] == b'z' {
-        0
-    } else if b[idx] == b'+' || b[idx] == b'-' {
-        let sign = if b[idx] == b'+' { 1 } else { -1 };
-        if idx + 5 >= len {
-            return None;
-        }
-        let oh = parse_int(&b[idx + 1..idx + 3])?;
-        let mm_start = if b[idx + 3] == b':' { idx + 4 } else { idx + 3 };
-        let om = parse_int(&b[mm_start..mm_start + 2])?;
-        sign * (oh * 3600 + om * 60)
-    } else {
-        return None;
-    };
-
-    let civil = civil_to_unix(y, mo, d, hh, mm, ss)?;
-    Some((civil - offset_secs) * 1_000_000_000 + frac_nanos)
-}
-
-fn parse_int(bytes: &[u8]) -> Option<i64> {
-    let mut n: i64 = 0;
-    for &b in bytes {
-        if !b.is_ascii_digit() {
-            return None;
-        }
-        n = n * 10 + (b - b'0') as i64;
-    }
-    Some(n)
-}
-
-fn civil_to_unix(y: i64, m: i64, d: i64, hh: i64, mm: i64, ss: i64) -> Option<i64> {
-    if !(1..=12).contains(&m) {
-        return None;
-    }
-    if !(1..=31).contains(&d) {
-        return None;
-    }
-    let y = if m <= 2 { y - 1 } else { y };
-    let era = if y >= 0 { y } else { y - 399 } / 400;
-    let yoe = y - era * 400;
-    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    let days = era * 146_097 + doe - 719_468;
-    Some(days * 86_400 + hh * 3600 + mm * 60 + ss)
 }
 
 /// Error variants for `ReplaySession::query`. Mapped to FFI return codes
@@ -620,6 +522,20 @@ mod tests {
         ));
         assert!(matches!(
             s.query("load", r#"{"id":""}"#),
+            Err(QueryError::BadArgs)
+        ));
+        assert!(matches!(
+            s.query(
+                "prune_candidates",
+                r#"{"now":"2026-02-31T12:00:00Z","older_nanos":0}"#,
+            ),
+            Err(QueryError::BadArgs)
+        ));
+        assert!(matches!(
+            s.query(
+                "prune_candidates",
+                r#"{"now":"2026-05-29T12:00:00Zjunk","older_nanos":0}"#,
+            ),
             Err(QueryError::BadArgs)
         ));
     }
