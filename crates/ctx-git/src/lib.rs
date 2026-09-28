@@ -476,8 +476,7 @@ pub fn commit_files(repo_root: impl AsRef<Path>, hash: &str) -> Result<Vec<Commi
             Some(b'D') => "deleted",
             _ => "modified",
         };
-        let (additions, deletions, binary) =
-            stats.get(&path).copied().unwrap_or((0, 0, false));
+        let (additions, deletions, binary) = stats.get(&path).copied().unwrap_or((0, 0, false));
         files.push(CommitFile {
             status: status.to_string(),
             path,
@@ -611,7 +610,9 @@ fn diff_numstat(
 /// Parse Git's `--name-status -z` / `diff-tree --name-status -z` format.
 /// The returned tuple is (raw status, destination/current path, old path).
 fn parse_name_status_z(output: &[u8]) -> Vec<(String, String, Option<String>)> {
-    let mut fields = output.split(|byte| *byte == 0).filter(|field| !field.is_empty());
+    let mut fields = output
+        .split(|byte| *byte == 0)
+        .filter(|field| !field.is_empty());
     let mut out = Vec::new();
 
     while let Some(status_bytes) = fields.next() {
@@ -2687,11 +2688,7 @@ mod tests {
         assert_eq!(
             statuses,
             vec![
-                (
-                    "M".to_string(),
-                    "line\nbreak.rs".to_string(),
-                    None,
-                ),
+                ("M".to_string(), "line\nbreak.rs".to_string(), None,),
                 (
                     "R100".to_string(),
                     "new -> name.rs".to_string(),
@@ -2810,7 +2807,10 @@ mod tests {
             .expect("renamed special path");
         assert_eq!(renamed.status, "renamed");
         assert_eq!(renamed.old_path.as_deref(), Some("old\tname.txt"));
-        assert!(manifest.files.iter().any(|file| file.path == "keep\nname.txt"));
+        assert!(manifest
+            .files
+            .iter()
+            .any(|file| file.path == "keep\nname.txt"));
 
         let _ = fs::remove_dir_all(root);
     }
