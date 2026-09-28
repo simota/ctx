@@ -14,7 +14,6 @@ pub(crate) fn lang_for_path(path: &str) -> &'static str {
     ctx_pack::assemble::lang_for_path(path)
 }
 
-
 /// Render a filesystem path with forward slashes on Windows while preserving
 /// literal backslashes on Unix. This matches Go's filepath.ToSlash semantics:
 /// only the platform path separator is rewritten.
