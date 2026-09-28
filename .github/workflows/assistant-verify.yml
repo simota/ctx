@@ -14,8 +14,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - name: Format
-        run: cargo fmt --all -- --check
+      - name: Format ctx-pack
+        run: cargo fmt --manifest-path crates/ctx-pack/Cargo.toml -- --check
+      - name: Format ctx-git
+        run: cargo fmt --manifest-path crates/ctx-git/Cargo.toml -- --check
+      - name: Format ctx-cli
+        run: cargo fmt --manifest-path crates/ctx-cli/Cargo.toml -- --check
       - name: Test ctx-pack
         run: cargo test --manifest-path crates/ctx-pack/Cargo.toml
       - name: Test ctx-git
