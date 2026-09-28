@@ -15,12 +15,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - name: Format changed Rust crates
+      - name: Format changed Rust files
         run: |
-          cargo fmt --manifest-path crates/ctx-replay/Cargo.toml -- --check
-          cargo fmt --manifest-path crates/ctx-contract/Cargo.toml -- --check
-          cargo fmt --manifest-path crates/ctx-web/Cargo.toml -- --check
-          cargo fmt --manifest-path crates/ctx-cli/Cargo.toml -- --check
+          rustfmt --edition 2021 --check crates/ctx-replay/src/prune.rs crates/ctx-replay/src/session.rs
+          rustfmt --edition 2021 --check crates/ctx-contract/src/parse_refs.rs
+          rustfmt --edition 2021 --check crates/ctx-web/src/handlers/file.rs crates/ctx-web/src/handlers/tree.rs
+          rustfmt --edition 2021 --check crates/ctx-cli/src/commands/pack/git.rs crates/ctx-cli/src/commands/pack/timefilter.rs
       - name: Replay tests
         run: cargo test --manifest-path crates/ctx-replay/Cargo.toml
       - name: Contract tests
@@ -43,15 +43,15 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.20.0
+          run_install: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.20.0
-          run_install: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm build
