@@ -309,7 +309,16 @@ fn cache_put(
 
 fn git_status_for_file(root: &str, rel_slash: &str) -> String {
     let output = Command::new("git")
-        .args(["-C", root, "status", "--porcelain", "--", rel_slash])
+        .arg("-C")
+        .arg(root)
+        .args([
+            "status",
+            "--porcelain=v1",
+            "-z",
+            "--untracked-files=all",
+            "--",
+            rel_slash,
+        ])
         .output();
     let Ok(output) = output else {
         return String::new();
@@ -318,17 +327,9 @@ fn git_status_for_file(root: &str, rel_slash: &str) -> String {
         return String::new();
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    for line in stdout.lines() {
-        if line.len() < 4 {
-            continue;
-        }
-        let path = crate::handlers::tree::normalize_git_status_path(&line[3..]);
-        if path == rel_slash {
-            return crate::handlers::tree::normalize_git_status(&line[..2]);
-        }
-    }
-    String::new()
+    crate::handlers::tree::parse_git_status_map(&output.stdout)
+        .remove(rel_slash)
+        .unwrap_or_default()
 }
 
 fn truncate_file_data(data: &[u8]) -> (&[u8], bool) {

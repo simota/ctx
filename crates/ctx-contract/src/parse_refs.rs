@@ -86,31 +86,47 @@ pub fn extract_references(response: &[u8]) -> Vec<Reference> {
         refs.push(r);
     };
 
-    let reader = BufReader::new(Cursor::new(response));
+    let mut reader = BufReader::new(Cursor::new(response));
+    let mut raw_line = Vec::new();
     let mut line_no: i32 = 0;
-    for line_res in reader.lines() {
+    loop {
+        raw_line.clear();
+        let read = match reader.read_until(b'\n', &mut raw_line) {
+            Ok(read) => read,
+            Err(_) => break,
+        };
+        if read == 0 {
+            break;
+        }
+
         // PARITY (Phase 1 L-01): mirror bufio.Scanner. We increment
         // `line_no` at the top of the iteration *before* any early
         // continue/break so the numbering of accepted lines matches
         // Go's `for scanner.Scan() { lineNo++; ... }`.
         line_no += 1;
-        // BufReader::lines yields io::Result<String>. For UTF-8 errors
-        // or other IO failures we silently skip the line, the closest
-        // analogue to bufio.Scanner's drop-on-error behaviour.
-        let line = match line_res {
-            Ok(s) => s,
-            Err(_) => continue,
-        };
+
+        // BufRead::lines() rejects the entire line on invalid UTF-8, while
+        // Go's Scanner.Text() preserves the bytes in a string. Read bytes
+        // directly and decode lossily so ASCII references later in a line
+        // remain discoverable even when unrelated bytes are malformed.
+        if raw_line.last() == Some(&b'\n') {
+            raw_line.pop();
+            if raw_line.last() == Some(&b'\r') {
+                raw_line.pop();
+            }
+        }
+
         // PARITY (Phase 1 L-01): bufio.Scanner with `Buffer(..., 1MiB)`
         // returns false the *first* time a line exceeds the cap and
         // terminates Scan() entirely — subsequent lines are silently
         // dropped. We mirror that with `break`, not `continue`.
-        if line.len() > MAX_LINE {
+        if raw_line.len() > MAX_LINE {
             break;
         }
+        let line = String::from_utf8_lossy(&raw_line);
 
         // Diff headers — must run before generic path matcher.
-        if let Some(caps) = DIFF_HEADER_RE.captures(&line) {
+        if let Some(caps) = DIFF_HEADER_RE.captures(line.as_ref()) {
             if let Some(m) = caps.get(1) {
                 add(
                     &mut refs,
@@ -133,7 +149,7 @@ pub fn extract_references(response: &[u8]) -> Vec<Reference> {
         }
 
         // Path / line-range references.
-        for caps in PATH_REF_RE.captures_iter(&line) {
+        for caps in PATH_REF_RE.captures_iter(line.as_ref()) {
             let path = caps.name("path").map(|m| m.as_str()).unwrap_or("");
             let start_opt = caps
                 .name("start")
@@ -176,7 +192,7 @@ pub fn extract_references(response: &[u8]) -> Vec<Reference> {
         }
 
         // Symbol references inside backticks.
-        for caps in SYMBOL_RE.captures_iter(&line) {
+        for caps in SYMBOL_RE.captures_iter(line.as_ref()) {
             let sym = caps.get(1).map(|m| m.as_str()).unwrap_or("");
             if looks_like_path(sym) {
                 continue;
@@ -242,5 +258,22 @@ mod tests {
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].kind, "diff-header");
         assert_eq!(refs[0].path, "internal/foo.go");
+    }
+
+    #[test]
+    fn invalid_utf8_does_not_drop_ascii_references_on_the_line() {
+        let response = b"before.rs\nnoise:\xff see internal/latin.rs:L7-L9\nafter.rs\n";
+        let refs = extract_references(response);
+        let paths: Vec<&str> = refs.iter().map(|r| r.path.as_str()).collect();
+
+        assert!(paths.contains(&"before.rs"));
+        assert!(paths.contains(&"internal/latin.rs"));
+        assert!(paths.contains(&"after.rs"));
+        let latin = refs
+            .iter()
+            .find(|r| r.path == "internal/latin.rs")
+            .expect("latin path reference");
+        assert_eq!(latin.source_line, 2);
+        assert_eq!((latin.line_start, latin.line_end), (7, 9));
     }
 }

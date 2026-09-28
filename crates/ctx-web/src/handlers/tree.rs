@@ -106,18 +106,46 @@ fn subtract_filter_duration(
 }
 
 fn parse_yyyy_mm_dd_utc(input: &str) -> Option<SystemTime> {
-    let mut parts = input.split('-');
-    let year = parts.next()?.parse::<i64>().ok()?;
-    let month = parts.next()?.parse::<u32>().ok()?;
-    let day = parts.next()?.parse::<u32>().ok()?;
-    if parts.next().is_some() || !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+    let bytes = input.as_bytes();
+    if bytes.len() != 10
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes
+            .iter()
+            .enumerate()
+            .any(|(index, byte)| index != 4 && index != 7 && !byte.is_ascii_digit())
+    {
         return None;
     }
+
+    let year = input[0..4].parse::<i64>().ok()?;
+    let month = input[5..7].parse::<u32>().ok()?;
+    let day = input[8..10].parse::<u32>().ok()?;
+    let max_day = days_in_month(year, month)?;
+    if day == 0 || day > max_day {
+        return None;
+    }
+
     let days = days_from_civil(year, month, day);
     if days < 0 {
         return None;
     }
-    Some(UNIX_EPOCH + Duration::from_secs(days as u64 * 24 * 60 * 60))
+    let seconds = (days as u64).checked_mul(24 * 60 * 60)?;
+    UNIX_EPOCH.checked_add(Duration::from_secs(seconds))
+}
+
+fn is_leap_year(year: i64) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+}
+
+fn days_in_month(year: i64, month: u32) -> Option<u32> {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => Some(31),
+        4 | 6 | 9 | 11 => Some(30),
+        2 if is_leap_year(year) => Some(29),
+        2 => Some(28),
+        _ => None,
+    }
 }
 
 fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
@@ -630,7 +658,9 @@ struct GitStatusMap {
 impl GitStatusMap {
     fn load(root: &str) -> Self {
         let output = Command::new("git")
-            .args(["-C", root, "status", "--porcelain"])
+            .arg("-C")
+            .arg(root)
+            .args(["status", "--porcelain=v1", "-z", "--untracked-files=normal"])
             .output();
         let Ok(output) = output else {
             return Self::default();
@@ -639,23 +669,9 @@ impl GitStatusMap {
             return Self::default();
         }
 
-        let mut by_path = BTreeMap::new();
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        for line in stdout.lines() {
-            if line.len() < 4 {
-                continue;
-            }
-            let code = normalize_git_status(&line[..2]);
-            if code.is_empty() {
-                continue;
-            }
-            let raw_path = &line[3..];
-            let path = normalize_git_status_path(raw_path);
-            if !path.is_empty() {
-                by_path.insert(path, code);
-            }
+        Self {
+            by_path: parse_git_status_map(&output.stdout),
         }
-        Self { by_path }
     }
 
     fn status_for(&self, rel: &str, is_dir: bool) -> String {
@@ -725,12 +741,33 @@ pub(crate) fn normalize_git_status(status: &str) -> String {
     String::new()
 }
 
-pub(crate) fn normalize_git_status_path(raw: &str) -> String {
-    let mut path = raw.trim();
-    if let Some((_, new_path)) = path.split_once(" -> ") {
-        path = new_path;
+pub(crate) fn parse_git_status_map(output: &[u8]) -> BTreeMap<String, String> {
+    let mut by_path = BTreeMap::new();
+    let mut fields = output.split(|byte| *byte == 0);
+
+    while let Some(record) = fields.next() {
+        if record.is_empty() {
+            continue;
+        }
+        if record.len() < 4 || record[2] != b' ' {
+            continue;
+        }
+
+        let status = std::str::from_utf8(&record[..2]).unwrap_or("");
+        let code = normalize_git_status(status);
+        let path = &record[3..];
+        if !code.is_empty() && !path.is_empty() {
+            by_path.insert(String::from_utf8_lossy(path).into_owned(), code);
+        }
+
+        // Porcelain v1 -z writes rename/copy destinations first, followed by
+        // the original path as a second NUL-delimited field.
+        if status.bytes().any(|byte| matches!(byte, b'R' | b'C')) {
+            let _ = fields.next();
+        }
     }
-    path.trim_matches('"').replace('\\', "/")
+
+    by_path
 }
 
 fn git_status_rank(status: &str) -> i32 {
@@ -775,15 +812,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn git_status_path_normalizes_rename_target() {
+    fn git_status_z_parser_preserves_special_paths_and_rename_target() {
+        let raw = b"?? notes/a b.md\0 M literal\\name.rs\0R  dst -> literal.rs\0src old.rs\0";
+        let status = parse_git_status_map(raw);
+
+        assert_eq!(status.get("notes/a b.md").map(String::as_str), Some("?"));
         assert_eq!(
-            normalize_git_status_path("old/name.rs -> src/name.rs"),
-            "src/name.rs"
+            status.get(r"literal\name.rs").map(String::as_str),
+            Some("M")
         );
         assert_eq!(
-            normalize_git_status_path("\"web/src/App.svelte\""),
-            "web/src/App.svelte"
+            status.get("dst -> literal.rs").map(String::as_str),
+            Some("R")
         );
+        assert!(!status.contains_key("src old.rs"));
     }
 
     #[test]
@@ -858,6 +900,11 @@ mod tests {
         assert!(parse_pack_time_filter("", now).is_err());
         assert!(parse_pack_time_filter("0d", now).is_err());
         assert!(parse_pack_time_filter("-1d", now).is_err());
+        assert!(parse_pack_time_filter("2023-02-29", now).is_err());
+        assert!(parse_pack_time_filter("2024-02-30", now).is_err());
+        assert!(parse_pack_time_filter("2026-04-31", now).is_err());
+        assert!(parse_pack_time_filter("2026-1-01", now).is_err());
+        assert!(parse_pack_time_filter("9223372036854775807-01-01", now).is_err());
     }
 
     // -----------------------------------------------------------------------
