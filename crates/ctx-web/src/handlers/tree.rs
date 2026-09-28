@@ -660,12 +660,7 @@ impl GitStatusMap {
         let output = Command::new("git")
             .arg("-C")
             .arg(root)
-            .args([
-                "status",
-                "--porcelain=v1",
-                "-z",
-                "--untracked-files=normal",
-            ])
+            .args(["status", "--porcelain=v1", "-z", "--untracked-files=normal"])
             .output();
         let Ok(output) = output else {
             return Self::default();
