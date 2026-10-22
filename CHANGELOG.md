@@ -7,6 +7,16 @@ and this project does not yet follow strict semver — see release notes per tag
 
 ## [Unreleased]
 
+### Security
+- `ctx browse`: `/api/git/commit-files` no longer forwards a `hash` that
+  starts with `-` to `git diff-tree`, which allowed a request such as
+  `?hash=--output=<file>` to create or truncate an arbitrary file. Such
+  hashes now get `400 bad_request`.
+- `ctx browse`: `/api/git/commit-diff` (and `ctx-git` revision resolution in
+  general) now validates ref names with `git check-ref-format` rules and
+  requires ref contents to be an object id, so `to=refs/../../<file>` can no
+  longer read files outside the served root and echo them in the error.
+
 ### Added
 - Rust crate `ctx-contract` (`crates/ctx-contract/`) — pioneer port of the Go
   `internal/contract` module (969 LOC) to Rust as the Summit calibration shot
