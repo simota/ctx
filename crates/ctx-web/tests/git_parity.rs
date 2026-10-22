@@ -449,6 +449,53 @@ fn rust_changed_files_rejects_invalid_inputs_without_mutating_repo() {
 }
 
 #[test]
+fn rust_commit_files_rejects_option_like_hash_without_writing() {
+    let fx = GitFixture::build();
+    let target = fx.root().join("pwned.txt");
+
+    let rust = RustServer::start(fx.root());
+    rust.wait_ready();
+    let base = format!("http://127.0.0.1:{}", rust.port);
+    let response = http_request(
+        &base,
+        "GET",
+        &format!("/api/git/commit-files?hash=--output={}", target.display()),
+        None,
+    );
+    rust.shutdown();
+
+    let body = String::from_utf8_lossy(&response.body);
+    assert_eq!(response.status, 400, "body: {body}");
+    assert!(body.contains(r#""code":"bad_request""#), "body: {body}");
+    assert!(!target.exists(), "option-like hash reached git");
+}
+
+#[test]
+fn rust_commit_diff_refuses_refs_outside_the_git_dir() {
+    let fx = GitFixture::build();
+    fx.write("secret.txt", "TOPSECRET\n");
+
+    let rust = RustServer::start(fx.root());
+    rust.wait_ready();
+    let base = format!("http://127.0.0.1:{}", rust.port);
+    let response = http_request(
+        &base,
+        "GET",
+        "/api/git/commit-diff?path=greeting.txt&from=e494c66&to=refs/../../secret.txt",
+        None,
+    );
+    rust.shutdown();
+
+    let body = String::from_utf8_lossy(&response.body);
+    assert_eq!(response.status, 400, "body: {body}");
+    assert!(
+        body.contains(r#""code":"invalid_revision""#),
+        "body: {body}"
+    );
+    assert!(!body.contains("TOPSECRET"), "leaked file contents: {body}");
+}
+
+#[test]
 fn rust_git_diff_from_served_subdirectory() {
     let fx = GitFixture::build();
     let project = fx.root().join("project");
