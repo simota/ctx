@@ -356,6 +356,9 @@ pub fn repo_log(
     limit: usize,
     ref_name: Option<&str>,
 ) -> Result<(Vec<RepoLogEntry>, bool)> {
+    if let Some(ref_name) = ref_name {
+        reject_option_like(ref_name)?;
+    }
     let git_dir = git_dir(repo_root.as_ref());
     // The unborn-HEAD shortcut only applies to the default HEAD; with an
     // explicit ref we defer to git, which reports an invalid ref as an error.
@@ -434,6 +437,7 @@ pub fn commit_files(repo_root: impl AsRef<Path>, hash: &str) -> Result<Vec<Commi
     if hash.is_empty() {
         return Err(GitError::new("hash is required"));
     }
+    reject_option_like(hash)?;
     let git_dir = git_dir(repo_root.as_ref());
     let status_args = [
         "-c",
@@ -1102,6 +1106,7 @@ pub fn file_log_ref(
     if slash_path.is_empty() {
         return Err(GitError::new("path is required"));
     }
+    reject_option_like(ref_name)?;
 
     let git_dir = git_dir(repo_root.as_ref());
     let probe = limit.saturating_add(1);
@@ -1328,6 +1333,12 @@ fn resolve_revision(git_dir: &Path, rev: &str) -> Result<String> {
     } else {
         format!("refs/heads/{rev}")
     };
+    // The ref name is joined onto the git dir as a filesystem path, so it
+    // must be a well-formed ref: otherwise `refs/../../x` reads an arbitrary
+    // file and echoes its contents back as an "object id".
+    if !is_valid_ref_name(&ref_name) {
+        return Err(GitError::new("reference not found"));
+    }
     if let Some(oid) = read_ref(git_dir, &ref_name)? {
         return Ok(oid);
     }
@@ -1336,6 +1347,39 @@ fn resolve_revision(git_dir: &Path, rev: &str) -> Result<String> {
 
 fn is_hex_prefix(value: &str) -> bool {
     !value.is_empty() && value.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// A full SHA-1 or SHA-256 object id.
+fn is_object_id(value: &str) -> bool {
+    matches!(value.len(), 40 | 64) && is_hex_prefix(value)
+}
+
+/// Refuses a revision git would parse as a command-line option (e.g.
+/// `--output=<file>`) when it is passed as a positional argument.
+fn reject_option_like(rev: &str) -> Result<()> {
+    if rev.starts_with('-') {
+        return Err(GitError::new("invalid revision"));
+    }
+    Ok(())
+}
+
+/// The `git check-ref-format` rules for a full ref name (`refs/...`).
+fn is_valid_ref_name(name: &str) -> bool {
+    if name.ends_with('/') || name.ends_with('.') || name.contains("@{") {
+        return false;
+    }
+    let forbidden = |b: u8| {
+        b.is_ascii_control() || matches!(b, b' ' | b'~' | b'^' | b':' | b'?' | b'*' | b'[' | b'\\')
+    };
+    if name.bytes().any(forbidden) {
+        return false;
+    }
+    name.split('/').all(|component| {
+        !component.is_empty()
+            && !component.starts_with('.')
+            && !component.contains("..")
+            && !component.ends_with(".lock")
+    })
 }
 
 fn resolve_loose_oid_prefix(git_dir: &Path, prefix: &str) -> Result<Option<String>> {
@@ -1393,13 +1437,22 @@ fn resolve_commit_prefix_via_git(git_dir: &Path, prefix: &str) -> Result<Option<
 
 fn read_ref(git_dir: &Path, reference: &str) -> Result<Option<String>> {
     let ref_path = git_dir.join(reference);
-    match fs::read_to_string(&ref_path) {
-        Ok(oid) => Ok(Some(oid.trim().to_string())),
+    let oid = match fs::read_to_string(&ref_path) {
+        Ok(oid) => oid.trim().to_string(),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            read_packed_ref(git_dir, reference)
+            match read_packed_ref(git_dir, reference)? {
+                Some(oid) => oid,
+                None => return Ok(None),
+            }
         }
-        Err(err) => Err(err.into()),
+        Err(err) => return Err(err.into()),
+    };
+    // Never hand unvalidated file contents on as an object id: they would be
+    // sliced as hex, passed to `git cat-file`, and echoed in error messages.
+    if !is_object_id(&oid) {
+        return Err(GitError::new("invalid reference"));
     }
+    Ok(Some(oid))
 }
 
 fn read_head_file(git_dir: &Path, slash_path: &str) -> Result<(Vec<u8>, bool, bool)> {
@@ -1598,7 +1651,7 @@ fn truncate_chars(s: &str, max: usize) -> String {
 }
 
 fn read_object(git_dir: &Path, oid: &str, expected_type: &str) -> Result<Vec<u8>> {
-    if oid.len() < 3 {
+    if oid.len() < 3 || !is_hex_prefix(oid) {
         return Err(GitError::new("invalid object id"));
     }
     let object_path = git_dir.join("objects").join(&oid[..2]).join(&oid[2..]);
@@ -2393,6 +2446,83 @@ mod tests {
             by_path.get("new.txt").map(|f| (f.additions, f.deletions)),
             Some((1, 0))
         );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn option_like_revisions_are_rejected_before_reaching_git() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("a.txt"), "1\n").expect("write a");
+        commit_all(&root, "root commit", "2020-01-02T03:04:05+00:00");
+
+        // `--output=<file>` is a diff/log option: if it reached git it would
+        // create (or truncate) an arbitrary file.
+        let target = root.join("pwned.txt");
+        let injected = format!("--output={}", target.display());
+        assert!(commit_files(&root, &injected).is_err());
+        assert!(repo_log(&root, 10, Some(&injected)).is_err());
+        assert!(file_log_ref(&root, "a.txt", 10, Some(&injected)).is_err());
+        assert!(!target.exists(), "option-like revision reached git");
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn revision_lookup_stays_inside_the_refs_namespace() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("a.txt"), "1\n").expect("write a");
+        commit_all(&root, "root commit", "2020-01-02T03:04:05+00:00");
+        // A file outside .git whose contents must never be surfaced.
+        fs::write(root.join("secret.txt"), "TOPSECRET\n").expect("write secret");
+
+        for rev in [
+            "refs/../../secret.txt",
+            "../../../secret.txt",
+            "refs/heads/../../../secret.txt",
+        ] {
+            let err = commit_diff(&root, "HEAD", rev, "a.txt").expect_err(rev);
+            assert!(
+                !err.to_string().contains("TOPSECRET"),
+                "{rev}: leaked file contents: {err}"
+            );
+            let err = changed_files_between(&root, "HEAD", rev, ChangedFilesMode::Direct, 10)
+                .expect_err(rev);
+            assert!(!err.to_string().contains("TOPSECRET"), "{rev}: {err}");
+        }
+
+        // Legitimate refs keep resolving.
+        assert!(commit_diff(&root, "HEAD", "main", "a.txt").is_ok());
+        assert!(commit_diff(&root, "HEAD", "refs/heads/main", "a.txt").is_ok());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn malformed_ref_contents_error_instead_of_panicking() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("a.txt"), "1\n").expect("write a");
+        commit_all(&root, "root commit", "2020-01-02T03:04:05+00:00");
+        // A corrupt loose ref whose second byte is inside a multi-byte char.
+        fs::write(root.join(".git/refs/heads/corrupt"), "aé-not-an-oid\n").expect("write ref");
+
+        let err = commit_diff(&root, "HEAD", "corrupt", "a.txt").expect_err("corrupt ref");
+        assert!(!err.to_string().contains("not-an-oid"), "{err}");
 
         let _ = fs::remove_dir_all(root);
     }

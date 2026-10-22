@@ -616,6 +616,10 @@ fn handle_commit_files_sync(state: AppState, params: CommitFilesParams) -> Respo
     if params.hash.is_empty() {
         return response::error(StatusCode::BAD_REQUEST, "bad_request", "hash is required");
     }
+    // git would read a leading `-` as an option (e.g. `--output=<file>`).
+    if params.hash.starts_with('-') {
+        return response::error(StatusCode::BAD_REQUEST, "bad_request", "invalid hash");
+    }
     let git_root = git_root_only(&state.root);
 
     match ctx_git::commit_files(&git_root, &params.hash) {
