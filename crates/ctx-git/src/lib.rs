@@ -2488,7 +2488,7 @@ mod tests {
 
         for rev in [
             "refs/../../secret.txt",
-            "../../secret.txt",
+            "../../../secret.txt",
             "refs/heads/../../../secret.txt",
         ] {
             let err = commit_diff(&root, "HEAD", rev, "a.txt").expect_err(rev);
