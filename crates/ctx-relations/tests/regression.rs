@@ -120,3 +120,29 @@ fn build_is_deterministic() {
     let second = build(&root).unwrap();
     assert_eq!(first, second);
 }
+
+#[cfg(unix)]
+#[test]
+fn walk_skips_fifos_so_build_cannot_block() {
+    let dir = tmp_dir("fifo");
+    write_tree(
+        &dir,
+        &[
+            ("src/a.ts", "import { b } from './b';\n"),
+            ("src/b.ts", "export const b = 1;\n"),
+        ],
+    );
+    let status = std::process::Command::new("mkfifo")
+        .arg(dir.join("src/pipe.ts"))
+        .status()
+        .expect("run mkfifo");
+    assert!(status.success(), "mkfifo failed");
+
+    let walked = ctx_relations::walk::walk(&dir.to_string_lossy()).unwrap();
+    let files: Vec<&str> = walked
+        .iter()
+        .filter(|f| !f.is_dir)
+        .map(|f| f.path.as_str())
+        .collect();
+    assert_eq!(files, vec!["src/a.ts", "src/b.ts"]);
+}

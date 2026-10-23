@@ -187,7 +187,13 @@ fn clip(s: &str, width: i64) -> String {
     if (s.len() as i64) <= width {
         return s.to_string();
     }
-    s[..(width as usize)].to_string()
+    // The canvas is a byte grid, so clip to `width` bytes, backing off to a
+    // char boundary so a non-ASCII label is never split mid-character.
+    let mut end = width as usize;
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    s[..end].to_string()
 }
 
 fn write_inside(canvas: &mut [Vec<u8>], x: i64, y: i64, s: &str, width: i64) {
@@ -195,13 +201,14 @@ fn write_inside(canvas: &mut [Vec<u8>], x: i64, y: i64, s: &str, width: i64) {
         return;
     }
     let row = &mut canvas[y as usize];
-    let bytes = s.as_bytes();
-    let limit = (width as usize).min(bytes.len());
-    for i in 0..limit {
+    // Write whole characters only: a multi-byte one that does not fit in
+    // `width` or the row is dropped, keeping every row valid UTF-8.
+    for (i, ch) in s.char_indices() {
+        let end = i + ch.len_utf8();
         let xi = (x + i as i64) as usize;
-        if xi >= row.len() {
+        if end as i64 > width || xi + ch.len_utf8() > row.len() {
             return;
         }
-        row[xi] = bytes[i];
+        ch.encode_utf8(&mut row[xi..xi + ch.len_utf8()]);
     }
 }

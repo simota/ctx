@@ -53,6 +53,25 @@ and this project does not yet follow strict semver — see release notes per tag
   drop such links the same way.
 
 ### Fixed
+- `ctx pack <subdir>`: `--since` / `--until` no longer drop every tracked
+  file, `--changed` no longer packs nothing, and `--diff` no longer lists
+  changes outside the root with empty patches. Git names these paths from
+  the top of the work tree; they are now re-expressed relative to the pack
+  root. `--since` / `--until` also match non-ASCII file names to their
+  commit time instead of silently falling back to the file's mtime.
+- `ctx pack --diff` runs `git diff` with `--no-ext-diff --no-textconv
+  --no-color` (as `ctx diff` does), so a `diff.external` tool, textconv
+  driver or `color.ui=always` in the user's git config no longer leaks
+  tool output or ANSI escapes into the bundle.
+- `ctx browse <subdir>`: the file tree and `/api/file` show git status for
+  files under a served subdirectory (porcelain paths were looked up by the
+  wrong, work-tree-relative key), so the changed-only filter no longer hides
+  every changed file.
+- `ctx map` no longer panics when a heatmap cell is narrower than a
+  non-ASCII directory name; labels are clipped on character boundaries.
+- `ctx impact` / `ctx deps`, the `ctx browse` relations endpoint and the
+  test-insights walker no longer hang on a FIFO (or socket/device) in the
+  tree; only regular files are read.
 - `ctx where` (and `focus`, `braid`, `noise`, `onboarding`, `map`, `log`) no
   longer descends into symlinked directories: a `loop -> .` link produced
   `loop/loop/…/file` duplicates up to the ELOOP depth, and two such links made

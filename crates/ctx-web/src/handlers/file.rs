@@ -327,7 +327,8 @@ fn git_status_for_file(root: &str, rel_slash: &str) -> String {
         return String::new();
     }
 
-    crate::handlers::tree::parse_git_status_map(&output.stdout)
+    let prefix = crate::handlers::tree::git_root_prefix(root);
+    crate::handlers::tree::parse_git_status_map(&output.stdout, &prefix)
         .remove(rel_slash)
         .unwrap_or_default()
 }
@@ -483,6 +484,13 @@ mod tests {
             .unwrap();
         assert!(add.status.success());
         assert_eq!(git_status_for_file(&root_str, "hello.txt"), "A");
+
+        // Serving a subdirectory: porcelain names `sub/inner.txt`, the
+        // browser asks for `inner.txt`.
+        std::fs::create_dir_all(root.join("sub")).unwrap();
+        std::fs::write(root.join("sub/inner.txt"), "inner\n").unwrap();
+        let sub_str = root.join("sub").to_string_lossy().to_string();
+        assert_eq!(git_status_for_file(&sub_str, "inner.txt"), "?");
 
         let _ = std::fs::remove_dir_all(root);
     }
