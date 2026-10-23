@@ -3,6 +3,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 use crate::types::*;
+use crate::util::{classify_walk_entry, WalkEntry};
 use serde_json::{json, Map, Value};
 
 pub(crate) fn collect_budget_files(root: &Path) -> Result<Vec<BudgetFile>, String> {
@@ -29,11 +30,14 @@ pub(crate) fn collect_budget_files_inner(
         if name.starts_with('.') || name == "node_modules" || name == "dist" || name == "coverage" {
             continue;
         }
-        let meta = entry.metadata().map_err(|err| err.to_string())?;
-        if meta.is_dir() {
-            collect_budget_files_inner(root, &path, out)?;
-            continue;
-        }
+        let meta = match classify_walk_entry(root, &entry)? {
+            Some(WalkEntry::Dir) => {
+                collect_budget_files_inner(root, &path, out)?;
+                continue;
+            }
+            Some(WalkEntry::File(meta)) => meta,
+            None => continue,
+        };
         let rel = path
             .strip_prefix(root)
             .map_err(|err| err.to_string())?

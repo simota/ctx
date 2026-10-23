@@ -1,6 +1,8 @@
 use std::ffi::OsStr;
 use std::path::Path;
 
+use crate::util::{classify_walk_entry, WalkEntry};
+
 pub(crate) fn collect_where_files(root: &Path) -> Result<Vec<ctx_where::FileInput>, String> {
     let mut out = Vec::new();
     collect_where_files_inner(root, root, &mut out)?;
@@ -21,9 +23,13 @@ pub(crate) fn collect_where_files_inner(
         if name.starts_with('.') || name == "node_modules" || name == "dist" || name == "coverage" {
             continue;
         }
-        if path.is_dir() {
-            collect_where_files_inner(root, &path, out)?;
-            continue;
+        match classify_walk_entry(root, &entry)? {
+            Some(WalkEntry::Dir) => {
+                collect_where_files_inner(root, &path, out)?;
+                continue;
+            }
+            Some(WalkEntry::File(_)) => {}
+            None => continue,
         }
         let rel = path
             .strip_prefix(root)

@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use crate::util::{classify_walk_entry, WalkEntry};
+
 pub(crate) struct SymbolEntry {
     pub(crate) path: String,
     pub(crate) symbols: Vec<ctx_symbols::Symbol>,
@@ -25,9 +27,13 @@ pub(crate) fn collect_symbol_entries_inner(
         if name.starts_with('.') || name == "node_modules" || name == "dist" || name == "coverage" {
             continue;
         }
-        if path.is_dir() {
-            collect_symbol_entries_inner(root, &path, out)?;
-            continue;
+        match classify_walk_entry(root, &entry)? {
+            Some(WalkEntry::Dir) => {
+                collect_symbol_entries_inner(root, &path, out)?;
+                continue;
+            }
+            Some(WalkEntry::File(_)) => {}
+            None => continue,
         }
         let symbols = ctx_symbols::extract(&path).map_err(|err| err.to_string())?;
         if symbols.is_empty() {
