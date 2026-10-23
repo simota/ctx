@@ -32,7 +32,10 @@ and this project does not yet follow strict semver — see release notes per tag
   `403 forbidden_host`. Previously a page on an attacker domain re-resolved to
   127.0.0.1 (DNS rebinding) could read the served repository through `/raw/*`
   and `/api/*`, which was practical with a fixed `--port`. Binds made with
-  `--allow-nonlocal` to a non-loopback address are not filtered.
+  `--allow-nonlocal` to a non-loopback address are not filtered. Behaviour
+  change: opening a loopback-bound server through a forwarder that sends its
+  own hostname (Codespaces/Gitpod port forwarding, a reverse proxy) now gets
+  403; SSH `-L` forwarding to `localhost` keeps working.
 - `ctx browse`: `/api/dir` resolves the README preview through the root jail,
   so a `README.md` symlink to a file outside the served root is no longer
   returned in `readme`; in-root symlinked READMEs are still shown.
@@ -42,8 +45,9 @@ and this project does not yet follow strict semver — see release notes per tag
   devices or (for `/api/dir`) symlinks when counting lines and tokens, and the
   README preview reads at most 64 KiB of a regular file; a `README` FIFO or a
   link to `/dev/zero` used to hang the request or grow memory without bound.
-  Symlinked files in `/api/dir` totals now get the same size-based token
-  estimate `/api/tree` already used.
+  Symlinked files in `/api/dir` totals are no longer read through: like
+  `/api/tree`, they contribute an estimate from the link's own lstat size
+  (the length of its target path), not the target file's tokens.
 - `ctx browse`: `/api/file` reads at most 1 MiB + 1 byte of a file instead of
   buffering the whole file before truncating it to 256 KiB; the response is
   unchanged.

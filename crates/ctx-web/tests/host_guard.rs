@@ -166,6 +166,20 @@ fn loopback_server_accepts_loopback_hosts() {
 }
 
 #[test]
+fn localhost_bind_is_guarded() {
+    // `--bind localhost` resolves to a loopback address; the guard is decided
+    // from that bound address, not the spelling.
+    let dir = fixture("localhost-bind");
+    let srv = Running::start(dir.clone(), "localhost:0");
+    let port = srv.port;
+    let (status, _) = srv.get("/raw/secret.txt", Some(&format!("attacker.example:{port}")));
+    assert_eq!(status, 403);
+    let (status, _) = srv.get("/raw/secret.txt", Some(&format!("localhost:{port}")));
+    assert_eq!(status, 200);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn non_loopback_bind_does_not_filter_hosts() {
     // `--allow-nonlocal` exposes the server on purpose and is reached through
     // whatever name the operator gives the machine.

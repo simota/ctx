@@ -203,7 +203,7 @@ fn handle_sync(state: AppState, params: DirParams) -> Response {
     });
 
     // README/doc.go preview (mirrors Go `findReadme`).
-    let (readme, readme_path) = find_readme(&state.root, &dir_rel, &raw_entries);
+    let (readme, readme_path) = find_readme(&state.root, &target, &dir_rel, &raw_entries);
 
     response::json(
         StatusCode::OK,
@@ -300,48 +300,69 @@ const README_CANDIDATES: &[&str] = &["README.md", "README", "README.txt", "readm
 /// Mirrors Go `findReadme`: first matching candidate, truncated to
 /// `MAX_README_BYTES`, with its root-relative path.
 ///
-/// A candidate is resolved through the root jail, so a `README.md` symlink
-/// to a file outside root is skipped rather than served, and only regular
-/// files are read — at most `MAX_README_BYTES`, so a link to `/dev/zero` or a
-/// FIFO named `README` cannot pin the request.
-fn find_readme(root: &str, dir_rel: &str, entries: &[std::fs::DirEntry]) -> (String, String) {
+/// The candidate is canonicalized from `abs_dir` (not re-parsed from the
+/// display path, which would reinterpret `\\` or `c:` in directory names) and
+/// must stay inside the canonical root, so a `README.md` symlink to a file
+/// outside root is skipped. The canonical path is opened non-blocking and
+/// only a regular file (checked on the open handle) is read, at most
+/// `MAX_README_BYTES`, so a link to `/dev/zero` or a FIFO named `README`
+/// cannot pin the request.
+fn find_readme(
+    root: &str,
+    abs_dir: &Path,
+    dir_rel: &str,
+    entries: &[std::fs::DirEntry],
+) -> (String, String) {
     // Build a set of present non-directory file names.
     let present: std::collections::HashSet<String> = entries
         .iter()
         .filter(|e| e.file_type().map(|t| !t.is_dir()).unwrap_or(false))
         .map(|e| e.file_name().to_string_lossy().into_owned())
         .collect();
+    let canonical_root = crate::handlers::file::canonical_root(root);
 
     for &candidate in README_CANDIDATES {
         if !present.contains(candidate) {
             continue;
         }
+        let Ok(path) = std::fs::canonicalize(abs_dir.join(candidate)) else {
+            continue;
+        };
+        if !path.starts_with(&canonical_root) {
+            continue;
+        }
+        let Some(data) = read_regular_prefix(&path, MAX_README_BYTES) else {
+            continue;
+        };
+        let content = String::from_utf8_lossy(&data).into_owned();
         let rel_path = if dir_rel == "." || dir_rel.is_empty() {
             candidate.to_string()
         } else {
             format!("{}/{}", dir_rel, candidate)
         };
-        let Ok(path) = safepath::resolve(root, &rel_path) else {
-            continue;
-        };
-        if !std::fs::metadata(&path).is_ok_and(|m| m.is_file()) {
-            continue;
-        }
-        let Ok(file) = std::fs::File::open(&path) else {
-            continue;
-        };
-        let mut data = Vec::new();
-        if file
-            .take(MAX_README_BYTES as u64)
-            .read_to_end(&mut data)
-            .is_err()
-        {
-            continue;
-        }
-        let content = String::from_utf8_lossy(&data).into_owned();
         return (content, rel_path);
     }
     (String::new(), String::new())
+}
+
+/// Read at most `limit` bytes of `path` if it is a regular file. Opened
+/// non-blocking so a FIFO swapped in after the caller's checks cannot block;
+/// the type is checked on the open handle.
+fn read_regular_prefix(path: &Path, limit: usize) -> Option<Vec<u8>> {
+    let mut opts = std::fs::OpenOptions::new();
+    opts.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.custom_flags(libc::O_NONBLOCK);
+    }
+    let file = opts.open(path).ok()?;
+    if !file.metadata().ok()?.is_file() {
+        return None;
+    }
+    let mut data = Vec::new();
+    file.take(limit as u64).read_to_end(&mut data).ok()?;
+    Some(data)
 }
 
 #[cfg(test)]
@@ -446,6 +467,27 @@ mod tests {
 
         let _ = std::fs::remove_file(link);
         let _ = std::fs::remove_dir_all(real);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn readme_follows_actual_dir_when_name_looks_like_separator_or_drive() {
+        let root = temp_dir("root-oddnames");
+        std::fs::create_dir_all(root.join("a\\b")).unwrap();
+        std::fs::write(root.join("a\\b/README.md"), "RIGHT\n").unwrap();
+        std::fs::create_dir_all(root.join("a/b")).unwrap();
+        std::fs::write(root.join("a/b/README.md"), "WRONG\n").unwrap();
+        std::os::unix::fs::symlink("a\\b", root.join("lnk")).unwrap();
+        std::fs::create_dir_all(root.join("c:")).unwrap();
+        std::fs::write(root.join("c:/README.md"), "DRIVE\n").unwrap();
+        std::os::unix::fs::symlink("c:", root.join("lnk2")).unwrap();
+
+        let v = get_dir(&root, "lnk");
+        assert_eq!(v["readme"], "RIGHT\n", "{v}");
+        let v = get_dir(&root, "lnk2");
+        assert_eq!(v["readme"], "DRIVE\n", "{v}");
+
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]

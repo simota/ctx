@@ -109,10 +109,11 @@ impl Server {
         self.listen().await?;
         let listener = self.listener.take().expect("listener bound");
         // Decide from the address actually bound, not the --bind spelling
-        // (`::1:0` is both a valid IPv6 literal and `[::1]:0`). Fail closed.
+        // (`::1:0` is both a valid IPv6 literal and `[::1]:0`); an IPv4-mapped
+        // `[::ffff:127.0.0.1]` bind is loopback too. Fail closed.
         let loopback_only = listener
             .local_addr()
-            .map(|addr| addr.ip().is_loopback())
+            .map(|addr| addr.ip().to_canonical().is_loopback())
             .unwrap_or(true);
         let state = AppState {
             root: self.root,
