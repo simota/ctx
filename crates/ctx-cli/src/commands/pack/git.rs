@@ -4,6 +4,13 @@ use std::process::Command;
 use super::*;
 
 pub(crate) fn git_changed_paths(root: &Path) -> Result<std::collections::BTreeSet<String>, String> {
+    let prefix = match git_root_prefix(root) {
+        Ok(prefix) => prefix,
+        Err(err) => {
+            eprintln!("warning: git status unavailable: {err}");
+            return Ok(std::collections::BTreeSet::new());
+        }
+    };
     let output = Command::new("git")
         .arg("-C")
         .arg(root)
@@ -23,10 +30,25 @@ pub(crate) fn git_changed_paths(root: &Path) -> Result<std::collections::BTreeSe
             return Ok(std::collections::BTreeSet::new());
         }
     };
-    Ok(parse_git_changed_paths(&output.stdout))
+    Ok(parse_git_changed_paths(&output.stdout, &prefix))
 }
 
-fn parse_git_changed_paths(output: &[u8]) -> std::collections::BTreeSet<String> {
+/// `root`'s directory inside its git work tree with a trailing `/`, or `""`
+/// at the top level. Porcelain status and `git log` name paths from the top
+/// of the work tree, while pack paths are relative to `root`.
+pub(crate) fn git_root_prefix(root: &Path) -> Result<String, String> {
+    git_output_in(root, &["rev-parse", "--show-prefix"])
+}
+
+/// Re-express a work-tree-relative git path relative to the pack root, or
+/// `None` when it lies outside the root.
+pub(crate) fn strip_git_root_prefix(path: &str, prefix: &str) -> Option<String> {
+    path.strip_prefix(prefix)
+        .filter(|rel| !rel.is_empty())
+        .map(str::to_string)
+}
+
+fn parse_git_changed_paths(output: &[u8], prefix: &str) -> std::collections::BTreeSet<String> {
     let mut changed = std::collections::BTreeSet::new();
     let mut fields = output.split(|byte| *byte == 0);
 
@@ -39,11 +61,11 @@ fn parse_git_changed_paths(output: &[u8]) -> std::collections::BTreeSet<String> 
         }
 
         let status = &record[..2];
-        let path = &record[3..];
-        if !path.is_empty() {
-            // The pack walker also uses to_string_lossy for filesystem paths,
-            // so applying the same conversion keeps non-UTF-8 names comparable.
-            changed.insert(String::from_utf8_lossy(path).into_owned());
+        // The pack walker also uses to_string_lossy for filesystem paths,
+        // so applying the same conversion keeps non-UTF-8 names comparable.
+        let path = String::from_utf8_lossy(&record[3..]);
+        if let Some(path) = strip_git_root_prefix(&path, prefix) {
+            changed.insert(path);
         }
 
         // In porcelain v1 -z, rename/copy records put the destination path in
@@ -64,14 +86,16 @@ pub(crate) fn git_diff_entries(
     let (base, head) = parse_diff_revspec(revspec)?;
     let before_commit = git_output_in(root, &["rev-parse", "--short=7", base])?;
     let after_commit = git_output_in(root, &["rev-parse", "--short=7", head])?;
-    let name_status =
-        git_output_bytes_in(root, &["diff", "--name-status", "-z", base, head, "--"])?;
+    let name_status = git_output_bytes_in(
+        root,
+        &git_diff_args(&["--name-status", "-z", base, head, "--"]),
+    )?;
     let mut entries = Vec::new();
     for (status, path, before_path) in parse_git_name_status_z(&name_status) {
         let added = status.starts_with('A');
         let deleted = status.starts_with('D');
         let binary = git_diff_is_binary(root, base, head, &path)?;
-        let patch = git_output_allow_empty(root, &["diff", base, head, "--", &path])?;
+        let patch = git_output_allow_empty(root, &git_diff_args(&[base, head, "--", &path]))?;
         let mut before_content = if added || binary {
             String::new()
         } else {
@@ -130,7 +154,23 @@ fn parse_git_name_status_z(output: &[u8]) -> Vec<(String, String, String)> {
     entries
 }
 
-fn git_output_bytes_in(root: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
+/// `git diff` arguments for `--diff` packs. `--relative` limits the diff to
+/// the pack root and names paths from it, so the per-path pathspecs (which
+/// git resolves against `-C root`) match. The other flags keep user config
+/// (`diff.external`, textconv drivers, `color.ui=always`) out of the bundle.
+fn git_diff_args<'a>(args: &[&'a str]) -> Vec<&'a str> {
+    let mut out = vec![
+        "diff",
+        "--relative",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--no-color",
+    ];
+    out.extend_from_slice(args);
+    out
+}
+
+pub(crate) fn git_output_bytes_in(root: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
     let output = Command::new("git")
         .arg("-C")
         .arg(root)
@@ -163,7 +203,7 @@ pub(crate) fn git_diff_is_binary(
     head: &str,
     path: &str,
 ) -> Result<bool, String> {
-    let out = git_output_allow_empty(root, &["diff", "--numstat", base, head, "--", path])?;
+    let out = git_output_allow_empty(root, &git_diff_args(&["--numstat", base, head, "--", path]))?;
     Ok(out
         .lines()
         .next()
@@ -172,7 +212,8 @@ pub(crate) fn git_diff_is_binary(
 }
 
 pub(crate) fn git_show_file(root: &Path, rev: &str, path: &str) -> Result<String, String> {
-    git_output_in(root, &["show", &format!("{rev}:{path}")])
+    // `REV:./path` resolves against `-C root`, like the `--relative` diff paths.
+    git_output_in(root, &["show", &format!("{rev}:./{path}")])
 }
 
 pub(crate) fn git_output_in(root: &Path, args: &[&str]) -> Result<String, String> {
@@ -236,12 +277,23 @@ mod tests {
     #[test]
     fn porcelain_z_parser_preserves_special_paths_and_rename_target() {
         let raw = b"?? dir/a b.rs\0 M literal\\name.rs\0R  dst -> literal.rs\0src old.rs\0?? comma,name.rs\0";
-        let paths = parse_git_changed_paths(raw);
+        let paths = parse_git_changed_paths(raw, "");
 
         assert!(paths.contains("dir/a b.rs"));
         assert!(paths.contains(r"literal\name.rs"));
         assert!(paths.contains("dst -> literal.rs"));
         assert!(paths.contains("comma,name.rs"));
         assert!(!paths.contains("src old.rs"));
+    }
+
+    #[test]
+    fn porcelain_z_parser_names_paths_from_a_subdirectory_root() {
+        let raw = b" M sub/a.rs\0 M top.rs\0?? sub/new dir/b.rs\0?? subway.rs\0";
+        let paths = parse_git_changed_paths(raw, "sub/");
+
+        assert_eq!(
+            paths.into_iter().collect::<Vec<_>>(),
+            vec!["a.rs".to_string(), "new dir/b.rs".to_string()]
+        );
     }
 }
