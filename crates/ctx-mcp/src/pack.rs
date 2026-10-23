@@ -7,8 +7,8 @@ use crate::types::*;
 use crate::util::*;
 use serde_json::{json, Map, Value};
 
-pub(crate) fn collect_pack_files(root: &Path) -> Result<Vec<PackFile>, String> {
-    let files = collect_budget_files(root)?;
+pub(crate) fn collect_pack_files(root: &Path, boundary: &Path) -> Result<Vec<PackFile>, String> {
+    let files = collect_budget_files(root, boundary)?;
     Ok(files
         .into_iter()
         .map(|file| PackFile {

@@ -59,6 +59,26 @@ fn secret_deny(rel: &str) -> bool {
     rel.split('/').any(|seg| SECRET_DIRS.contains(&seg))
 }
 
+/// `secret_deny` applied to a `safepath::resolve` result, i.e. after `.`/`..`
+/// collapsing and symlink resolution.
+fn resolved_secret_deny(root: &str, target: &Path) -> bool {
+    let Ok(abs_root) = safepath::resolve(root, "") else {
+        return true;
+    };
+    match target.strip_prefix(&abs_root) {
+        Ok(rel) => secret_deny(&rel.to_string_lossy()),
+        Err(_) => true,
+    }
+}
+
+fn secret_deny_response() -> Response {
+    response::error(
+        StatusCode::FORBIDDEN,
+        "secret_deny",
+        "path matches secret deny list",
+    )
+}
+
 pub async fn handle(State(state): State<AppState>, method: Method, uri: Uri) -> Response {
     // Stat + full file read are blocking; keep them off the tokio workers.
     crate::blocking::run(move || handle_sync(state, method, uri)).await
@@ -89,16 +109,18 @@ fn handle_sync(state: AppState, method: Method, uri: Uri) -> Response {
         }
     };
     if secret_deny(&decoded) {
-        return response::error(
-            StatusCode::FORBIDDEN,
-            "secret_deny",
-            "path matches secret deny list",
-        );
+        return secret_deny_response();
     }
     let mut target = match safepath::resolve(&state.root, &decoded) {
         Ok(t) => t,
         Err(e) => return response::bad_path(e),
     };
+    // The check above only sees the request spelling; `.env/`, `x/../.env` or
+    // a symlink named `notes.txt` all resolve to a denied file. Re-check the
+    // root-relative path that will actually be opened.
+    if resolved_secret_deny(&state.root, &target) {
+        return secret_deny_response();
+    }
 
     let mut meta = match std::fs::metadata(&target) {
         Ok(m) => m,
@@ -119,6 +141,9 @@ fn handle_sync(state: AppState, method: Method, uri: Uri) -> Response {
         };
         match std::fs::metadata(&idx) {
             Ok(m) if !m.is_dir() => {
+                if resolved_secret_deny(&state.root, &idx) {
+                    return secret_deny_response();
+                }
                 target = idx;
                 meta = m;
             }
@@ -261,4 +286,81 @@ fn percent_decode(s: &str) -> Option<String> {
         }
     }
     String::from_utf8(out).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::SystemTime;
+
+    fn temp_root(tag: &str) -> std::path::PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "ctx-web-raw-{tag}-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    fn state(root: &Path) -> AppState {
+        AppState {
+            root: root.to_string_lossy().to_string(),
+            bind: String::new(),
+            audit: false,
+            file_cache: Default::default(),
+            diff_cache: Default::default(),
+            co_change_cache: Default::default(),
+        }
+    }
+
+    fn get(state: &AppState, path: &str) -> StatusCode {
+        let uri: Uri = path.parse().unwrap();
+        handle_sync(state.clone(), Method::GET, uri).status()
+    }
+
+    #[test]
+    fn secret_paths_are_denied_after_path_normalization() {
+        let root = temp_root("norm");
+        std::fs::write(root.join(".env"), "TOKEN=secret\n").unwrap();
+        std::fs::create_dir_all(root.join(".ssh")).unwrap();
+        std::fs::write(root.join(".ssh/config"), "Host x\n").unwrap();
+        std::fs::write(root.join("hello.txt"), "hello\n").unwrap();
+        let st = state(&root);
+
+        assert_eq!(get(&st, "/raw/hello.txt"), StatusCode::OK);
+        for path in [
+            "/raw/.env",
+            "/raw/.env/",
+            "/raw/.env/.",
+            "/raw/.env%2F",
+            "/raw/x/../.env",
+            "/raw/.ssh/config",
+            "/raw/.ssh/./config",
+        ] {
+            assert_eq!(get(&st, path), StatusCode::FORBIDDEN, "{path}");
+        }
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlink_to_secret_path_is_denied() {
+        let root = temp_root("link");
+        std::fs::write(root.join(".env"), "TOKEN=secret\n").unwrap();
+        std::fs::create_dir_all(root.join(".ssh")).unwrap();
+        std::fs::write(root.join(".ssh/config"), "Host x\n").unwrap();
+        std::os::unix::fs::symlink(".env", root.join("notes.txt")).unwrap();
+        std::os::unix::fs::symlink(".ssh", root.join("keys")).unwrap();
+        let st = state(&root);
+
+        assert_eq!(get(&st, "/raw/notes.txt"), StatusCode::FORBIDDEN);
+        assert_eq!(get(&st, "/raw/keys/config"), StatusCode::FORBIDDEN);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
 }

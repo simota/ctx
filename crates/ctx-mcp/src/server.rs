@@ -131,7 +131,8 @@ impl Server {
     pub(crate) fn run_pack(&self, raw: Option<&RawValue>) -> Result<String, RpcError> {
         let args = self.parse_pack_args(raw)?;
         let root = self.resolve_path(&args.path)?;
-        let mut files = collect_pack_files(&root).map_err(tool_error)?;
+        let mut files =
+            collect_pack_files(&root, &self.walk_boundary(&root)).map_err(tool_error)?;
         if args.changed {
             files.clear();
         }
@@ -181,7 +182,7 @@ impl Server {
         }
 
         let root = self.resolve_path(&args.path)?;
-        let files = collect_pack_files(&root).map_err(tool_error)?;
+        let files = collect_pack_files(&root, &self.walk_boundary(&root)).map_err(tool_error)?;
         let focus_inputs = build_focus_inputs(&files);
         let result = match ctx_focus::pack(
             &focus_inputs,
@@ -352,7 +353,8 @@ impl Server {
             );
         }
         let root = self.resolve_path(&args.path)?;
-        let mut files = collect_budget_files(&root).map_err(tool_error)?;
+        let mut files =
+            collect_budget_files(&root, &self.walk_boundary(&root)).map_err(tool_error)?;
         for file in &mut files {
             file.tokens = count_file_tokens(&file.abs_path, file.size);
         }
@@ -376,7 +378,7 @@ impl Server {
             args.format = "default".to_string();
         }
         let root = self.resolve_path(&args.path)?;
-        let files = collect_where_files(&root).map_err(tool_error)?;
+        let files = collect_where_files(&root, &self.walk_boundary(&root)).map_err(tool_error)?;
         let results = ctx_where::search_with_options(
             &files,
             &args.query,
@@ -399,7 +401,8 @@ impl Server {
             args.path = ".".to_string();
         }
         let root = self.resolve_path(&args.path)?;
-        let entries = collect_symbol_entries(&root).map_err(tool_error)?;
+        let entries =
+            collect_symbol_entries(&root, &self.walk_boundary(&root)).map_err(tool_error)?;
         let (offset, size) = resolve_pagination(args.page_size, &args.cursor)?;
         let (page, next_offset) = apply_page_window(&entries, offset, size);
 
@@ -504,9 +507,10 @@ impl Server {
         let _ = (&args.depth, &args.since, &args.until, &args.use_mtime);
 
         let root = self.resolve_path(&args.path)?;
-        let mut files = collect_budget_files(&root).map_err(tool_error)?;
+        let mut files =
+            collect_budget_files(&root, &self.walk_boundary(&root)).map_err(tool_error)?;
         let symbol_entries = if args.with_symbols {
-            collect_symbol_entries(&root).map_err(tool_error)?
+            collect_symbol_entries(&root, &self.walk_boundary(&root)).map_err(tool_error)?
         } else {
             Vec::new()
         };
@@ -577,6 +581,17 @@ impl Server {
             );
         }
         Ok(target)
+    }
+
+    /// Containment boundary for symlinks met while walking `walk_root`: the
+    /// server root, or the walk root itself when `--allow-outside-root` let
+    /// the walk start outside the server root.
+    pub(crate) fn walk_boundary(&self, walk_root: &Path) -> PathBuf {
+        if walk_root.starts_with(&self.root) {
+            self.root.clone()
+        } else {
+            walk_root.to_path_buf()
+        }
     }
 
     pub(crate) fn list_resources(&self) -> Vec<Value> {
