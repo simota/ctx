@@ -27,6 +27,12 @@ and this project does not yet follow strict semver — see release notes per tag
   (FIFOs, sockets) are skipped. Behaviour change: `ctx_where` / `ctx_symbols`
   used to descend into in-root symlinked directories (e.g. linked monorepo
   packages); their contents are now omitted, as in the CLI pack walker.
+- `ctx browse`: a loopback-bound server now answers only requests whose
+  `Host` is a loopback IP literal or `localhost` (any port); other hosts get
+  `403 forbidden_host`. Previously a page on an attacker domain re-resolved to
+  127.0.0.1 (DNS rebinding) could read the served repository through `/raw/*`
+  and `/api/*`, which was practical with a fixed `--port`. Binds made with
+  `--allow-nonlocal` to a non-loopback address are not filtered.
 
 ### Fixed
 - `ctx browse`: `/api/file` reads at most 1 MiB + 1 byte of a file instead of

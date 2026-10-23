@@ -6,11 +6,13 @@
 //! `.route("/api/<name>", get(handlers::<name>::handle))` line below. The
 //! parity harness picks it up by adding one entry to its route matrix.
 
+use axum::middleware;
 use axum::routing::{any, get};
 use axum::Router;
 
 use crate::embed;
 use crate::handlers;
+use crate::hostguard;
 use crate::AppState;
 
 /// Build the full application router for the given state.
@@ -72,6 +74,11 @@ pub fn build(state: AppState) -> Router {
         )
         // --- SPA catch-all: embedded dist/ with index.html fallback ---
         .fallback(spa_fallback)
+        // Applies to every route and the SPA fallback.
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            hostguard::guard,
+        ))
         .with_state(state)
 }
 

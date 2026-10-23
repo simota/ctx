@@ -9,6 +9,7 @@
 //!   response.rs   — `writeJSON` / `writeError` / `writeBadPath`
 //!   embed.rs      — `DistHandler` (rust-embed of internal/web/dist + SPA fallback)
 //!   router.rs     — `NewMuxWithBind` (route table)
+//!   hostguard.rs  — DNS-rebinding guard (loopback binds answer loopback Hosts only)
 //!   handlers/     — one module per `/api/*` (and `/raw/*`) route
 //!   lib.rs        — `Server` (`New`/`Listen`/`Addr`/`Start`)
 //!
@@ -26,6 +27,7 @@ use tokio::net::TcpListener;
 pub mod blocking;
 pub mod embed;
 pub mod handlers;
+pub mod hostguard;
 pub mod response;
 pub mod router;
 pub mod safepath;
@@ -54,6 +56,9 @@ pub struct AppState {
     /// performance layer — a hit returns the bytes a fresh aggregation
     /// would produce.
     pub co_change_cache: handlers::git::CoChangeCache,
+    /// The listener is bound to a loopback address, so [`hostguard`] only
+    /// answers requests whose `Host` names the loopback interface.
+    pub loopback_only: bool,
 }
 
 /// Hosts the embedded browser UI + API — analogue of `web.Server`.
@@ -103,6 +108,12 @@ impl Server {
     {
         self.listen().await?;
         let listener = self.listener.take().expect("listener bound");
+        // Decide from the address actually bound, not the --bind spelling
+        // (`::1:0` is both a valid IPv6 literal and `[::1]:0`). Fail closed.
+        let loopback_only = listener
+            .local_addr()
+            .map(|addr| addr.ip().is_loopback())
+            .unwrap_or(true);
         let state = AppState {
             root: self.root,
             bind: self.bind,
@@ -110,6 +121,7 @@ impl Server {
             file_cache: handlers::file::FileCache::default(),
             diff_cache: handlers::git::DiffCache::default(),
             co_change_cache: handlers::git::CoChangeCache::default(),
+            loopback_only,
         };
         let app = router::build(state);
         axum::serve(listener, app)
