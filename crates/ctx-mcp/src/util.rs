@@ -144,15 +144,15 @@ pub(crate) enum WalkEntry {
     File(std::fs::Metadata),
 }
 
-/// Classify a walker entry without letting symlinks escape `root`.
+/// Classify a walker entry without letting symlinks escape `boundary`.
 ///
 /// Symlinked directories are never descended into (mirrors the CLI pack
 /// walker), so link cycles cannot recurse. Symlinked files are kept only when
-/// their target resolves inside `root`; dangling links, links leaving the
-/// root, and non-regular files (FIFOs, sockets, devices — a read could block
+/// their target resolves inside `boundary`; dangling links, links leaving it,
+/// and non-regular files (FIFOs, sockets, devices — a read could block
 /// the single-threaded server) yield `None`.
 pub(crate) fn classify_walk_entry(
-    root: &Path,
+    boundary: &Path,
     entry: &std::fs::DirEntry,
 ) -> Result<Option<WalkEntry>, String> {
     let file_type = entry.file_type().map_err(|err| err.to_string())?;
@@ -164,7 +164,7 @@ pub(crate) fn classify_walk_entry(
         let Ok(target) = std::fs::canonicalize(&path) else {
             return Ok(None);
         };
-        if !target.starts_with(root) {
+        if !target.starts_with(boundary) {
             return Ok(None);
         }
         match std::fs::metadata(&target) {

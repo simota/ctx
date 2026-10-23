@@ -7,15 +7,21 @@ pub(crate) struct SymbolEntry {
     pub(crate) symbols: Vec<ctx_symbols::Symbol>,
 }
 
-pub(crate) fn collect_symbol_entries(root: &Path) -> Result<Vec<SymbolEntry>, String> {
+/// `boundary` is the directory symlinked files must resolve into (see
+/// [`classify_walk_entry`]); usually the server root.
+pub(crate) fn collect_symbol_entries(
+    root: &Path,
+    boundary: &Path,
+) -> Result<Vec<SymbolEntry>, String> {
     let mut out = Vec::new();
-    collect_symbol_entries_inner(root, root, &mut out)?;
+    collect_symbol_entries_inner(root, boundary, root, &mut out)?;
     out.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(out)
 }
 
 pub(crate) fn collect_symbol_entries_inner(
     root: &Path,
+    boundary: &Path,
     dir: &Path,
     out: &mut Vec<SymbolEntry>,
 ) -> Result<(), String> {
@@ -27,9 +33,9 @@ pub(crate) fn collect_symbol_entries_inner(
         if name.starts_with('.') || name == "node_modules" || name == "dist" || name == "coverage" {
             continue;
         }
-        match classify_walk_entry(root, &entry)? {
+        match classify_walk_entry(boundary, &entry)? {
             Some(WalkEntry::Dir) => {
-                collect_symbol_entries_inner(root, &path, out)?;
+                collect_symbol_entries_inner(root, boundary, &path, out)?;
                 continue;
             }
             Some(WalkEntry::File(_)) => {}

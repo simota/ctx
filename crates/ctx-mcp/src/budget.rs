@@ -6,14 +6,20 @@ use crate::types::*;
 use crate::util::{classify_walk_entry, WalkEntry};
 use serde_json::{json, Map, Value};
 
-pub(crate) fn collect_budget_files(root: &Path) -> Result<Vec<BudgetFile>, String> {
+/// `boundary` is the directory symlinked files must resolve into (see
+/// [`classify_walk_entry`]); usually the server root.
+pub(crate) fn collect_budget_files(
+    root: &Path,
+    boundary: &Path,
+) -> Result<Vec<BudgetFile>, String> {
     let mut out = Vec::new();
-    collect_budget_files_inner(root, root, &mut out)?;
+    collect_budget_files_inner(root, boundary, root, &mut out)?;
     Ok(out)
 }
 
 pub(crate) fn collect_budget_files_inner(
     root: &Path,
+    boundary: &Path,
     dir: &Path,
     out: &mut Vec<BudgetFile>,
 ) -> Result<(), String> {
@@ -30,9 +36,9 @@ pub(crate) fn collect_budget_files_inner(
         if name.starts_with('.') || name == "node_modules" || name == "dist" || name == "coverage" {
             continue;
         }
-        let meta = match classify_walk_entry(root, &entry)? {
+        let meta = match classify_walk_entry(boundary, &entry)? {
             Some(WalkEntry::Dir) => {
-                collect_budget_files_inner(root, &path, out)?;
+                collect_budget_files_inner(root, boundary, &path, out)?;
                 continue;
             }
             Some(WalkEntry::File(meta)) => meta,

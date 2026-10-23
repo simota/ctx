@@ -92,6 +92,35 @@ fn walkers_do_not_recurse_into_symlink_cycles() {
     let body = call_tool(&root, "ctx_where", json!({"query": "only_once"}));
     assert!(!body.contains("loop/"), "walked through cycle: {body}");
     assert_eq!(body.matches("anchor: only_once@").count(), 1, "{body}");
+    for tool in ["ctx_pack", "ctx_symbols", "ctx_budget"] {
+        let body = call_tool(&root, tool, json!({}));
+        assert!(
+            !body.contains("loop/"),
+            "{tool} walked through cycle: {body}"
+        );
+    }
+
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[cfg(unix)]
+#[test]
+fn subdirectory_walk_keeps_links_inside_server_root() {
+    let root = temp_dir("subdir");
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(root.join("shared.rs"), "fn shared_helper() {}\n").unwrap();
+    std::os::unix::fs::symlink(root.join("shared.rs"), root.join("src/link.rs")).unwrap();
+
+    // The link leaves the walked directory but not the server root, so the
+    // result must not depend on where the walk starts.
+    for path in [".", "src"] {
+        let body = call_tool(
+            &root,
+            "ctx_where",
+            json!({"query": "shared_helper", "path": path}),
+        );
+        assert!(body.contains("link.rs"), "path={path}: {body}");
+    }
 
     let _ = std::fs::remove_dir_all(root);
 }

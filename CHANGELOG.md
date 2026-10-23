@@ -21,10 +21,12 @@ and this project does not yet follow strict semver — see release notes per tag
   an in-root symlink to `.env` / into `.ssh/` get `403 secret_deny` instead
   of serving the file.
 - `ctx-mcp`: the `ctx_pack`, `ctx_budget`, `ctx_where` and `ctx_symbols`
-  walkers no longer follow symlinks out of the walked directory and no longer
+  walkers no longer follow symlinks out of the server root and no longer
   descend into symlinked directories, so a link to an outside file cannot leak
   its contents and a link cycle cannot stall the server. Non-regular files
-  (FIFOs, sockets) are skipped.
+  (FIFOs, sockets) are skipped. Behaviour change: `ctx_where` / `ctx_symbols`
+  used to descend into in-root symlinked directories (e.g. linked monorepo
+  packages); their contents are now omitted, as in the CLI pack walker.
 
 ### Fixed
 - `ctx browse`: `/api/file` reads at most 1 MiB + 1 byte of a file instead of
