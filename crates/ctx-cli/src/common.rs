@@ -241,3 +241,163 @@ pub(crate) fn rfc3339_now_utc() -> String {
         _ => "1970-01-01T00:00:00Z".to_string(),
     }
 }
+
+/// Containment boundary for [`walk_entry_kind`] / [`resolves_to_file_in`]:
+/// the canonical git work tree that holds `root`, so walking a subdirectory
+/// keeps links to sibling files of the same repository, or the canonical
+/// `root` itself outside a repository. Falls back to the path as given when
+/// it cannot be resolved (the walk will then fail on `read_dir` anyway).
+pub(crate) fn canonical_walk_root(root: &Path) -> PathBuf {
+    let canonical = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    let toplevel = Command::new("git")
+        .arg("-C")
+        .arg(&canonical)
+        .args(["rev-parse", "--show-toplevel"])
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()
+        .filter(|out| out.status.success())
+        .and_then(|out| String::from_utf8(out.stdout).ok())
+        .and_then(|top| std::fs::canonicalize(top.trim_end_matches(['\r', '\n'])).ok());
+    match toplevel {
+        Some(top) if canonical.starts_with(&top) => top,
+        _ => canonical,
+    }
+}
+
+/// What a directory walker should do with one `read_dir` entry.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum WalkEntryKind {
+    /// A real directory (never a symlink to one, so link cycles cannot recurse).
+    Dir,
+    /// A regular file, or a symlink that resolves to a regular file inside the
+    /// root.
+    File,
+    /// Anything else: a symlink that dangles, leaves the root, or points at a
+    /// directory, and non-regular files (FIFOs, sockets, devices), whose read
+    /// could block the walk forever.
+    Skip,
+}
+
+/// Classify a walker entry without following symlinks out of `canonical_root`
+/// (see [`canonical_walk_root`]) and without reading through special files.
+pub(crate) fn walk_entry_kind(
+    canonical_root: &Path,
+    path: &Path,
+    file_type: std::fs::FileType,
+) -> WalkEntryKind {
+    if file_type.is_dir() {
+        return WalkEntryKind::Dir;
+    }
+    if file_type.is_file() {
+        return WalkEntryKind::File;
+    }
+    if file_type.is_symlink() && resolves_to_file_in(canonical_root, path) {
+        return WalkEntryKind::File;
+    }
+    WalkEntryKind::Skip
+}
+
+/// Whether `path`, after resolving every symlink, is a regular file inside
+/// `canonical_root`. Use it before reading a repository path that did not
+/// come from [`walk_entry_kind`] (e.g. one taken from git history).
+pub(crate) fn resolves_to_file_in(canonical_root: &Path, path: &Path) -> bool {
+    std::fs::canonicalize(path).is_ok_and(|target| {
+        target.starts_with(canonical_root)
+            && std::fs::metadata(&target).is_ok_and(|meta| meta.is_file())
+    })
+}
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::path::{Path, PathBuf};
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    /// Temp dir that cleans itself up on drop.
+    pub(crate) struct TempDir(pub(crate) PathBuf);
+
+    impl TempDir {
+        pub(crate) fn new(name: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!("ctx-cli-{name}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            Self(dir)
+        }
+
+        pub(crate) fn write(&self, rel: &str, body: &str) {
+            let path = self.0.join(rel);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, body).unwrap();
+        }
+
+        #[cfg(unix)]
+        pub(crate) fn symlink(&self, target: impl AsRef<Path>, rel: &str) {
+            std::os::unix::fs::symlink(target, self.0.join(rel)).unwrap();
+        }
+
+        #[cfg(unix)]
+        pub(crate) fn mkfifo(&self, rel: &str) {
+            let status = std::process::Command::new("mkfifo")
+                .arg(self.0.join(rel))
+                .status()
+                .expect("run mkfifo");
+            assert!(status.success(), "mkfifo failed");
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    /// Run `f` on a helper thread and fail the test if it does not finish in
+    /// time, so a walk that blocks (e.g. on a FIFO) fails instead of hanging.
+    pub(crate) fn finishes_within<T: Send + 'static>(
+        secs: u64,
+        f: impl FnOnce() -> T + Send + 'static,
+    ) -> T {
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(f());
+        });
+        rx.recv_timeout(Duration::from_secs(secs))
+            .expect("walk did not finish (blocked on a special file or a symlink cycle?)")
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::test_support::TempDir;
+    use super::*;
+
+    fn kind(root: &Path, rel: &str) -> WalkEntryKind {
+        let path = root.join(rel);
+        let file_type = std::fs::symlink_metadata(&path).unwrap().file_type();
+        walk_entry_kind(&canonical_walk_root(root), &path, file_type)
+    }
+
+    #[test]
+    fn walk_entry_kind_bounds_symlinks_by_root_and_skips_special_files() {
+        let outside = TempDir::new("walk-kind-outside");
+        outside.write("secret.txt", "outside\n");
+        let fx = TempDir::new("walk-kind");
+        fx.write("src/main.rs", "fn main() {}\n");
+        fx.symlink("main.rs", "src/alias.rs");
+        fx.symlink("../src/main.rs", "src/up.rs");
+        fx.symlink(outside.0.join("secret.txt"), "leak.rs");
+        fx.symlink("missing.rs", "dangling.rs");
+        fx.symlink(".", "loop");
+        fx.mkfifo("pipe");
+
+        assert_eq!(kind(&fx.0, "src"), WalkEntryKind::Dir);
+        assert_eq!(kind(&fx.0, "src/main.rs"), WalkEntryKind::File);
+        assert_eq!(kind(&fx.0, "src/alias.rs"), WalkEntryKind::File);
+        assert_eq!(kind(&fx.0, "src/up.rs"), WalkEntryKind::File);
+        assert_eq!(kind(&fx.0, "leak.rs"), WalkEntryKind::Skip);
+        assert_eq!(kind(&fx.0, "dangling.rs"), WalkEntryKind::Skip);
+        assert_eq!(kind(&fx.0, "loop"), WalkEntryKind::Skip);
+        assert_eq!(kind(&fx.0, "pipe"), WalkEntryKind::Skip);
+    }
+}
