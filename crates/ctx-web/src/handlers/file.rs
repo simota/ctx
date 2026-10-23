@@ -207,7 +207,7 @@ fn handle_sync(state: AppState, params: FileParams) -> Response {
         }
     }
 
-    let raw = match std::fs::read(&target) {
+    let raw = match read_capped(&target) {
         Ok(d) => d,
         Err(e) => {
             return response::error(
@@ -330,6 +330,18 @@ fn git_status_for_file(root: &str, rel_slash: &str) -> String {
     crate::handlers::tree::parse_git_status_map(&output.stdout)
         .remove(rel_slash)
         .unwrap_or_default()
+}
+
+/// Read at most `MAX_FILE_BYTES + 1` bytes: enough for `truncate_file_data`
+/// to tell an over-cap file apart and cut it identically, without buffering
+/// a multi-gigabyte file just to discard all but its first 256 KiB.
+fn read_capped(path: &Path) -> std::io::Result<Vec<u8>> {
+    use std::io::Read;
+    let mut buf = Vec::new();
+    std::fs::File::open(path)?
+        .take(MAX_FILE_BYTES as u64 + 1)
+        .read_to_end(&mut buf)?;
+    Ok(buf)
 }
 
 fn truncate_file_data(data: &[u8]) -> (&[u8], bool) {
@@ -473,5 +485,41 @@ mod tests {
         assert_eq!(git_status_for_file(&root_str, "hello.txt"), "A");
 
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn read_capped_keeps_truncation_output_and_bounds_buffer() {
+        let dir = std::env::temp_dir().join(format!(
+            "ctx-web-file-cap-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        // Multi-byte runes straddle TRUNCATE_TARGET so the rune-boundary
+        // back-off is exercised on the capped buffer too.
+        let big: Vec<u8> = "あいう\n".repeat(MAX_FILE_BYTES / 4).into_bytes();
+        assert!(big.len() > MAX_FILE_BYTES + 1);
+        let path = dir.join("big.txt");
+        std::fs::write(&path, &big).unwrap();
+
+        let capped = read_capped(&path).unwrap();
+        assert_eq!(capped.len(), MAX_FILE_BYTES + 1);
+        assert_eq!(truncate_file_data(&capped), truncate_file_data(&big));
+
+        for len in [MAX_FILE_BYTES, MAX_FILE_BYTES + 1] {
+            let exact = &big[..len];
+            std::fs::write(&path, exact).unwrap();
+            let capped = read_capped(&path).unwrap();
+            assert_eq!(
+                truncate_file_data(&capped),
+                truncate_file_data(exact),
+                "{len}"
+            );
+        }
+
+        let _ = std::fs::remove_dir_all(dir);
     }
 }
