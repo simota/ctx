@@ -8,6 +8,7 @@
 //! when all counts are 0, the `json:"git,omitempty"` tag does NOT suppress it
 //! (Go only omits pointer structs). We always emit `"git":{}`.
 
+use std::io::Read;
 use std::path::Path;
 
 use axum::extract::{Query, State};
@@ -202,7 +203,7 @@ fn handle_sync(state: AppState, params: DirParams) -> Response {
     });
 
     // README/doc.go preview (mirrors Go `findReadme`).
-    let (readme, readme_path) = find_readme(&target, &dir_rel, &raw_entries);
+    let (readme, readme_path) = find_readme(&state.root, &dir_rel, &raw_entries);
 
     response::json(
         StatusCode::OK,
@@ -298,7 +299,12 @@ const README_CANDIDATES: &[&str] = &["README.md", "README", "README.txt", "readm
 
 /// Mirrors Go `findReadme`: first matching candidate, truncated to
 /// `MAX_README_BYTES`, with its root-relative path.
-fn find_readme(abs_dir: &Path, dir_rel: &str, entries: &[std::fs::DirEntry]) -> (String, String) {
+///
+/// A candidate is resolved through the root jail, so a `README.md` symlink
+/// to a file outside root is skipped rather than served, and only regular
+/// files are read — at most `MAX_README_BYTES`, so a link to `/dev/zero` or a
+/// FIFO named `README` cannot pin the request.
+fn find_readme(root: &str, dir_rel: &str, entries: &[std::fs::DirEntry]) -> (String, String) {
     // Build a set of present non-directory file names.
     let present: std::collections::HashSet<String> = entries
         .iter()
@@ -310,20 +316,181 @@ fn find_readme(abs_dir: &Path, dir_rel: &str, entries: &[std::fs::DirEntry]) -> 
         if !present.contains(candidate) {
             continue;
         }
-        let mut data = match std::fs::read(abs_dir.join(candidate)) {
-            Ok(d) => d,
-            Err(_) => continue,
-        };
-        if data.len() > MAX_README_BYTES {
-            data.truncate(MAX_README_BYTES);
-        }
-        let content = String::from_utf8_lossy(&data).into_owned();
         let rel_path = if dir_rel == "." || dir_rel.is_empty() {
             candidate.to_string()
         } else {
             format!("{}/{}", dir_rel, candidate)
         };
+        let Ok(path) = safepath::resolve(root, &rel_path) else {
+            continue;
+        };
+        if !std::fs::metadata(&path).is_ok_and(|m| m.is_file()) {
+            continue;
+        }
+        let Ok(file) = std::fs::File::open(&path) else {
+            continue;
+        };
+        let mut data = Vec::new();
+        if file
+            .take(MAX_README_BYTES as u64)
+            .read_to_end(&mut data)
+            .is_err()
+        {
+            continue;
+        }
+        let content = String::from_utf8_lossy(&data).into_owned();
         return (content, rel_path);
     }
     (String::new(), String::new())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use std::sync::mpsc;
+    use std::time::{Duration, SystemTime};
+
+    fn temp_dir(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "ctx-web-dir-{tag}-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// GET /api/dir?path=<rel> under `root`, failing instead of hanging when
+    /// the handler blocks on a read.
+    fn get_dir(root: &Path, rel: &str) -> serde_json::Value {
+        let state = AppState {
+            root: root.to_string_lossy().into_owned(),
+            bind: String::new(),
+            audit: false,
+            file_cache: Default::default(),
+            diff_cache: Default::default(),
+            co_change_cache: Default::default(),
+            loopback_only: true,
+        };
+        let params = DirParams {
+            path: rel.to_string(),
+        };
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(handle_sync(state, params));
+        });
+        let resp = rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("/api/dir did not answer within 10s");
+        assert_eq!(resp.status(), StatusCode::OK);
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let body = rt
+            .block_on(axum::body::to_bytes(resp.into_body(), usize::MAX))
+            .unwrap();
+        serde_json::from_slice(&body).unwrap()
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn readme_symlink_outside_root_is_not_served() {
+        let outside = temp_dir("outside");
+        std::fs::write(outside.join("secret"), "TOP SECRET\n").unwrap();
+        let root = temp_dir("root-escape");
+        std::os::unix::fs::symlink(outside.join("secret"), root.join("README.md")).unwrap();
+
+        let v = get_dir(&root, "");
+        assert!(
+            !v.to_string().contains("TOP SECRET"),
+            "outside file leaked: {v}"
+        );
+        assert!(v.get("readme").is_none(), "{v}");
+        assert!(v.get("readme_path").is_none(), "{v}");
+
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(outside);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn readme_symlink_inside_root_is_still_served() {
+        let root = temp_dir("root-inside");
+        std::fs::create_dir_all(root.join("docs")).unwrap();
+        std::fs::write(root.join("docs/intro.md"), "# Intro\n").unwrap();
+        std::os::unix::fs::symlink("docs/intro.md", root.join("README.md")).unwrap();
+
+        let v = get_dir(&root, "");
+        assert_eq!(v["readme"], "# Intro\n", "{v}");
+        assert_eq!(v["readme_path"], "README.md", "{v}");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn readme_found_when_root_is_reached_through_symlink() {
+        let real = temp_dir("root-real");
+        std::fs::create_dir_all(real.join("pkg")).unwrap();
+        std::fs::write(real.join("pkg/README.md"), "pkg docs\n").unwrap();
+        let link = real.with_extension("link");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        let v = get_dir(&link, "pkg");
+        assert_eq!(v["readme"], "pkg docs\n", "{v}");
+        assert_eq!(v["readme_path"], "pkg/README.md", "{v}");
+
+        let _ = std::fs::remove_file(link);
+        let _ = std::fs::remove_dir_all(real);
+    }
+
+    #[test]
+    fn readme_is_truncated_to_cap() {
+        let root = temp_dir("root-big");
+        std::fs::create_dir_all(root.join("sub")).unwrap();
+        let text = "readme line\n".repeat(MAX_README_BYTES / 12 + 10);
+        std::fs::write(root.join("sub/README"), &text).unwrap();
+
+        let v = get_dir(&root, "sub");
+        assert_eq!(v["readme"], text[..MAX_README_BYTES], "{v}");
+        assert_eq!(v["readme_path"], "sub/README", "{v}");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fifo_readme_does_not_block() {
+        let root = temp_dir("root-fifo");
+        let status = std::process::Command::new("mkfifo")
+            .arg(root.join("README"))
+            .status()
+            .expect("mkfifo");
+        assert!(status.success());
+        std::fs::write(root.join("README.txt"), "fallback\n").unwrap();
+
+        let v = get_dir(&root, "");
+        assert_eq!(v["readme"], "fallback\n", "{v}");
+        assert_eq!(v["readme_path"], "README.txt", "{v}");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn device_symlink_is_not_read() {
+        let root = temp_dir("root-devzero");
+        std::os::unix::fs::symlink("/dev/zero", root.join("README.md")).unwrap();
+        std::os::unix::fs::symlink("/dev/zero", root.join("zero.bin")).unwrap();
+
+        let v = get_dir(&root, "");
+        assert!(v.get("readme").is_none(), "{v}");
+        assert_eq!(v["file_count"], 2, "{v}");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
 }
