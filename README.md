@@ -157,6 +157,12 @@ ctx browse . --no-open --port 8765 --bind 127.0.0.1
 `ctx browse` はローカルの Axum web server を起動し、既定ではブラウザで表示します。
 ブラウザ起動を抑止する場合は `--no-open` を指定してください。
 非 loopback address へ bind する場合は `--allow-nonlocal` が必要です。
+loopback に bind した server は DNS rebinding 対策として、`Host` が loopback IP
+または `localhost` のリクエストにのみ応答します（それ以外は `403 forbidden_host`）。
+表示された URL（`http://127.0.0.1:<port>/`）か `http://localhost:<port>/` で開いてください。
+`--allow-nonlocal` で非 loopback に bind した場合、この `Host` 制限は適用されません。
+Codespaces などの port forwarding や reverse proxy が独自の hostname を `Host` に載せる構成では
+`403` になります（SSH の `-L` で `localhost` へ転送する場合は利用できます）。
 
 Frontend を変更した場合:
 

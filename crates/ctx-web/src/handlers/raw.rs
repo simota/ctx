@@ -314,6 +314,7 @@ mod tests {
             file_cache: Default::default(),
             diff_cache: Default::default(),
             co_change_cache: Default::default(),
+            loopback_only: true,
         }
     }
 

@@ -587,7 +587,8 @@ fn walk_tree(
 /// `ctx_tokens::count_file` calls, so JSON output is unchanged.
 ///
 /// `pub(crate)` so `dir.rs`'s `/api/dir` token walk can reuse the same cache
-/// instead of calling `ctx_tokens::count_file` uncached (PERF-4).
+/// instead of calling `ctx_tokens::count_file` uncached (PERF-4). `meta` must
+/// be lstat metadata; non-regular entries are never read.
 pub(crate) fn cached_file_stats(
     path: &Path,
     meta: &std::fs::Metadata,
@@ -605,6 +606,19 @@ pub(crate) fn cached_file_stats(
     const STATS_CACHE_CAP: usize = 1 << 16;
     static CACHE: OnceLock<RwLock<StatsCache>> = OnceLock::new();
     let cache = CACHE.get_or_init(|| RwLock::new(HashMap::new()));
+
+    // `meta` is lstat metadata from both callers. Only regular files are
+    // read: a symlink would be followed out of root (same rule as the
+    // symlink branch in the tree walk), and a FIFO or device such as
+    // /dev/zero would block or never reach EOF.
+    if !meta.is_file() {
+        let tok = if with_tokens {
+            ctx_tokens::estimate_by_size(size) as i32
+        } else {
+            0
+        };
+        return (0, tok);
+    }
 
     let fingerprint = meta.modified().ok().map(|mtime| (mtime, meta.len()));
 
@@ -810,6 +824,46 @@ fn count_lines_file(path: &Path) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn file_stats_never_read_symlinks_or_special_files() {
+        let dir = std::env::temp_dir().join(format!(
+            "ctx-web-tree-stats-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let fifo = dir.join("pipe");
+        assert!(std::process::Command::new("mkfifo")
+            .arg(&fifo)
+            .status()
+            .expect("mkfifo")
+            .success());
+        let link = dir.join("link");
+        std::os::unix::fs::symlink("/dev/zero", &link).unwrap();
+        let regular = dir.join("a.txt");
+        std::fs::write(&regular, "one\ntwo\n").unwrap();
+
+        // Reading either special entry would block or never reach EOF.
+        for path in [&fifo, &link] {
+            let meta = std::fs::symlink_metadata(path).unwrap();
+            let size = meta.len() as i64;
+            assert_eq!(
+                cached_file_stats(path, &meta, size, true),
+                (0, ctx_tokens::estimate_by_size(size) as i32),
+                "{path:?}"
+            );
+            assert_eq!(cached_file_stats(path, &meta, size, false), (0, 0));
+        }
+        let meta = std::fs::symlink_metadata(&regular).unwrap();
+        assert_eq!(cached_file_stats(&regular, &meta, 8, false).0, 2);
+
+        let _ = std::fs::remove_dir_all(dir);
+    }
 
     #[test]
     fn git_status_z_parser_preserves_special_paths_and_rename_target() {
