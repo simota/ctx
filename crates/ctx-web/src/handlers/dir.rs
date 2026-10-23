@@ -480,6 +480,43 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn walk_does_not_follow_symlinks_out_of_root() {
+        let outside = temp_dir("walk-outside");
+        std::fs::create_dir_all(outside.join("tree/deep")).unwrap();
+        for i in 0..5 {
+            std::fs::write(outside.join(format!("tree/deep/f{i}.txt")), "x\n").unwrap();
+        }
+        std::fs::write(outside.join("big.txt"), "word ".repeat(4000)).unwrap();
+        let root = temp_dir("walk-root");
+        std::fs::write(root.join("a.txt"), "hello\n").unwrap();
+        std::os::unix::fs::symlink(outside.join("tree"), root.join("linkdir")).unwrap();
+        std::os::unix::fs::symlink(outside.join("big.txt"), root.join("linkfile")).unwrap();
+
+        let v = get_dir(&root, "");
+        // a.txt + the two links as leaf entries; nothing behind linkdir.
+        assert_eq!(v["file_count"], 3, "{v}");
+        assert_eq!(v["dir_count"], 0, "{v}");
+        let link_len = std::fs::symlink_metadata(root.join("linkfile"))
+            .unwrap()
+            .len() as i64;
+        let dir_len = std::fs::symlink_metadata(root.join("linkdir"))
+            .unwrap()
+            .len() as i64;
+        let a_tokens = ctx_tokens::count_file(&root.join("a.txt").to_string_lossy()).unwrap();
+        assert_eq!(
+            v["tokens"],
+            a_tokens
+                + ctx_tokens::estimate_by_size(link_len)
+                + ctx_tokens::estimate_by_size(dir_len),
+            "{v}"
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(outside);
+    }
+
     #[cfg(target_os = "linux")]
     #[test]
     fn device_symlink_is_not_read() {
