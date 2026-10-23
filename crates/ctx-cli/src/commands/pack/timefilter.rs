@@ -14,7 +14,11 @@ pub(crate) fn build_git_commit_time_index(
     since: Option<SystemTime>,
 ) -> Option<GitTimeIndex> {
     let prefix = git_root_prefix(root).ok()?;
+    // `diff.relative=true` would make `log --name-only` name paths from
+    // `-C root` already; keep them work-tree-relative for the prefix strip.
     let mut args = vec![
+        "-c".to_string(),
+        "diff.relative=false".to_string(),
         "log".to_string(),
         "-z".to_string(),
         "--all".to_string(),
@@ -71,9 +75,10 @@ fn parse_git_log_commit_times(
         let Some(time) = current_time else {
             continue;
         };
-        let name = String::from_utf8_lossy(name).replace('\\', "/");
+        // Strip before normalising `\`: the prefix keeps its raw spelling.
+        let name = String::from_utf8_lossy(name);
         if let Some(path) = strip_git_root_prefix(&name, prefix) {
-            commit_times.entry(path).or_insert(time);
+            commit_times.entry(path.replace('\\', "/")).or_insert(time);
         }
     }
     commit_times
@@ -224,6 +229,17 @@ mod tests {
         assert_eq!(
             parse_git_log_commit_times(log, "").get("sub/a.rs"),
             Some(&at(100))
+        );
+    }
+
+    #[test]
+    fn log_z_parser_strips_a_prefix_containing_a_backslash() {
+        let log = b"\x00300\x00\na\\b/x.rs\x00";
+        let times = parse_git_log_commit_times(log, "a\\b/");
+
+        assert_eq!(
+            times.get("x.rs"),
+            Some(&(UNIX_EPOCH + Duration::from_secs(300)))
         );
     }
 

@@ -101,6 +101,26 @@ fn pack_since_on_a_subdirectory_root_uses_git_commit_times() {
         &[],
     );
     assert_eq!(included_paths(&output), vec!["fresh.rs".to_string()]);
+
+    // `diff.relative=true` must not change which names git log reports.
+    let output = ctx(
+        &root,
+        &[
+            "pack",
+            "sub",
+            "--since",
+            "2020-01-01",
+            "--no-contract",
+            "--format",
+            "json",
+        ],
+        &[
+            ("GIT_CONFIG_COUNT", "1"),
+            ("GIT_CONFIG_KEY_0", "diff.relative"),
+            ("GIT_CONFIG_VALUE_0", "true"),
+        ],
+    );
+    assert_eq!(included_paths(&output), vec!["fresh.rs".to_string()]);
 }
 
 #[test]
