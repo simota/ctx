@@ -14,6 +14,7 @@ pub(crate) fn read_pack_paths_ordered(
 ) -> Result<Vec<NativePackFile>, String> {
     let mut files = Vec::new();
     let mut used = 0_i64;
+    let canonical_root = crate::common::canonical_walk_root(root);
     for path in paths {
         let clean = ctx_pack::from_where::clean_input_path(path);
         if clean.is_empty() {
@@ -24,9 +25,15 @@ pub(crate) fn read_pack_paths_ordered(
             Ok(path) => path.to_string_lossy().replace('\\', "/"),
             Err(_) => clean.clone(),
         };
-        let body = match std::fs::read_to_string(&abs) {
-            Ok(body) => body,
-            Err(_) => {
+        // The where JSON may be hand-written or saved: like the walker, read
+        // only regular files inside the repository (no absolute or `..`
+        // escapes, no links leaving it, no FIFOs).
+        let body = match crate::common::resolves_to_file_in(&canonical_root, &abs)
+            .then(|| std::fs::read_to_string(&abs).ok())
+            .flatten()
+        {
+            Some(body) => body,
+            None => {
                 if !quiet {
                     eprintln!("warning: --from-where: path not found or excluded: {clean}");
                 }
@@ -235,7 +242,11 @@ fn collect_pack_input_paths(
     out: &mut Vec<PathBuf>,
 ) -> Result<(), String> {
     if path.is_file() {
-        out.push(path.to_path_buf());
+        // A single-file root (`ctx pack README.md`) can itself be a link
+        // leaving the repository.
+        if crate::common::resolves_to_file_in(canonical_root, path) {
+            out.push(path.to_path_buf());
+        }
         return Ok(());
     }
     for entry in std::fs::read_dir(path).map_err(|err| format!("walk {}: {err}", path.display()))? {
@@ -400,6 +411,29 @@ mod tests {
     }
 
     #[test]
+    fn pack_single_file_root_skips_a_link_leaving_root() {
+        let outside = TempDir::new("pack-file-root-outside");
+        outside.write("secret.txt", "OUTSIDE_SECRET=1\n");
+        let fx = TempDir::new("pack-file-root");
+        fx.write("main.rs", "fn main() {}\n");
+        fx.symlink("main.rs", "alias.rs");
+        fx.symlink(outside.0.join("secret.txt"), "leak.rs");
+
+        let walk_file = |rel: &str| {
+            let ignore = PackIgnore::load(&fx.0, &[], true);
+            let mut inputs = Vec::new();
+            collect_pack_inputs(&fx.0, &fx.0.join(rel), &ignore, &mut inputs).unwrap();
+            inputs
+                .into_iter()
+                .map(|input| input.path)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(walk_file("main.rs"), vec!["main.rs"]);
+        assert_eq!(walk_file("alias.rs"), vec!["alias.rs"]);
+        assert!(walk_file("leak.rs").is_empty());
+    }
+
+    #[test]
     fn pack_walk_skips_fifos() {
         let fx = TempDir::new("pack-walk-fifo");
         fx.write("main.rs", "fn main() {}\n");
@@ -407,5 +441,61 @@ mod tests {
         fx.symlink("pipe", "pipe-link");
 
         assert_eq!(walk(&fx.0), vec!["main.rs"]);
+    }
+
+    #[test]
+    fn pack_walk_of_a_subdirectory_keeps_links_to_the_rest_of_the_repo() {
+        let fx = TempDir::new("pack-walk-subdir");
+        let status = std::process::Command::new("git")
+            .args(["init", "-q"])
+            .arg(&fx.0)
+            .status()
+            .expect("run git init");
+        assert!(status.success());
+        fx.write("lib/util.rs", "pub fn util() {}\n");
+        fx.write("src/main.rs", "fn main() {}\n");
+        fx.symlink("../lib/util.rs", "src/util_link.rs");
+
+        assert_eq!(walk(&fx.0.join("src")), vec!["main.rs", "util_link.rs"]);
+    }
+
+    fn from_where(root: &Path, paths: &[String]) -> Vec<String> {
+        let root = root.to_path_buf();
+        let paths = paths.to_vec();
+        finishes_within(30, move || {
+            read_pack_paths_ordered(&root, &paths, 10_000, true)
+                .unwrap()
+                .into_iter()
+                .map(|file| file.path)
+                .collect()
+        })
+    }
+
+    #[test]
+    fn from_where_skips_paths_leaving_the_root() {
+        let outside = TempDir::new("from-where-outside");
+        outside.write("secret.txt", "OUTSIDE_SECRET=1\n");
+        let fx = TempDir::new("from-where");
+        fx.write("main.rs", "fn main() {}\n");
+        fx.symlink(outside.0.join("secret.txt"), "leak.rs");
+
+        let paths = [
+            "leak.rs".to_string(),
+            outside.0.join("secret.txt").to_string_lossy().into_owned(),
+            "../ctx-cli-from-where-outside-{pid}/secret.txt"
+                .replace("{pid}", &std::process::id().to_string()),
+            "main.rs".to_string(),
+        ];
+        assert_eq!(from_where(&fx.0, &paths), vec!["main.rs"]);
+    }
+
+    #[test]
+    fn from_where_skips_fifos() {
+        let fx = TempDir::new("from-where-fifo");
+        fx.write("main.rs", "fn main() {}\n");
+        fx.mkfifo("pipe");
+
+        let paths = ["pipe".to_string(), "main.rs".to_string()];
+        assert_eq!(from_where(&fx.0, &paths), vec!["main.rs"]);
     }
 }

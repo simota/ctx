@@ -790,6 +790,11 @@ pub(crate) fn string_flag_value<'a>(arg: &'a str, name: &str) -> Option<&'a str>
 pub(crate) fn estimate_path_tokens(root: &Path, path: &str) -> i64 {
     let path_only = strip_line_range(path);
     let abs = root.join(path_only);
+    // Strand paths can come from git history: never open a committed link that
+    // leaves the repository or points at a FIFO / device.
+    if !resolves_to_file_in(&canonical_walk_root(root), &abs) {
+        return 0;
+    }
     let abs_str = abs.to_string_lossy();
     match ctx_tokens::count_file(&abs_str) {
         Ok(n) => n.max(1),
@@ -859,5 +864,26 @@ mod tests {
         let files = braid_build_pack_files(&fx.0, &merged).unwrap();
         let paths: Vec<&str> = files.iter().map(|file| file.path.as_str()).collect();
         assert_eq!(paths, vec!["main.rs", "alias.rs"]);
+    }
+
+    #[test]
+    fn strand_token_estimate_does_not_open_links_leaving_root_or_fifos() {
+        use crate::common::test_support::finishes_within;
+
+        let outside = TempDir::new("braid-tokens-outside");
+        outside.write("secret.txt", "OUTSIDE_SECRET=1\n");
+        let fx = TempDir::new("braid-tokens");
+        fx.write("main.rs", "fn main() {}\n");
+        fx.symlink(outside.0.join("secret.txt"), "leak.rs");
+        fx.mkfifo("pipe");
+        fx.symlink("pipe", "pipe-link.rs");
+
+        let root = fx.0.clone();
+        let tokens = finishes_within(30, move || {
+            ["leak.rs", "pipe", "pipe-link.rs", "main.rs"]
+                .map(|path| estimate_path_tokens(&root, path))
+        });
+        assert_eq!(tokens[..3], [0, 0, 0]);
+        assert!(tokens[3] > 0);
     }
 }

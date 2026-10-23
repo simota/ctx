@@ -242,11 +242,27 @@ pub(crate) fn rfc3339_now_utc() -> String {
     }
 }
 
-/// Canonical form of a walk root, used as the containment boundary for
-/// [`walk_entry_kind`]. Falls back to the path itself when it cannot be
-/// resolved (the walk will then fail on `read_dir` anyway).
+/// Containment boundary for [`walk_entry_kind`] / [`resolves_to_file_in`]:
+/// the canonical git work tree that holds `root`, so walking a subdirectory
+/// keeps links to sibling files of the same repository, or the canonical
+/// `root` itself outside a repository. Falls back to the path as given when
+/// it cannot be resolved (the walk will then fail on `read_dir` anyway).
 pub(crate) fn canonical_walk_root(root: &Path) -> PathBuf {
-    std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf())
+    let canonical = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    let toplevel = Command::new("git")
+        .arg("-C")
+        .arg(&canonical)
+        .args(["rev-parse", "--show-toplevel"])
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()
+        .filter(|out| out.status.success())
+        .and_then(|out| String::from_utf8(out.stdout).ok())
+        .and_then(|top| std::fs::canonicalize(top.trim_end_matches(['\r', '\n'])).ok());
+    match toplevel {
+        Some(top) if canonical.starts_with(&top) => top,
+        _ => canonical,
+    }
 }
 
 /// What a directory walker should do with one `read_dir` entry.
