@@ -16,6 +16,24 @@ and this project does not yet follow strict semver — see release notes per tag
   general) now validates ref names with `git check-ref-format` rules and
   requires ref contents to be an object id, so `to=refs/../../<file>` can no
   longer read files outside the served root and echo them in the error.
+- `ctx browse`: `/raw/*` now applies the secret deny list to the resolved
+  path as well as the request spelling, so `/raw/.env/`, `/raw/x/../.env` or
+  an in-root symlink to `.env` / into `.ssh/` get `403 secret_deny` instead
+  of serving the file.
+- `ctx-mcp`: the `ctx_pack`, `ctx_budget`, `ctx_where` and `ctx_symbols`
+  walkers no longer follow symlinks out of the walked directory and no longer
+  descend into symlinked directories, so a link to an outside file cannot leak
+  its contents and a link cycle cannot stall the server. Non-regular files
+  (FIFOs, sockets) are skipped.
+
+### Fixed
+- `ctx browse`: `/api/file` reads at most 1 MiB + 1 byte of a file instead of
+  buffering the whole file before truncating it to 256 KiB; the response is
+  unchanged.
+- `ctx-mcp`: a request line with invalid UTF-8 no longer terminates the stdio
+  server (it gets a `-32700` reply and the session continues), and a prompt
+  argument whose 1 KiB cap falls inside a multi-byte character is cut at a
+  character boundary instead of panicking.
 
 ### Added
 - Rust crate `ctx-contract` (`crates/ctx-contract/`) — pioneer port of the Go
