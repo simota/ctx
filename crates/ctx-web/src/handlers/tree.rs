@@ -689,6 +689,11 @@ impl GitStatusMap {
     }
 
     fn status_for(&self, rel: &str, is_dir: bool) -> String {
+        // The served root sits inside a wholly-untracked directory (see
+        // `parse_git_status_map`): everything under it shares that status.
+        if let Some(s) = self.by_path.get("") {
+            return s.clone();
+        }
         if !is_dir {
             if let Some(s) = self.by_path.get(rel) {
                 return s.clone();
@@ -795,6 +800,10 @@ pub(crate) fn parse_git_status_map(output: &[u8], prefix: &str) -> BTreeMap<Stri
             if !code.is_empty() {
                 by_path.insert(rel.to_string(), code);
             }
+        } else if path.ends_with('/') && prefix.starts_with(path.as_ref()) && !code.is_empty() {
+            // A collapsed untracked directory holding the root itself is
+            // recorded under the empty key.
+            by_path.insert(String::new(), code);
         }
 
         // Porcelain v1 -z writes rename/copy destinations first, followed by
@@ -900,6 +909,25 @@ mod tests {
                 ("src/app.ts".to_string(), "M".to_string()),
             ]
         );
+    }
+
+    #[test]
+    fn git_status_marks_everything_untracked_when_the_root_is_inside_an_untracked_dir() {
+        let raw = b"?? newdir/\0 M README.md\0";
+        for prefix in ["newdir/", "newdir/deep/"] {
+            let status = GitStatusMap {
+                by_path: parse_git_status_map(raw, prefix),
+            };
+            assert_eq!(status.status_for("a.rs", false), "?", "{prefix}");
+            assert_eq!(status.status_for("sub/b.rs", false), "?", "{prefix}");
+            assert_eq!(status.status_for("sub", true), "?", "{prefix}");
+            assert_eq!(status.status_for(".", true), "?", "{prefix}");
+        }
+        // A sibling untracked dir does not leak into the root.
+        let status = GitStatusMap {
+            by_path: parse_git_status_map(b"?? other/\0", "newdir/"),
+        };
+        assert_eq!(status.status_for("a.rs", false), "");
     }
 
     #[test]
