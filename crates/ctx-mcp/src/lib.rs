@@ -69,8 +69,12 @@ pub fn serve<R: BufRead, W: Write>(
     opts: ServeOptions,
 ) -> std::io::Result<()> {
     let server = Server::new(opts);
-    for line in reader.lines() {
+    // Split on raw bytes rather than `lines()`: one non-UTF-8 frame must not
+    // abort the whole session. Invalid sequences become U+FFFD, as Go's
+    // `json.Unmarshal` does for the `bufio.Scanner` transport this mirrors.
+    for line in reader.split(b'\n') {
         let line = line?;
+        let line = String::from_utf8_lossy(&line);
         let line = line.trim();
         if line.is_empty() {
             continue;

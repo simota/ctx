@@ -54,7 +54,13 @@ pub(crate) fn sanitize_prompt_arg(value: &str) -> String {
         .collect();
     let trimmed = cleaned.trim();
     if trimmed.len() > MAX_GOAL_LEN {
-        trimmed[..MAX_GOAL_LEN].to_string()
+        // Cap is in bytes; back off to a char boundary so multi-byte input
+        // straddling the cap cannot panic the slice.
+        let mut cut = MAX_GOAL_LEN;
+        while !trimmed.is_char_boundary(cut) {
+            cut -= 1;
+        }
+        trimmed[..cut].to_string()
     } else {
         trimmed.to_string()
     }
