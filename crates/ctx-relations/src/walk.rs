@@ -75,9 +75,11 @@ fn visit(root: &Path, dir: &Path, out: &mut Vec<WalkedFile>) -> std::io::Result<
         if ty.is_symlink() {
             continue;
         }
+        // Besides directories, keep only regular files: reading a FIFO,
+        // socket or device would block the walk forever.
         if ty.is_dir() {
             visit(root, &path, out)?;
-        } else {
+        } else if ty.is_file() {
             out.push(WalkedFile {
                 path: relativise(root, &path),
                 abs_path: path,

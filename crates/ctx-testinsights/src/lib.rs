@@ -689,9 +689,11 @@ fn visit_dir(root: &Path, dir: &Path, out: &mut Vec<WalkedFile>) -> std::io::Res
         if ty.is_symlink() {
             continue;
         }
+        // Besides directories, keep only regular files: reading a FIFO,
+        // socket or device would block the walk forever.
         if ty.is_dir() {
             visit_dir(root, &path, out)?;
-        } else {
+        } else if ty.is_file() {
             out.push(WalkedFile {
                 path: relativise(root, &path),
                 abs_path: path,
@@ -761,6 +763,30 @@ fn from_slash(path: &str) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn walk_skips_fifos() {
+        let dir = std::env::temp_dir().join(format!(
+            "ti-walk-fifo-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("a.go"), "package a\n").unwrap();
+        let status = std::process::Command::new("mkfifo")
+            .arg(dir.join("pipe_test.go"))
+            .status()
+            .expect("run mkfifo");
+        assert!(status.success(), "mkfifo failed");
+
+        let paths: Vec<String> = walk(&dir).unwrap().into_iter().map(|f| f.path).collect();
+        let _ = fs::remove_dir_all(&dir);
+        assert_eq!(paths, vec!["a.go".to_string()]);
+    }
 
     /// Top-level-only symbol extraction: function parameters, locals, and
     /// short-var-decls must NOT leak into the symbol set. Mirrors go/ast's
