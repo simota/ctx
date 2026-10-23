@@ -684,7 +684,7 @@ impl GitStatusMap {
         }
 
         Self {
-            by_path: parse_git_status_map(&output.stdout),
+            by_path: parse_git_status_map(&output.stdout, &git_root_prefix(root)),
         }
     }
 
@@ -755,7 +755,28 @@ pub(crate) fn normalize_git_status(status: &str) -> String {
     String::new()
 }
 
-pub(crate) fn parse_git_status_map(output: &[u8]) -> BTreeMap<String, String> {
+/// `root`'s directory inside its git work tree with a trailing `/`, or `""`
+/// at the top level (or outside git). Porcelain status names paths from the
+/// top of the work tree, while the browser names them from `root`.
+pub(crate) fn git_root_prefix(root: &str) -> String {
+    Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["rev-parse", "--show-prefix"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| {
+            String::from_utf8_lossy(&output.stdout)
+                .trim_end_matches('\n')
+                .to_string()
+        })
+        .unwrap_or_default()
+}
+
+/// Status codes keyed by root-relative path; records outside `prefix` (see
+/// [`git_root_prefix`]) are dropped.
+pub(crate) fn parse_git_status_map(output: &[u8], prefix: &str) -> BTreeMap<String, String> {
     let mut by_path = BTreeMap::new();
     let mut fields = output.split(|byte| *byte == 0);
 
@@ -769,9 +790,11 @@ pub(crate) fn parse_git_status_map(output: &[u8]) -> BTreeMap<String, String> {
 
         let status = std::str::from_utf8(&record[..2]).unwrap_or("");
         let code = normalize_git_status(status);
-        let path = &record[3..];
-        if !code.is_empty() && !path.is_empty() {
-            by_path.insert(String::from_utf8_lossy(path).into_owned(), code);
+        let path = String::from_utf8_lossy(&record[3..]);
+        if let Some(rel) = path.strip_prefix(prefix).filter(|rel| !rel.is_empty()) {
+            if !code.is_empty() {
+                by_path.insert(rel.to_string(), code);
+            }
         }
 
         // Porcelain v1 -z writes rename/copy destinations first, followed by
@@ -866,9 +889,23 @@ mod tests {
     }
 
     #[test]
+    fn git_status_z_parser_names_paths_from_a_subdirectory_root() {
+        let raw = b" M web/src/app.ts\0?? web/new/\0 M README.md\0?? webby.txt\0";
+        let status = parse_git_status_map(raw, "web/");
+
+        assert_eq!(
+            status.into_iter().collect::<Vec<_>>(),
+            vec![
+                ("new/".to_string(), "?".to_string()),
+                ("src/app.ts".to_string(), "M".to_string()),
+            ]
+        );
+    }
+
+    #[test]
     fn git_status_z_parser_preserves_special_paths_and_rename_target() {
         let raw = b"?? notes/a b.md\0 M literal\\name.rs\0R  dst -> literal.rs\0src old.rs\0";
-        let status = parse_git_status_map(raw);
+        let status = parse_git_status_map(raw, "");
 
         assert_eq!(status.get("notes/a b.md").map(String::as_str), Some("?"));
         assert_eq!(
