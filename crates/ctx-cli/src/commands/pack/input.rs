@@ -211,7 +211,8 @@ pub(crate) fn collect_pack_inputs(
     // result order is irrelevant — the `sort_by(path)` below restores the exact
     // deterministic order, keeping byte-parity with the sequential version.
     let mut candidates = Vec::new();
-    collect_pack_input_paths(root, path, ignore, &mut candidates)?;
+    let canonical_root = crate::common::canonical_walk_root(root);
+    collect_pack_input_paths(root, &canonical_root, path, ignore, &mut candidates)?;
     let collected: Vec<ctx_pack::FileInput> = candidates
         .par_iter()
         .filter_map(|path| build_pack_input(root, path, ignore))
@@ -223,9 +224,12 @@ pub(crate) fn collect_pack_inputs(
 
 /// Enumerate candidate file paths under `path`, applying the same directory
 /// pruning the original walk did. File-level ignore / read / UTF-8 filtering is
-/// deferred to [`build_pack_input`] so it can run in parallel.
+/// deferred to [`build_pack_input`] so it can run in parallel. Entries are
+/// classified by [`crate::common::walk_entry_kind`], so symlinks leaving
+/// `canonical_root` and special files never reach the reader.
 fn collect_pack_input_paths(
     root: &Path,
+    canonical_root: &Path,
     path: &Path,
     ignore: &PackIgnore,
     out: &mut Vec<PathBuf>,
@@ -245,17 +249,18 @@ fn collect_pack_input_paths(
         ) {
             continue;
         }
-        // symlink_metadata (NOT is_dir, which follows links): a symlinked dir
-        // is never recursed into, so cyclic links cannot loop. Consistent
-        // with tree/json.rs.
-        let meta = std::fs::symlink_metadata(&path).map_err(|err| err.to_string())?;
-        if meta.is_dir() {
-            if ignore.is_ignored(root, &path, true) {
-                continue;
+        // file_type does not follow links: a symlinked dir is never recursed
+        // into, so cyclic links cannot loop. Consistent with tree/json.rs.
+        let file_type = entry.file_type().map_err(|err| err.to_string())?;
+        match crate::common::walk_entry_kind(canonical_root, &path, file_type) {
+            crate::common::WalkEntryKind::Dir => {
+                if ignore.is_ignored(root, &path, true) {
+                    continue;
+                }
+                collect_pack_input_paths(root, canonical_root, &path, ignore, out)?;
             }
-            collect_pack_input_paths(root, &path, ignore, out)?;
-        } else {
-            out.push(path);
+            crate::common::WalkEntryKind::File => out.push(path),
+            crate::common::WalkEntryKind::Skip => {}
         }
     }
     Ok(())
@@ -363,5 +368,44 @@ pub(crate) fn clean_pack_input_path(raw: &str) -> String {
         String::new()
     } else {
         cleaned
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use crate::common::test_support::{finishes_within, TempDir};
+
+    fn walk(root: &Path) -> Vec<String> {
+        let root = root.to_path_buf();
+        finishes_within(30, move || {
+            let ignore = PackIgnore::load(&root, &[], true);
+            let mut inputs = Vec::new();
+            collect_pack_inputs(&root, &root, &ignore, &mut inputs).unwrap();
+            inputs.into_iter().map(|input| input.path).collect()
+        })
+    }
+
+    #[test]
+    fn pack_walk_keeps_in_root_links_and_skips_links_leaving_root() {
+        let outside = TempDir::new("pack-walk-outside");
+        outside.write("secret.txt", "OUTSIDE_SECRET=1\n");
+        let fx = TempDir::new("pack-walk-links");
+        fx.write("src/main.rs", "fn main() {}\n");
+        fx.symlink("main.rs", "src/alias.rs");
+        fx.symlink(outside.0.join("secret.txt"), "leak.rs");
+        fx.symlink(".", "loop");
+
+        assert_eq!(walk(&fx.0), vec!["src/alias.rs", "src/main.rs"]);
+    }
+
+    #[test]
+    fn pack_walk_skips_fifos() {
+        let fx = TempDir::new("pack-walk-fifo");
+        fx.write("main.rs", "fn main() {}\n");
+        fx.mkfifo("pipe");
+        fx.symlink("pipe", "pipe-link");
+
+        assert_eq!(walk(&fx.0), vec!["main.rs"]);
     }
 }

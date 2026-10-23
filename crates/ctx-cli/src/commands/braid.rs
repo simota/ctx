@@ -266,8 +266,14 @@ pub(crate) fn braid_build_pack_files(
     merged: &[ctx_braid::MergedFile],
 ) -> Result<Vec<NativePackFile>, String> {
     let mut pack_files = Vec::with_capacity(merged.len());
+    let canonical_root = canonical_walk_root(root);
     for mf in merged {
         let abs = root.join(&mf.path);
+        // Strand paths can come from git history (digest), which may name a
+        // committed symlink to a file outside the repository.
+        if !resolves_to_file_in(&canonical_root, &abs) {
+            continue;
+        }
         let content = match std::fs::read_to_string(&abs) {
             Ok(s) => s,
             Err(_) => continue, // skip files that cannot be read (mirrors Go byPath lookup failure)
@@ -827,4 +833,31 @@ pub(crate) fn is_braid_validation_error(err: &str) -> bool {
             || err.contains("unknown policy")
             || err.contains("is required")
             || err.starts_with("braid: at least one"))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use crate::common::test_support::TempDir;
+
+    #[test]
+    fn braid_pack_files_skip_links_leaving_root() {
+        let outside = TempDir::new("braid-outside");
+        outside.write("secret.txt", "OUTSIDE_SECRET=1\n");
+        let fx = TempDir::new("braid-links");
+        fx.write("main.rs", "fn main() {}\n");
+        fx.symlink("main.rs", "alias.rs");
+        fx.symlink(outside.0.join("secret.txt"), "leak.rs");
+
+        let merged: Vec<ctx_braid::MergedFile> = ["leak.rs", "main.rs", "alias.rs", "../escape.rs"]
+            .into_iter()
+            .map(|path| ctx_braid::MergedFile {
+                path: path.to_string(),
+                origin: "hot".to_string(),
+            })
+            .collect();
+        let files = braid_build_pack_files(&fx.0, &merged).unwrap();
+        let paths: Vec<&str> = files.iter().map(|file| file.path.as_str()).collect();
+        assert_eq!(paths, vec!["main.rs", "alias.rs"]);
+    }
 }

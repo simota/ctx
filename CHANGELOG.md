@@ -39,8 +39,25 @@ and this project does not yet follow strict semver — see release notes per tag
 - `ctx browse`: `/api/dir` resolves the README preview through the root jail,
   so a `README.md` symlink to a file outside the served root is no longer
   returned in `readme`; in-root symlinked READMEs are still shown.
+- `ctx pack` (including `--why`, `--from-stdin`, `--from-mix`) and `ctx braid`
+  no longer emit the contents of a symlinked file whose target is outside the
+  repository root, so a repository containing `notes.rs -> ~/.ssh/id_rsa`
+  (or, for `braid`, such a link committed and picked up by a `digest` strand)
+  cannot leak that file into the bundle. In-root symlinked files are still
+  packed. `ctx where` and the commands built on its walk (`focus`, `braid`,
+  `noise`, `onboarding`, `map`, `log`) drop such links the same way.
 
 ### Fixed
+- `ctx where` (and `focus`, `braid`, `noise`, `onboarding`, `map`, `log`) no
+  longer descends into symlinked directories: a `loop -> .` link produced
+  `loop/loop/…/file` duplicates up to the ELOOP depth, and two such links made
+  the walk exponential. Behaviour change: in-root symlinked directories (e.g.
+  linked monorepo packages) are now omitted, as in the `ctx pack` and MCP
+  walkers.
+- `ctx pack`, `ctx where` (and the commands above), the default tree view and
+  `--json` no longer hang on a FIFO, socket or device file in the tree (or a
+  link to one): pack/where walkers skip them, and the tree lists them with a
+  size-based token estimate instead of reading them.
 - `ctx browse`: `/api/dir` and `/api/tree` no longer read through FIFOs,
   devices or (for `/api/dir`) symlinks when counting lines and tokens, and the
   README preview reads at most 64 KiB of a regular file; a `README` FIFO or a

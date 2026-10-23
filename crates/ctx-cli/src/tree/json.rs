@@ -231,17 +231,29 @@ pub(crate) fn build_json_tree_node(
         }));
     }
 
-    // File node.
+    // File node. Only regular files (or links to one) are read: opening a
+    // FIFO or device would block the walk, so those get the same fallback as
+    // an unreadable file (no stats, size-based token estimate, no symbols).
     let size = meta.len() as i64;
-    let (lines, chars) = count_text_stats(path);
+    let readable = std::fs::metadata(path).is_ok_and(|target| target.is_file());
+    let (lines, chars) = if readable {
+        count_text_stats(path)
+    } else {
+        (0, 0)
+    };
     let role = infer_json_role(&rel);
-    let tokens = match ctx_tokens::count_file(&path.to_string_lossy()) {
-        Ok(n) => n,
-        Err(_) => ctx_tokens::estimate_by_size(size),
+    let tokens = match readable
+        .then(|| ctx_tokens::count_file(&path.to_string_lossy()))
+        .and_then(Result::ok)
+    {
+        Some(n) => n,
+        None => ctx_tokens::estimate_by_size(size),
     };
     // Display.Symbols defaults to true and --symbols is not explicitly set, so
     // Go runs symbol extraction and embeds the result (rendered via JSONTree).
-    let symbols = ctx_symbols::extract(path)
+    let symbols = readable
+        .then(|| ctx_symbols::extract(path).ok())
+        .flatten()
         .map(|syms| {
             syms.into_iter()
                 .map(|s| SymbolsJsonEntry {
@@ -358,4 +370,28 @@ pub(crate) fn json_is_config_file(base: &str, ext: &str) -> bool {
 
 pub(crate) fn json_is_core_extension(ext: &str) -> bool {
     matches!(ext, ".ts" | ".tsx" | ".js" | ".go" | ".py" | ".rs")
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use crate::common::test_support::{finishes_within, TempDir};
+
+    #[test]
+    fn file_node_does_not_read_through_fifos() {
+        let fx = TempDir::new("tree-fifo");
+        fx.mkfifo("pipe");
+        fx.symlink("pipe", "pipe-link");
+
+        for rel in ["pipe", "pipe-link"] {
+            let root = fx.0.clone();
+            let node = finishes_within(30, move || {
+                build_json_tree_node(&root, &root.join(rel), 1, &TreeBuildOpts::default())
+                    .unwrap()
+                    .expect("special files are still listed")
+            });
+            assert_eq!(node.metadata.lines, 0);
+            assert!(node.metadata.symbols.is_empty());
+        }
+    }
 }

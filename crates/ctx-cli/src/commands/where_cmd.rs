@@ -264,7 +264,8 @@ pub(crate) fn where_files_with(
     // irrelevant — the `sort_by(path)` below restores the deterministic order,
     // keeping byte-parity with the sequential walk.
     let mut candidates = Vec::new();
-    collect_where_paths(root, root, &ignore, &mut candidates)?;
+    let canonical_root = crate::common::canonical_walk_root(root);
+    collect_where_paths(root, &canonical_root, root, &ignore, &mut candidates)?;
     let mut out: Vec<ctx_where::FileInput> = candidates
         .par_iter()
         .filter_map(|path| build_where_input(root, path))
@@ -277,8 +278,12 @@ pub(crate) fn where_files_with(
 /// the same rules the sequential walk did (a matching directory prunes the
 /// whole subtree; a matching file is skipped). The per-file read + symbol
 /// extraction is deferred to [`build_where_input`] so it can run in parallel.
+/// Symlinked directories are not descended into and symlinked files are kept
+/// only when they resolve inside `canonical_root` (see
+/// [`crate::common::walk_entry_kind`]); special files are skipped.
 pub(crate) fn collect_where_paths(
     root: &Path,
+    canonical_root: &Path,
     dir: &Path,
     ignore: &WalkIgnore,
     out: &mut Vec<PathBuf>,
@@ -291,7 +296,15 @@ pub(crate) fn collect_where_paths(
             .map_err(|err| err.to_string())?
             .to_string_lossy()
             .replace('\\', "/");
-        let is_dir = path.is_dir();
+        let kind = crate::common::walk_entry_kind(
+            canonical_root,
+            &path,
+            entry.file_type().map_err(|err| err.to_string())?,
+        );
+        if kind == crate::common::WalkEntryKind::Skip {
+            continue;
+        }
+        let is_dir = kind == crate::common::WalkEntryKind::Dir;
         // Go walk.visit: a matching directory prunes the whole subtree; a
         // matching file is skipped. Note dir-only patterns like "dist/" no
         // longer skip plain FILES named "dist" (the old hardcoded check did —
@@ -300,7 +313,7 @@ pub(crate) fn collect_where_paths(
             continue;
         }
         if is_dir {
-            collect_where_paths(root, &path, ignore, out)?;
+            collect_where_paths(root, canonical_root, &path, ignore, out)?;
             continue;
         }
         out.push(path);
@@ -855,5 +868,40 @@ mod tests {
 
         let files = where_files(&fx.0).unwrap();
         assert_eq!(paths(&files), vec![".gitignore", "keep.gen.ts"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn where_files_skips_symlink_cycles_and_links_leaving_root() {
+        use crate::common::test_support::{finishes_within, TempDir};
+
+        let outside = TempDir::new("where-walk-outside");
+        outside.write("secret.rs", "fn outside_secret() {}\n");
+        let fx = TempDir::new("where-walk-links");
+        fx.write("src/main.rs", "fn main() {}\n");
+        fx.symlink("main.rs", "src/alias.rs");
+        fx.symlink(outside.0.join("secret.rs"), "leak.rs");
+        // Two self-links made the old path.is_dir() walk exponential.
+        fx.symlink(".", "a");
+        fx.symlink(".", "b");
+
+        let root = fx.0.clone();
+        let files = finishes_within(30, move || where_files(&root).unwrap());
+        assert_eq!(paths(&files), vec!["src/alias.rs", "src/main.rs"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn where_files_skips_fifos() {
+        use crate::common::test_support::{finishes_within, TempDir};
+
+        let fx = TempDir::new("where-walk-fifo");
+        fx.write("main.rs", "fn main() {}\n");
+        fx.mkfifo("pipe");
+        fx.symlink("pipe", "pipe-link");
+
+        let root = fx.0.clone();
+        let files = finishes_within(30, move || where_files(&root).unwrap());
+        assert_eq!(paths(&files), vec!["main.rs"]);
     }
 }
