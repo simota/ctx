@@ -277,6 +277,42 @@ fn render_ascii_header_and_labels() {
     assert!(!out.contains("Legend:"));
 }
 
+#[test]
+fn render_ascii_clips_non_ascii_labels_on_char_boundaries() {
+    let buckets = vec![
+        Bucket {
+            path: "ドキュメント日本語フォルダ".into(),
+            weight: 60.0,
+            tokens: 6000,
+            files: 11,
+            symbols: 31,
+            churn: 0,
+        },
+        Bucket {
+            path: "b".into(),
+            weight: 40.0,
+            tokens: 4000,
+            files: 4,
+            symbols: 12,
+            churn: 0,
+        },
+    ];
+    for width in 20..40 {
+        let rects = squarify(&buckets, width, 10);
+        let out = render_ascii(
+            &rects,
+            &AsciiOptions {
+                width,
+                height: 10,
+                by: "tokens".into(),
+                root: ".".into(),
+                budget: 0,
+            },
+        );
+        assert!(out.contains("ドキュ"), "width {width}: {out}");
+    }
+}
+
 // ----- mirrors TestRenderASCII_BudgetLegendAndOver ------------------------
 
 #[test]
