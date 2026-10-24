@@ -53,6 +53,36 @@ and this project does not yet follow strict semver — see release notes per tag
   drop such links the same way.
 
 ### Fixed
+- `ctx where` / `noise` / `braid` / `focus` / `log` and the `ctx browse` tree: a root
+  `.gitignore` or `.ctxignore` that is not valid UTF-8 (e.g. a Shift_JIS
+  comment) no longer fails the walk with "stream did not contain valid
+  UTF-8" (CLI) or silently drops every ignore rule (browse). As in the Go
+  `go-gitignore` library, only the undecodable lines are dropped.
+- `ctx pack`: a `.ctxignore` containing a non-UTF-8 line no longer discards
+  all of its patterns, which let files it excludes (e.g. `secrets/`) into the
+  pack; only the undecodable lines are skipped.
+- `ctx browse`, `ctx tree --json`, `ctx-mcp` and every other `ctx-symbols`
+  caller: symbol extraction walks the syntax tree iteratively, so a deeply
+  nested (generated or minified) source file no longer overflows the stack
+  and aborts the whole process. Symbol order is unchanged.
+- `ctx-tui` pack (`p`): a text file with a non-UTF-8 byte after its first
+  512 bytes is skipped, as in `ctx pack`, instead of failing the whole pack.
+- `ctx pack --from-where`: the `null` that `ctx where --format json` prints
+  when nothing matches is now the "got 0 paths" error instead of a lookup
+  for (and, if present, a pack of) a file named `null`; a non-UTF-8 line in
+  a newline path list now skips only that line instead of reporting 0 paths.
+- `ctx contract verify`: a reference to `package.json`, `*.tsx` or `*.jsx`
+  is no longer read as `package.js` / `*.ts` / `*.js` (losing any `:L10-L12`
+  range), which reported in-contract files as out-of-context violations.
+  This intentionally diverges from the frozen Go oracle, which shares the bug.
+- `ctx contract verify` / `ctx browse` evidence: a pack whose file content
+  contains the `<!-- ctx:contract v1` marker (e.g. a pack of
+  `crates/ctx-contract`) now reads the appended contract block instead of
+  failing with "no contract", and `strip_contract_block` removes only that
+  block rather than also cutting the matching span out of the file content.
+- `ctx focus`: a path anchor spelled `./internal/x.go`, `internal/./x.go` or
+  `internal/y/../x.go` now resolves like `internal/x.go`, as Go's
+  `filepath.Clean` did, instead of "anchor not found".
 - `ctx pack <subdir>`: `--since` / `--until` no longer drop every tracked
   file, `--changed` no longer packs nothing, and `--diff` no longer lists
   changes outside the root with empty patches. Git names these paths from

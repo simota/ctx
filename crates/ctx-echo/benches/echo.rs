@@ -21,8 +21,9 @@ use ctx_echo::types::Options;
 fn bench_inputs_root() -> PathBuf {
     let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     loop {
-        if dir.join("go.mod").exists() {
-            return dir.join("tests").join("echo-fixtures");
+        let target = dir.join("tests").join("echo-fixtures");
+        if target.is_dir() {
+            return target;
         }
         if !dir.pop() {
             panic!("repo root not found above {}", env!("CARGO_MANIFEST_DIR"));

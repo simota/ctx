@@ -18,10 +18,15 @@ pub const SUPPORTED_EXTS: &[&str] = &[
 ];
 
 fn ext_alternation() -> String {
-    let parts: Vec<String> = SUPPORTED_EXTS
+    // Longest first: alternation is leftmost-first (in Go's RE2 too), so in
+    // list order `ts` beat `tsx` and `js` beat `jsx`/`json`, cutting
+    // `package.json` to `package.js`. This intentionally diverges from Go.
+    let mut exts: Vec<&str> = SUPPORTED_EXTS
         .iter()
-        .map(|e| regex::escape(e.trim_start_matches('.')))
+        .map(|e| e.trim_start_matches('.'))
         .collect();
+    exts.sort_by_key(|e| std::cmp::Reverse(e.len()));
+    let parts: Vec<String> = exts.into_iter().map(regex::escape).collect();
     format!("(?i:{})", parts.join("|"))
 }
 
@@ -234,6 +239,23 @@ mod tests {
         assert_eq!(refs[0].kind, "line-range");
         assert_eq!(refs[0].line_start, 10);
         assert_eq!(refs[0].line_end, 20);
+    }
+
+    #[test]
+    fn keeps_the_full_extension_when_a_shorter_one_is_a_prefix() {
+        let refs = extract_references(b"Edit package.json, a/b.jsx and src/App.tsx:L10-L12 now\n");
+        let got: Vec<_> = refs
+            .iter()
+            .map(|r| (r.kind.as_str(), r.path.as_str(), r.line_start, r.line_end))
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                ("file", "package.json", 0, 0),
+                ("file", "a/b.jsx", 0, 0),
+                ("line-range", "src/App.tsx", 10, 12),
+            ]
+        );
     }
 
     #[test]

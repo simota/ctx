@@ -197,3 +197,34 @@ fn regression_lookup_unknown_kind_passes_through_lowercased() {
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].path, "a.go");
 }
+
+// A deeply nested (e.g. generated or minified) file must not overflow the
+// stack: a stack overflow aborts the process, so one such file used to take
+// down `ctx browse` (whose handlers extract on 2 MiB tokio worker threads).
+#[test]
+fn regression_extract_survives_deep_nesting_on_a_small_stack() {
+    let dir = std::env::temp_dir().join(format!("ctx-symbols-deep-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("deep.js");
+    let depth = 20_000;
+    let source = format!(
+        "function before() {{}}\nconst x = {}1{};\nfunction after() {{}}\n",
+        "[".repeat(depth),
+        "]".repeat(depth)
+    );
+    std::fs::write(&path, source).unwrap();
+
+    let symbols = std::thread::Builder::new()
+        .stack_size(2 * 1024 * 1024)
+        .spawn({
+            let path = path.clone();
+            move || ctx_symbols::extract(&path).unwrap()
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+    std::fs::remove_dir_all(&dir).unwrap();
+
+    let names: Vec<_> = symbols.iter().map(|s| (s.name.as_str(), s.line)).collect();
+    assert_eq!(names, vec![("before", 1), ("after", 3)]);
+}

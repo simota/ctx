@@ -87,7 +87,32 @@ pub fn parse_from_pack(pack_body: &[u8]) -> Option<Contract> {
     if let Some(c) = parse_from_json_pack(pack_body) {
         return Some(c);
     }
-    let caps = CONTRACT_BLOCK_RE.captures(pack_body)?;
+    last_contract_block(pack_body).map(|(c, _)| c)
+}
+
+/// Finds the embedded block the pack writer appended: the LAST block that
+/// parses, with its byte span. Packed file content can itself contain a
+/// marker (e.g. this crate's `MD_OPEN` constant); taking the first match
+/// would read that span instead and never see the real block. Each marker
+/// position is tried from the end, so an unclosed marker earlier in the
+/// content cannot swallow the real block either.
+fn last_contract_block(pack_body: &[u8]) -> Option<(Contract, std::ops::Range<usize>)> {
+    let starts = (0..pack_body.len()).filter(|&i| {
+        let rest = &pack_body[i..];
+        rest.starts_with(MD_OPEN.as_bytes()) || rest.starts_with(PLAIN_HEADER.as_bytes())
+    });
+    let starts: Vec<usize> = starts.collect();
+    starts.into_iter().rev().find_map(|pos| {
+        let caps = CONTRACT_BLOCK_RE.captures_at(pack_body, pos)?;
+        let whole = caps.get(0)?;
+        if whole.start() != pos {
+            return None;
+        }
+        contract_from_caps(&caps).map(|c| (c, whole.range()))
+    })
+}
+
+fn contract_from_caps(caps: &regex::bytes::Captures<'_>) -> Option<Contract> {
     // Group 1 = HTML-comment body, group 2 = plain header body.
     let raw: &[u8] = if let Some(m) = caps.get(1).filter(|m| !m.as_bytes().is_empty()) {
         m.as_bytes()
@@ -137,8 +162,15 @@ fn parse_from_json_pack(pack_body: &[u8]) -> Option<Contract> {
 /// Returns `pack_body` with the embedded contract section removed.
 /// Idempotent when no block is present.
 pub fn strip_contract_block(pack_body: &[u8]) -> Vec<u8> {
-    let stripped = CONTRACT_BLOCK_RE.replace_all(pack_body, &b""[..]);
-    let mut out = stripped.into_owned();
+    // Remove only the block `parse_from_pack` reads, so a marker inside
+    // packed file content survives; without a parseable block, strip every
+    // marker span as before.
+    let mut out = match last_contract_block(pack_body) {
+        Some((_, span)) => [&pack_body[..span.start], &pack_body[span.end..]].concat(),
+        None => CONTRACT_BLOCK_RE
+            .replace_all(pack_body, &b""[..])
+            .into_owned(),
+    };
     while out.last() == Some(&b'\n') {
         out.pop();
     }
@@ -202,6 +234,34 @@ mod tests {
         let patched = embed_json_patch(br#"{"pack":"placeholder"}"#, &c).unwrap();
         let parsed = parse_from_pack(&patched).unwrap();
         assert_eq!(parsed.schema_version, c.schema_version);
+    }
+
+    // A pack of this very file contains the marker in its content; the
+    // appended block must still be the one parsed and stripped.
+    #[test]
+    fn marker_inside_packed_content_does_not_hide_the_real_block() {
+        let content: &[u8] = b"### embed.rs\n\n```rust\nconst MD_OPEN: &str = \"<!-- ctx:contract v1\";\nconst MD_CLOSE: &str = \"-->\";\n```\n";
+        let c = fixture_contract();
+        for unclosed in [false, true] {
+            let mut buf = if unclosed {
+                b"note: <!-- ctx:contract v1 is the marker\n".to_vec()
+            } else {
+                content.to_vec()
+            };
+            embed_markdown(&mut buf, &c).unwrap();
+            let parsed = parse_from_pack(&buf).expect("real block parsed");
+            assert_eq!(parsed.files[0].path, "a.go");
+            let stripped = strip_contract_block(&buf);
+            let expected = if unclosed {
+                &b"note: <!-- ctx:contract v1 is the marker"[..]
+            } else {
+                content.strip_suffix(b"\n").unwrap()
+            };
+            assert_eq!(
+                String::from_utf8_lossy(&stripped),
+                String::from_utf8_lossy(expected)
+            );
+        }
     }
 
     #[test]

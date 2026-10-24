@@ -826,6 +826,26 @@ mod tests {
     }
 
     #[test]
+    fn where_files_tolerates_non_utf8_ignore_files() {
+        // A Shift_JIS comment in .gitignore / .ctxignore must not abort the
+        // walk; Go drops only the undecodable line and applies the rest.
+        let fx = TempFixture::new("gitignore-sjis");
+        std::fs::write(
+            fx.0.join(".gitignore"),
+            b"# \x83R\x83\x81\x83\x93\x83g\n*.log\n",
+        )
+        .unwrap();
+        std::fs::write(fx.0.join(".ctxignore"), b"# \x83R\x83\x81\n/gen/\n").unwrap();
+        fx.write("src/main.rs", "fn main() {}\n");
+        fx.write("debug.log", "noise\n");
+        fx.write("gen/out.rs", "fn generated() {}\n");
+
+        let files = where_files(&fx.0).unwrap();
+        // The ignore files themselves are skipped as binary (non-UTF-8).
+        assert_eq!(paths(&files), vec!["src/main.rs"]);
+    }
+
+    #[test]
     fn where_files_includes_file_named_dist() {
         // Go's "dist/" ExtraIgnore pattern is dir-only: a plain FILE named
         // "dist" must be included (the old hardcoded name check skipped it).

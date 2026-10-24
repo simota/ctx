@@ -216,31 +216,37 @@ pub fn extract(path: impl AsRef<Path>) -> std::io::Result<Vec<Symbol>> {
 /// `name_fallback` is set — the first identifier-typed named child), dedups by
 /// `kind\x00name`, and emits a Symbol with 1-indexed line.
 fn walk_node(
-    node: Node,
+    root: Node,
     source: &[u8],
     kinds: &[(&str, &str)],
     name_fallback: bool,
     out: &mut Vec<Symbol>,
     seen: &mut HashSet<String>,
 ) {
-    if let Some(kind) = kind_for(kinds, node.kind()) {
-        if let Some(name) = symbol_name(node, source, name_fallback) {
-            let key = format!("{kind}\x00{name}");
-            if seen.insert(key) {
-                out.push(Symbol {
-                    name,
-                    kind: kind.to_string(),
-                    line: node.start_position().row as i32 + 1,
-                });
+    // Explicit stack instead of recursion: a deeply nested (generated or
+    // minified) file would otherwise overflow the thread stack and abort the
+    // process. Children are pushed in reverse so they pop in original order,
+    // keeping Go's NamedChild DFS pre-order
+    // (`for i := 0; i < NamedChildCount; i++ { walkNode(NamedChild(i)) }`).
+    let mut stack = vec![root];
+    while let Some(node) = stack.pop() {
+        if let Some(kind) = kind_for(kinds, node.kind()) {
+            if let Some(name) = symbol_name(node, source, name_fallback) {
+                let key = format!("{kind}\x00{name}");
+                if seen.insert(key) {
+                    out.push(Symbol {
+                        name,
+                        kind: kind.to_string(),
+                        line: node.start_position().row as i32 + 1,
+                    });
+                }
             }
         }
-    }
-    // NamedChild iteration in original order (DFS pre-order), matching Go's
-    // `for i := 0; i < NamedChildCount; i++ { walkNode(NamedChild(i)) }`.
-    let count = node.named_child_count();
-    for i in 0..count {
-        if let Some(child) = node.named_child(i) {
-            walk_node(child, source, kinds, name_fallback, out, seen);
+        let count = node.named_child_count();
+        for i in (0..count).rev() {
+            if let Some(child) = node.named_child(i) {
+                stack.push(child);
+            }
         }
     }
 }
