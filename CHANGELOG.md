@@ -53,6 +53,14 @@ and this project does not yet follow strict semver — see release notes per tag
   drop such links the same way.
 
 ### Fixed
+- `ctx where` / `noise` / `braid` / `focus` / `log` and the `ctx browse` tree: a root
+  `.gitignore` or `.ctxignore` that is not valid UTF-8 (e.g. a Shift_JIS
+  comment) no longer fails the walk with "stream did not contain valid
+  UTF-8" (CLI) or silently drops every ignore rule (browse). As in the Go
+  `go-gitignore` library, only the undecodable lines are dropped.
+- `ctx pack`: a `.ctxignore` containing a non-UTF-8 line no longer discards
+  all of its patterns, which let files it excludes (e.g. `secrets/`) into the
+  pack; only the undecodable lines are skipped.
 - `ctx pack <subdir>`: `--since` / `--until` no longer drop every tracked
   file, `--changed` no longer packs nothing, and `--diff` no longer lists
   changes outside the root with empty patches. Git names these paths from

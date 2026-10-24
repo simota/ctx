@@ -17,8 +17,13 @@ impl PackIgnore {
         patterns.extend(extra.iter().cloned());
         if respect_ctxignore {
             let ctxignore = root.join(".ctxignore");
-            if let Ok(body) = std::fs::read_to_string(ctxignore) {
-                for line in body.lines() {
+            // Read bytes: a non-UTF-8 line (e.g. a Shift_JIS comment) drops
+            // only that line instead of silently discarding every pattern.
+            if let Ok(body) = std::fs::read(ctxignore) {
+                for line in body.split(|&b| b == b'\n') {
+                    let Ok(line) = std::str::from_utf8(line) else {
+                        continue;
+                    };
                     let trimmed = line.trim();
                     if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with('!') {
                         continue;

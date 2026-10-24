@@ -434,6 +434,17 @@ mod tests {
     }
 
     #[test]
+    fn pack_walk_applies_ctxignore_with_a_non_utf8_line() {
+        let fx = TempDir::new("pack-walk-ctxignore-sjis");
+        std::fs::write(fx.0.join(".ctxignore"), b"# \x83R\x83\x81\r\nsecrets/\r\n").unwrap();
+        fx.write("main.rs", "fn main() {}\n");
+        fx.write("secrets/key.txt", "API_KEY=1\n");
+
+        // .ctxignore itself is skipped as binary (non-UTF-8 content).
+        assert_eq!(walk(&fx.0), vec!["main.rs"]);
+    }
+
+    #[test]
     fn pack_walk_skips_fifos() {
         let fx = TempDir::new("pack-walk-fifo");
         fx.write("main.rs", "fn main() {}\n");

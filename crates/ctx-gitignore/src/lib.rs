@@ -109,6 +109,21 @@ fn get_pattern_from_line(line: &str) -> Option<(Regex, bool)> {
     Regex::new(&expr).ok().map(|re| (re, negate))
 }
 
+/// Reads an ignore file as raw bytes. Go reads it with `ioutil.ReadFile` and
+/// never validates the encoding, so a file that is not valid UTF-8 (e.g. a
+/// Shift_JIS or Latin-1 comment) must not fail the whole walk.
+fn read_ignore_file(path: &Path) -> Result<Vec<u8>, String> {
+    std::fs::read(path).map_err(|err| format!("read {}: {err}", path.display()))
+}
+
+/// Splits on `\n` like Go's `strings.Split`, dropping any line that is not
+/// valid UTF-8: Go's `regexp.Compile` rejects such a pattern and the library
+/// drops the line, so the remaining lines still apply.
+fn utf8_lines(body: &[u8]) -> impl Iterator<Item = &str> {
+    body.split(|&b| b == b'\n')
+        .filter_map(|line| std::str::from_utf8(line).ok())
+}
+
 impl GitIgnore {
     /// Port of Go's `CompileIgnoreLines`.
     pub fn from_lines<I, S>(lines: I) -> Self
@@ -127,18 +142,16 @@ impl GitIgnore {
 
     /// Port of Go's `CompileIgnoreFile`.
     pub fn from_file(path: &Path) -> Result<Self, String> {
-        let body = std::fs::read_to_string(path)
-            .map_err(|err| format!("read {}: {err}", path.display()))?;
-        Ok(Self::from_lines(body.split('\n')))
+        let body = read_ignore_file(path)?;
+        Ok(Self::from_lines(utf8_lines(&body)))
     }
 
     /// Port of Go's `CompileIgnoreFileAndLines`: file content first, then the
     /// extra lines (order matters for negation precedence).
     pub fn from_file_and_lines(path: &Path, lines: &[String]) -> Result<Self, String> {
-        let body = std::fs::read_to_string(path)
-            .map_err(|err| format!("read {}: {err}", path.display()))?;
+        let body = read_ignore_file(path)?;
         Ok(Self::from_lines(
-            body.split('\n').chain(lines.iter().map(String::as_str)),
+            utf8_lines(&body).chain(lines.iter().map(String::as_str)),
         ))
     }
 
@@ -344,6 +357,29 @@ mod tests {
         assert!(!object.matches_path("dist"));
         assert!(object.matches_path("dist/"));
         assert!(object.matches_path("dist/app.js"));
+    }
+
+    // Go reads ignore files as bytes: a line that is not valid UTF-8 is
+    // dropped (regexp.Compile fails) and every other line still applies.
+    #[test]
+    fn non_utf8_lines_are_dropped_not_fatal() {
+        let dir = std::env::temp_dir().join(format!("ctx-gitignore-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(".gitignore");
+        std::fs::write(
+            &path,
+            b"# \x83R\x83\x81\x83\x93\x83g\nsecret.txt\nbuild/\n\x83t\x83@.txt\n",
+        )
+        .unwrap();
+        let object = GitIgnore::from_file(&path).expect("non-UTF-8 ignore file must load");
+        assert_eq!(object.patterns.len(), 2);
+        assert!(object.matches_path("secret.txt"));
+        assert!(object.matches_path("build/"));
+        assert!(!object.matches_path("keep.txt"));
+        let object = GitIgnore::from_file_and_lines(&path, &["*.log".to_string()]).unwrap();
+        assert!(object.matches_path("secret.txt"));
+        assert!(object.matches_path("a.log"));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     // Escaped star matches a literal '*'.
