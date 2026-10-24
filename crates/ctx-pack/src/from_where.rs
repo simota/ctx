@@ -52,6 +52,10 @@ pub fn parse(data: &[u8]) -> Result<Vec<String>, FromWhereError> {
     };
     if first == b'[' {
         parse_json(data)
+    } else if data.trim_ascii() == b"null" {
+        // `ctx where --format json` prints `null` when nothing matched; treat
+        // it as the empty result it is, not as a path named "null".
+        Err(FromWhereError::Empty)
     } else {
         parse_lines(data)
     }
@@ -86,13 +90,14 @@ fn parse_json(data: &[u8]) -> Result<Vec<String>, FromWhereError> {
 }
 
 fn parse_lines(data: &[u8]) -> Result<Vec<String>, FromWhereError> {
-    let s = match std::str::from_utf8(data) {
-        Ok(s) => s,
-        Err(_) => return Err(FromWhereError::Empty),
-    };
     let mut seen = std::collections::HashSet::new();
     let mut paths: Vec<String> = Vec::new();
-    for line in s.lines() {
+    // A line that is not valid UTF-8 is skipped on its own; it must not
+    // discard every other path.
+    for line in data
+        .split(|&b| b == b'\n')
+        .filter_map(|line| std::str::from_utf8(line).ok())
+    {
         let trimmed = line.trim();
         if trimmed.starts_with('#') {
             continue;
@@ -216,6 +221,20 @@ mod tests {
         let body = br#"[{"path":"/dev/null","score":0.5}]"#;
         let r = parse(body);
         assert!(matches!(r, Err(FromWhereError::Empty)));
+    }
+
+    #[test]
+    fn where_json_null_is_empty() {
+        assert_eq!(parse(b"null\n"), Err(FromWhereError::Empty));
+        assert_eq!(parse(b"  null  "), Err(FromWhereError::Empty));
+        // A real path that merely starts with "null" is still a path.
+        assert_eq!(parse(b"null.go\n").unwrap(), vec!["null.go".to_string()]);
+    }
+
+    #[test]
+    fn non_utf8_line_drops_only_that_line() {
+        let got = parse(b"src/caf\xe9.go\nsrc/ok.go\r\n").unwrap();
+        assert_eq!(got, vec!["src/ok.go".to_string()]);
     }
 
     #[test]
