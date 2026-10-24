@@ -71,6 +71,10 @@ and this project does not yet follow strict semver — see release notes per tag
   when nothing matches is now the "got 0 paths" error instead of a lookup
   for (and, if present, a pack of) a file named `null`; a non-UTF-8 line in
   a newline path list now skips only that line instead of reporting 0 paths.
+- `ctx contract verify`: a reference to `package.json`, `*.tsx` or `*.jsx`
+  is no longer read as `package.js` / `*.ts` / `*.js` (losing any `:L10-L12`
+  range), which reported in-contract files as out-of-context violations.
+  This intentionally diverges from the frozen Go oracle, which shares the bug.
 - `ctx pack <subdir>`: `--since` / `--until` no longer drop every tracked
   file, `--changed` no longer packs nothing, and `--diff` no longer lists
   changes outside the root with empty patches. Git names these paths from
