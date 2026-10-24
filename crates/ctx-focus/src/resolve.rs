@@ -129,25 +129,34 @@ fn to_slash(s: &str) -> String {
     s.replace('\\', "/")
 }
 
-/// clean_path is a minimal filepath.Clean+ToSlash replacement covering
-/// the cases focus actually encounters (single-segment paths, repo-rel).
+/// clean_path mirrors Go's `filepath.ToSlash(filepath.Clean(raw))`: it
+/// collapses repeated slashes, drops `.` segments and resolves `..`
+/// lexically, so `./internal/x.go` and `internal/y/../x.go` find
+/// `internal/x.go`.
 fn clean_path(raw: &str) -> String {
     let slashy = raw.replace('\\', "/");
-    // Collapse runs of '/' and drop trailing slash (matches filepath.Clean
-    // behaviour for the test inputs we accept).
-    let mut out = String::with_capacity(slashy.len());
-    let mut prev = '\0';
-    for c in slashy.chars() {
-        if c == '/' && prev == '/' {
-            continue;
+    let rooted = slashy.starts_with('/');
+    let mut parts: Vec<&str> = Vec::new();
+    for segment in slashy.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => match parts.last() {
+                Some(&last) if last != ".." => {
+                    parts.pop();
+                }
+                // `..` at the root stays at the root.
+                _ if rooted => {}
+                _ => parts.push(".."),
+            },
+            _ => parts.push(segment),
         }
-        out.push(c);
-        prev = c;
     }
-    if out.len() > 1 && out.ends_with('/') {
-        out.pop();
+    let body = parts.join("/");
+    match (rooted, body.is_empty()) {
+        (true, _) => format!("/{body}"),
+        (false, true) => ".".to_string(),
+        (false, false) => body,
     }
-    out
 }
 
 #[cfg(test)]
@@ -202,6 +211,38 @@ mod tests {
         let files = vec![mkfile("internal/render/render.go", &[])];
         let a = resolve_anchor(&files, "internal/render/render.go").unwrap();
         assert_eq!(a.kind, AnchorKind::Path);
+    }
+
+    #[test]
+    fn resolve_path_fallback_cleans_dot_segments() {
+        let files = vec![mkfile("internal/render/render.go", &[])];
+        for raw in [
+            "./internal/render/render.go",
+            "internal/./render/render.go",
+            "internal/x/../render/render.go",
+            "internal//render/render.go",
+        ] {
+            let a = resolve_anchor(&files, raw).unwrap_or_else(|_| panic!("{raw} not found"));
+            assert_eq!(a.kind, AnchorKind::Path, "{raw}");
+            assert_eq!(a.origin_path, "internal/render/render.go");
+        }
+    }
+
+    #[test]
+    fn clean_path_matches_go_filepath_clean() {
+        for (raw, want) in [
+            ("", "."),
+            (".", "."),
+            ("a/", "a"),
+            ("/", "/"),
+            ("//a//b/", "/a/b"),
+            ("../a", "../a"),
+            ("a/../../b", "../b"),
+            ("/../a", "/a"),
+            ("a\\b", "a/b"),
+        ] {
+            assert_eq!(clean_path(raw), want, "{raw:?}");
+        }
     }
 
     #[test]

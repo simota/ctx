@@ -80,6 +80,9 @@ and this project does not yet follow strict semver — see release notes per tag
   `crates/ctx-contract`) now reads the appended contract block instead of
   failing with "no contract", and `strip_contract_block` removes only that
   block rather than also cutting the matching span out of the file content.
+- `ctx focus`: a path anchor spelled `./internal/x.go`, `internal/./x.go` or
+  `internal/y/../x.go` now resolves like `internal/x.go`, as Go's
+  `filepath.Clean` did, instead of "anchor not found".
 - `ctx pack <subdir>`: `--since` / `--until` no longer drop every tracked
   file, `--changed` no longer packs nothing, and `--diff` no longer lists
   changes outside the root with empty patches. Git names these paths from
