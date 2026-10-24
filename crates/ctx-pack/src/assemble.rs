@@ -406,8 +406,14 @@ pub fn pack_markdown(inputs: &[FileInput], goal: &str, budget: i64) -> Result<St
     let mut files = Vec::new();
     let mut used = 0_i64;
     for (input, result) in scored {
-        let content = std::fs::read_to_string(&input.abs_path)
-            .map_err(|err| format!("pack: read {}: {err}", input.path))?;
+        let content = match std::fs::read_to_string(&input.abs_path) {
+            Ok(content) => content,
+            // The binary check only sees the first 512 bytes, so a text file
+            // with a non-UTF-8 byte further in reaches here. Skip it, as the
+            // CLI pack does, instead of failing the whole pack.
+            Err(err) if err.kind() == std::io::ErrorKind::InvalidData => continue,
+            Err(err) => return Err(format!("pack: read {}: {err}", input.path)),
+        };
         // Gate and accumulate with the SAME measured count: gating on the
         // caller-supplied estimate (input.tokens) lets a low/zero estimate
         // overrun the budget.
@@ -546,6 +552,23 @@ mod tests {
         assert!(out.contains("### a.rs\n\n```rust\nfn a() {}\n```\n"));
         assert!(out.contains("### b.md\n\n```markdown\n# b\n```\n"));
         assert!(!out.contains("ctx:contract"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn pack_markdown_skips_a_file_that_is_not_utf8_past_the_head() {
+        let dir = temp_workspace("non-utf8");
+        let text = file_input(&dir, "a.rs", "fn a() {}\n");
+        let mut body = "a".repeat(770).into_bytes();
+        body.extend_from_slice(b"\ncaf\xe9\n");
+        let notes = file_input(&dir, "NOTES.md", &"a".repeat(770));
+        std::fs::write(&notes.abs_path, &body).expect("write latin-1 tail");
+        let out = pack_markdown(&[text, notes], "", 50_000).expect("pack_markdown");
+        assert!(out.contains("### a.rs\n"), "text file kept: {out}");
+        assert!(
+            !out.contains("### NOTES.md"),
+            "non-UTF-8 file skipped: {out}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

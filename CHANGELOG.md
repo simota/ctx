@@ -61,6 +61,12 @@ and this project does not yet follow strict semver — see release notes per tag
 - `ctx pack`: a `.ctxignore` containing a non-UTF-8 line no longer discards
   all of its patterns, which let files it excludes (e.g. `secrets/`) into the
   pack; only the undecodable lines are skipped.
+- `ctx browse`, `ctx tree --json`, `ctx-mcp` and every other `ctx-symbols`
+  caller: symbol extraction walks the syntax tree iteratively, so a deeply
+  nested (generated or minified) source file no longer overflows the stack
+  and aborts the whole process. Symbol order is unchanged.
+- `ctx-tui` pack (`p`): a text file with a non-UTF-8 byte after its first
+  512 bytes is skipped, as in `ctx pack`, instead of failing the whole pack.
 - `ctx pack <subdir>`: `--since` / `--until` no longer drop every tracked
   file, `--changed` no longer packs nothing, and `--diff` no longer lists
   changes outside the root with empty patches. Git names these paths from
