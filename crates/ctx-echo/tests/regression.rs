@@ -8,7 +8,7 @@ use ctx_echo::evaluate;
 use ctx_echo::tokenize::tokenize;
 use ctx_echo::types::{ChunkStrategy, Options};
 
-const SAMPLE_PACK: &str = include_str!("../../../internal/echo/testdata/sample_pack.md");
+const SAMPLE_PACK: &str = include_str!("../testdata/sample_pack.md");
 
 #[test]
 fn r01_tokenize_splits_camel_and_snake() {

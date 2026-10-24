@@ -21,14 +21,15 @@ use ctx_contract::parse_refs::extract_references;
 use ctx_contract::types::{Contract, VerifyOptions};
 use ctx_contract::verify::verify;
 
-/// Walk up from the crate manifest dir to find the repo root (the
-/// directory containing go.mod) so we can resolve tests/bench-inputs/
-/// regardless of where cargo is invoked from.
+/// Walk up from the crate manifest dir to the first ancestor holding
+/// tests/bench-inputs/, regardless of where cargo is invoked from (the old
+/// go.mod marker went away with the Go tree).
 fn bench_inputs_root() -> PathBuf {
     let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     loop {
-        if dir.join("go.mod").exists() {
-            return dir.join("tests").join("bench-inputs");
+        let target = dir.join("tests").join("bench-inputs");
+        if target.is_dir() {
+            return target;
         }
         if !dir.pop() {
             panic!("repo root not found above {}", env!("CARGO_MANIFEST_DIR"));
