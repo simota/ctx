@@ -75,6 +75,11 @@ and this project does not yet follow strict semver — see release notes per tag
   is no longer read as `package.js` / `*.ts` / `*.js` (losing any `:L10-L12`
   range), which reported in-contract files as out-of-context violations.
   This intentionally diverges from the frozen Go oracle, which shares the bug.
+- `ctx contract verify` / `ctx browse` evidence: a pack whose file content
+  contains the `<!-- ctx:contract v1` marker (e.g. a pack of
+  `crates/ctx-contract`) now reads the appended contract block instead of
+  failing with "no contract", and `strip_contract_block` removes only that
+  block rather than also cutting the matching span out of the file content.
 - `ctx pack <subdir>`: `--since` / `--until` no longer drop every tracked
   file, `--changed` no longer packs nothing, and `--diff` no longer lists
   changes outside the root with empty patches. Git names these paths from
