@@ -129,6 +129,18 @@ and this project does not yet follow strict semver — see release notes per tag
   character boundary instead of panicking.
 
 ### Added
+- `ctx where --repos-only` (aliases `--only-repos`, `--repos`) prints the
+  repositories that hold the ranked matches instead of the matches: a nested
+  repository by its root-relative path and the repository enclosing the root
+  as `.`, one per line or as a JSON array with `--json`. It is derived from
+  the top `--limit` results and rejects `--format vimgrep`. Matches outside
+  any repository are grouped by their top-level directory.
+- `ctx where --no-ignore` skips the root `.gitignore` and `.ctxignore`
+  (`--no-gitignore` / `--no-ctxignore` skip one); the built-in exclusions
+  (`.git/`, `node_modules/`, `dist/`, `coverage/`) still apply.
+- `ctx where --no-deps` (aliases `--exclude-deps`, `--skip-deps`) also skips
+  `target/`, `vendor/`, `pkg/`, `.venv/`, `venv/`, `__pycache__/`, `build/`
+  and `.cargo/` directories.
 - Rust crate `ctx-contract` (`crates/ctx-contract/`) — pioneer port of the Go
   `internal/contract` module (969 LOC) to Rust as the Summit calibration shot
   for a broader Go→Rust migration. Supplies byte-exact JSON parity verified
