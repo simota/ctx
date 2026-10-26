@@ -1114,7 +1114,13 @@ mod tests {
             },
         ];
         let repos = extract_repositories(&fx.0, &results);
-        assert_eq!(repos, vec!["repo-a", "repo-b"]);
+        // `Cargo.toml` belongs to no repository unless the temp dir itself does
+        // (e.g. `TMPDIR` inside a checkout), which is reported as `.`.
+        if fx.0.ancestors().any(|dir| dir.join(".git").exists()) {
+            assert_eq!(repos, vec!["repo-a", "repo-b", "."]);
+        } else {
+            assert_eq!(repos, vec!["repo-a", "repo-b"]);
+        }
     }
 
     #[test]

@@ -6,8 +6,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-/// Scratch directory outside any git work tree (the crate's `target/` lives
-/// inside this repository, which would count as an enclosing repository).
+/// Scratch directory under the system temp dir rather than the crate's
+/// `target/`, which lives inside this repository and would always count as an
+/// enclosing repository. See [`Workspace::in_repo`] for a temp dir that is
+/// itself inside a work tree.
 struct Workspace(PathBuf);
 
 impl Workspace {
@@ -23,6 +25,13 @@ impl Workspace {
         let path = self.0.join(rel);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(path, body).unwrap();
+    }
+
+    /// Whether the workspace sits inside a git work tree (e.g. `TMPDIR` under a
+    /// checkout or a dotfiles repository at `$HOME`), which `--repos-only`
+    /// reports as `.`.
+    fn in_repo(&self) -> bool {
+        self.0.ancestors().any(|dir| dir.join(".git").exists())
     }
 
     fn git_dir(&self, rel: &str) {
@@ -91,15 +100,21 @@ fn repos_only_lists_sibling_repositories_of_a_plain_workspace() {
     ws.write("repo-a/src/main.rs", "fn widget_alpha() {}\n");
     ws.write("repo-b/README.md", "widget_alpha\n");
     ws.write("notes.md", "widget_alpha\n");
+    // `notes.md` belongs to no repository unless the temp dir itself does.
+    let expected = if ws.in_repo() {
+        vec![".", "repo-a", "repo-b"]
+    } else {
+        vec!["repo-a", "repo-b"]
+    };
 
     let mut repos = stdout_lines(&ctx(&ws.0, &["where", "widget_alpha", "--repos-only"]));
     repos.sort();
-    assert_eq!(repos, vec!["repo-a", "repo-b"]);
+    assert_eq!(repos, expected);
 
     let json = ctx(&ws.0, &["where", "widget_alpha", "--repos-only", "--json"]);
     let mut parsed: Vec<String> = serde_json::from_slice(&json.stdout).unwrap();
     parsed.sort();
-    assert_eq!(parsed, vec!["repo-a", "repo-b"]);
+    assert_eq!(parsed, expected);
 }
 
 #[test]

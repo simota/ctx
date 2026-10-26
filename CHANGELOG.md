@@ -134,7 +134,8 @@ and this project does not yet follow strict semver — see release notes per tag
   repository by its root-relative path and the repository enclosing the root
   as `.`, one per line or as a JSON array with `--json`. It is derived from
   the top `--limit` results and rejects `--format vimgrep`. Matches outside
-  any repository are grouped by their top-level directory.
+  any repository are listed by their top-level directory instead; files
+  directly under such a root show as `.` only when nothing else matched.
 - `ctx where --no-ignore` skips the root `.gitignore` and `.ctxignore`
   (`--no-gitignore` / `--no-ctxignore` skip one); the built-in exclusions
   (`.git/`, `node_modules/`, `dist/`, `coverage/`) still apply.
