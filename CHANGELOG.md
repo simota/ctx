@@ -10,18 +10,22 @@ and this project does not yet follow strict semver — see release notes per tag
 ### Security
 - `ctx pack`: a private key was redacted only on its
   `-----BEGIN … PRIVATE KEY-----` line; the key body and END line were
-  packed in clear. Every line through the matching `-----END ` line is now
-  redacted (to the end of the file when the END line is missing), one
-  marker per line so line numbers are kept. `ENCRYPTED PRIVATE KEY`
+  packed in clear. The key-material lines after it, through the matching
+  `-----END ` line, are now redacted too, one marker per line so line
+  numbers are kept; code that merely mentions a header (a PEM parser, a
+  test) keeps its following lines. `ENCRYPTED PRIVATE KEY`
   (PKCS#8) and `PGP PRIVATE KEY BLOCK` headers, which were never detected,
   are now caught as well.
 - `ctx pack --api-only` skipped the secret scan, so an
   `export const TOKEN = "…"` line was emitted verbatim; the extracted text is
   now scanned and redacted.
-- `ctx braid` (without `--dry-run`), the MCP `ctx_pack` tool and the TUI
-  `p` pack (`context.md`) now redact secrets like `ctx pack` (braid honours
-  the ctx.toml `[security]` settings; MCP and the TUI use the defaults).
-  They previously emitted file contents unscanned.
+- `ctx pack --from-where`, `ctx pack --diff` (both blobs and the patch),
+  `ctx focus`, `ctx braid` (without `--dry-run`), the MCP `ctx_pack` /
+  `ctx_focus` tools and the TUI `p` pack (`context.md`) now redact secrets
+  like `ctx pack` (the CLI commands honour the ctx.toml `[security]`
+  settings; MCP and the TUI use the defaults). They previously emitted file
+  contents unscanned. The MCP `ctx://file/…` resource and `ctx_skim`, like
+  `ctx browse` `/raw`, still return a file as stored.
 - Secret scan: patterns use ASCII word boundaries as in the Go scanner, so
   a key written directly next to non-ASCII text (`キーはAKIA…です`) is no
   longer missed.

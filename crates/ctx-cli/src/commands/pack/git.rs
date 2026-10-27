@@ -2,6 +2,7 @@ use std::path::Path;
 use std::process::Command;
 
 use super::*;
+use crate::common::SecurityToml;
 
 pub(crate) fn git_changed_paths(root: &Path) -> Result<std::collections::BTreeSet<String>, String> {
     let prefix = match git_root_prefix(root) {
@@ -82,6 +83,7 @@ pub(crate) fn git_diff_entries(
     root: &Path,
     revspec: &str,
     api_only: bool,
+    security: &SecurityToml,
 ) -> Result<Vec<ctx_pack::DiffEntry>, String> {
     let (base, head) = parse_diff_revspec(revspec)?;
     let before_commit = git_output_in(root, &["rev-parse", "--short=7", base])?;
@@ -95,7 +97,7 @@ pub(crate) fn git_diff_entries(
         let added = status.starts_with('A');
         let deleted = status.starts_with('D');
         let binary = git_diff_is_binary(root, base, head, &path)?;
-        let patch = git_output_allow_empty(root, &git_diff_args(&[base, head, "--", &path]))?;
+        let mut patch = git_output_allow_empty(root, &git_diff_args(&[base, head, "--", &path]))?;
         let mut before_content = if added || binary {
             String::new()
         } else {
@@ -112,6 +114,12 @@ pub(crate) fn git_diff_entries(
             after_content =
                 extract_public_api_light(&path, &after_content).unwrap_or(after_content);
         }
+        // Committed secrets show up in both blobs and in the patch. The
+        // path stands in for allowlist_files matching (there is no file).
+        let label = root.join(&path).to_string_lossy().into_owned();
+        redact_pack_body(&label, &mut before_content, security);
+        redact_pack_body(&label, &mut after_content, security);
+        redact_pack_body(&label, &mut patch, security);
         entries.push(ctx_pack::DiffEntry {
             path,
             before_content,

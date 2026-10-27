@@ -159,6 +159,9 @@ pub(crate) fn focus_command(args: FocusArgs) -> Result<(), FocusError> {
     // and score relevance using pack's scorer (empty goal → "score 3: source file"
     // for .go files, matching Go's pack.buildPlan behaviour).
     let ctx = ctx_pack::RelevanceContext::new("", args.budget);
+    // focus emits a mini-pack, so it honours the same `[security]` redaction.
+    let cfg =
+        load_pack_ctx_toml(&root).map_err(|err| FocusError::Other(format!("focus: {err}")))?;
     let mut included: Vec<NativePackFile> = Vec::new();
     let mut used = 0_i64;
     for fi in expanded {
@@ -173,7 +176,9 @@ pub(crate) fn focus_command(args: FocusArgs) -> Result<(), FocusError> {
 
         // Read raw file bytes from disk (matches Go's os.ReadFile in fileContent).
         let abs_path = root.join(&input.path);
-        let content = std::fs::read_to_string(&abs_path).unwrap_or_else(|_| input.lines.join("\n"));
+        let mut content =
+            std::fs::read_to_string(&abs_path).unwrap_or_else(|_| input.lines.join("\n"));
+        redact_pack_body(&abs_path.to_string_lossy(), &mut content, &cfg.security);
 
         // Score via pack relevance (empty goal) to match Go's buildPlan output.
         let pack_input = ctx_pack::FileInput {

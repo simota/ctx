@@ -96,17 +96,25 @@ const PRIVATE_KEY_KIND: &str = "private_key";
 const PEM_END: &[u8] = b"-----END ";
 
 /// The scanner flags only the `-----BEGIN … PRIVATE KEY-----` line, but the
-/// key material is on the lines after it. Mark every following line through
-/// the matching `-----END ` line as redacted too, so the key body never
-/// reaches the output. A block with no END line is redacted to the end of
-/// the data: failing closed costs some context, leaking costs the key.
-/// Each line still gets its own marker, so line numbers do not shift.
+/// key material is on the lines after it. Redact the following lines too,
+/// through the matching `-----END ` line, as long as they look like key
+/// material (base64, RFC 1421 / OpenPGP armor headers, blank lines). A line
+/// that does not ends the block unredacted, so code that merely mentions a
+/// header (a PEM parser, a test) keeps the rest of its lines; a key with no
+/// END line is still redacted up to its last body line. Each line keeps its
+/// own marker, so line numbers do not shift.
 fn extend_private_key_blocks(lines: &[&[u8]], kinds: &mut BTreeMap<i64, String>) {
     let begins: Vec<i64> = kinds
         .iter()
         .filter(|(_, kind)| kind.as_str() == PRIVATE_KEY_KIND)
         .map(|(line, _)| *line)
         .collect();
+    // The empty element after a trailing newline is not a line.
+    let line_count = if lines.last().is_some_and(|last| last.is_empty()) {
+        lines.len() - 1
+    } else {
+        lines.len()
+    };
     for begin in begins {
         let Some(begin_line) = lines.get((begin - 1) as usize) else {
             continue;
@@ -116,21 +124,62 @@ fn extend_private_key_blocks(lines: &[&[u8]], kinds: &mut BTreeMap<i64, String>)
         if contains(begin_line, PEM_END) {
             continue;
         }
-        // The empty element after a trailing newline is not a line.
-        let line_count = if lines.last().is_some_and(|last| last.is_empty()) {
-            lines.len() - 1
-        } else {
-            lines.len()
-        };
         for (idx, line) in lines[..line_count].iter().enumerate().skip(begin as usize) {
+            let is_end = contains(line, PEM_END);
+            if !is_end && !is_key_material_line(line) {
+                break;
+            }
             kinds
                 .entry(idx as i64 + 1)
                 .or_insert_with(|| PRIVATE_KEY_KIND.to_string());
-            if contains(line, PEM_END) {
+            if is_end {
                 break;
             }
         }
     }
+}
+
+/// Whether `line` can be part of a PEM / armored key body once the quoting
+/// of a string literal (`"…\n" +`, backticks) or a diff marker is removed.
+fn is_key_material_line(line: &[u8]) -> bool {
+    let mut t = trim_bytes(line, b" \t\r\"'`,;+-");
+    t = t.strip_suffix(b"\\n").unwrap_or(t);
+    t = t.strip_suffix(b"\\r").unwrap_or(t);
+    let t = trim_bytes(t, b" \t\"'`,;+-");
+    if t.is_empty() {
+        return true;
+    }
+    if t.iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'/' | b'='))
+    {
+        return true;
+    }
+    // `Proc-Type: 4,ENCRYPTED`, `DEK-Info: …`, `Version: GnuPG …`, `Comment: …`
+    match t.iter().position(|&b| b == b':') {
+        Some(colon) if colon > 0 => {
+            t[..colon]
+                .iter()
+                .all(|b| b.is_ascii_alphanumeric() || *b == b'-')
+                && t.get(colon + 1) == Some(&b' ')
+        }
+        _ => false,
+    }
+}
+
+fn trim_bytes<'a>(mut s: &'a [u8], set: &[u8]) -> &'a [u8] {
+    while let [first, rest @ ..] = s {
+        if !set.contains(first) {
+            break;
+        }
+        s = rest;
+    }
+    while let [rest @ .., last] = s {
+        if !set.contains(last) {
+            break;
+        }
+        s = rest;
+    }
+    s
 }
 
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
@@ -192,11 +241,44 @@ mod tests {
     }
 
     #[test]
-    fn unterminated_private_key_block_is_redacted_to_eof() {
+    fn unterminated_private_key_block_is_redacted_through_its_body() {
         let input = b"-----BEGIN PRIVATE KEY-----\nMIIEbody\nmorebody\n";
         let out = redact_lines(input, &[w(1, "private_key")]);
         let got = String::from_utf8(out).unwrap();
         assert_eq!(got, "[REDACTED — kind=private_key]\n".repeat(3));
+    }
+
+    #[test]
+    fn header_mentioned_in_code_does_not_redact_following_code() {
+        let input = b"fn check(l: &str) -> bool { l.starts_with(\"-----BEGIN RSA PRIVATE KEY-----\") }\nfn other() { println!(\"visible\"); }\n";
+        let out = redact_lines(input, &[w(1, "private_key")]);
+        let got = String::from_utf8(out).unwrap();
+        assert_eq!(
+            got,
+            "[REDACTED — kind=private_key]\nfn other() { println!(\"visible\"); }\n"
+        );
+    }
+
+    #[test]
+    fn key_in_string_concatenation_and_armor_headers_is_redacted() {
+        let input = b"const K = \"-----BEGIN RSA PRIVATE KEY-----\\n\" +\n  \"Proc-Type: 4,ENCRYPTED\\n\" +\n  \"\\n\" +\n  \"MIIEbodyAB+/=\\n\" +\n  \"-----END RSA PRIVATE KEY-----\";\nnext();\n";
+        let out = redact_lines(input, &[w(1, "private_key")]);
+        let got = String::from_utf8(out).unwrap();
+        assert_eq!(
+            got,
+            format!("{}next();\n", "[REDACTED — kind=private_key]\n".repeat(5))
+        );
+    }
+
+    #[test]
+    fn key_in_a_diff_patch_is_redacted() {
+        let input = b"+-----BEGIN OPENSSH PRIVATE KEY-----\n+b3BlbnNzaC1rZXkt\n+-----END OPENSSH PRIVATE KEY-----\n context\n";
+        let out = redact_lines(input, &[w(1, "private_key")]);
+        let got = String::from_utf8(out).unwrap();
+        assert_eq!(
+            got,
+            format!("{} context\n", "[REDACTED — kind=private_key]\n".repeat(3))
+        );
     }
 
     #[test]
