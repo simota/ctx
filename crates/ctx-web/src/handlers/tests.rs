@@ -108,6 +108,15 @@ fn handle_sync(state: AppState, params: TestsParams) -> Response {
     if meta.is_dir() {
         return response::error(StatusCode::BAD_REQUEST, "not_a_file", "path is a directory");
     }
+    // Opening a FIFO blocks until a writer shows up, pinning a blocking-pool
+    // thread for good.
+    if !meta.is_file() {
+        return response::error(
+            StatusCode::BAD_REQUEST,
+            "not_a_file",
+            "path is not a regular file",
+        );
+    }
 
     let rel = relative_to_root(&state.root, &target);
     let insight = match ctx_testinsights::analyze(&state.root, &rel, &params.profile) {
@@ -166,4 +175,53 @@ fn handle_sync(state: AppState, params: TestsParams) -> Response {
 
 fn is_zero(v: &i32) -> bool {
     *v == 0
+}
+
+#[cfg(all(test, unix))]
+mod fifo_tests {
+    use super::*;
+    use std::sync::mpsc;
+    use std::time::{Duration, SystemTime};
+
+    #[test]
+    fn fifo_path_is_rejected_without_blocking() {
+        let dir = std::env::temp_dir().join(format!(
+            "ctx-web-tests-fifo-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let status = std::process::Command::new("mkfifo")
+            .arg(dir.join("pipe.go"))
+            .status()
+            .expect("run mkfifo");
+        assert!(status.success(), "mkfifo failed");
+
+        let state = AppState {
+            root: dir.to_string_lossy().into_owned(),
+            bind: String::new(),
+            audit: false,
+            file_cache: Default::default(),
+            diff_cache: Default::default(),
+            co_change_cache: Default::default(),
+            loopback_only: true,
+        };
+        let params = TestsParams {
+            path: "pipe.go".to_string(),
+            profile: String::new(),
+            limit: String::new(),
+        };
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(handle_sync(state, params).status());
+        });
+        let status = rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("/api/tests did not answer within 10s");
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+    }
 }
