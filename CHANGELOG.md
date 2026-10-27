@@ -8,6 +8,23 @@ and this project does not yet follow strict semver — see release notes per tag
 ## [Unreleased]
 
 ### Security
+- `ctx pack`: a private key was redacted only on its
+  `-----BEGIN … PRIVATE KEY-----` line; the key body and END line were
+  packed in clear. Every line through the matching `-----END ` line is now
+  redacted (to the end of the file when the END line is missing), one
+  marker per line so line numbers are kept. `ENCRYPTED PRIVATE KEY`
+  (PKCS#8) and `PGP PRIVATE KEY BLOCK` headers, which were never detected,
+  are now caught as well.
+- `ctx pack --api-only` skipped the secret scan, so an
+  `export const TOKEN = "…"` line was emitted verbatim; the extracted text is
+  now scanned and redacted.
+- `ctx braid` (without `--dry-run`), the MCP `ctx_pack` tool and the TUI
+  `p` pack (`context.md`) now redact secrets like `ctx pack` (braid honours
+  the ctx.toml `[security]` settings; MCP and the TUI use the defaults).
+  They previously emitted file contents unscanned.
+- Secret scan: patterns use ASCII word boundaries as in the Go scanner, so
+  a key written directly next to non-ASCII text (`キーはAKIA…です`) is no
+  longer missed.
 - `ctx browse`: `/api/git/commit-files` no longer forwards a `hash` that
   starts with `-` to `git diff-tree`, which allowed a request such as
   `?hash=--output=<file>` to create or truncate an arbitrary file. Such
@@ -53,6 +70,17 @@ and this project does not yet follow strict semver — see release notes per tag
   drop such links the same way.
 
 ### Fixed
+- `ctx browse`: `/api/tests` no longer hangs when `path` or `profile` names
+  a FIFO; a non-regular `path` gets `400 not_a_file` and a non-regular
+  profile is treated as missing (`profile=.` no longer returns 500).
+  Coverage totals saturate instead of overflowing (a panic in debug builds)
+  on huge profile numbers.
+- `ctx pack`: a `.ctxignore` / `[ignore]` directory pattern such as `build/`
+  no longer also drops directories whose name merely ends in it
+  (`src/rebuild/`).
+- `ctx map`: `--width` / `--height` above 1000 are rejected instead of
+  aborting on a failed canvas allocation (or, with `--format svg`,
+  panicking on overflow).
 - `ctx where` / `noise` / `braid` / `focus` / `log` and the `ctx browse` tree: a root
   `.gitignore` or `.ctxignore` that is not valid UTF-8 (e.g. a Shift_JIS
   comment) no longer fails the walk with "stream did not contain valid
