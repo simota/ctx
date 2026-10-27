@@ -14,13 +14,17 @@ pub(crate) fn read_native_pack_content(
     } else {
         body
     };
-    if !args.api_only && cfg.security.secret_scan && cfg.security.redact {
+    // Scan the text that is emitted, not the file on disk: `--api-only`
+    // keeps `export const TOKEN = "…"` lines but renumbers them, so file
+    // line numbers would not match (and skipping the scan leaked them).
+    if cfg.security.secret_scan && cfg.security.redact {
         let opts = ctx_scan::Options {
             allowlist: cfg.security.allowlist.clone(),
             allowlist_files: cfg.security.allowlist_files.clone(),
             enable_entropy: cfg.security.enable_entropy,
         };
-        if let Ok(warnings) = ctx_scan::scan_file_with_options(abs, &opts) {
+        let warnings = ctx_scan::scan_bytes_with_options(abs, body.as_bytes(), &opts);
+        if !warnings.is_empty() {
             let warning_inputs: Vec<ctx_pack::WarningInput> = warnings
                 .iter()
                 .map(|warning| ctx_pack::WarningInput {

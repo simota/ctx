@@ -50,6 +50,7 @@ pub fn redact_lines(data: &[u8], warnings: &[WarningInput]) -> Vec<u8> {
         }
     }
     lines.push(&data[last..]);
+    extend_private_key_blocks(&lines, &mut kinds);
 
     let mut out: Vec<Vec<u8>> = Vec::with_capacity(lines.len());
     for (i, l) in lines.iter().enumerate() {
@@ -69,6 +70,51 @@ pub fn redact_lines(data: &[u8], warnings: &[WarningInput]) -> Vec<u8> {
         joined.extend_from_slice(l);
     }
     joined
+}
+
+const PRIVATE_KEY_KIND: &str = "private_key";
+const PEM_END: &[u8] = b"-----END ";
+
+/// The scanner flags only the `-----BEGIN … PRIVATE KEY-----` line, but the
+/// key material is on the lines after it. Mark every following line through
+/// the matching `-----END ` line as redacted too, so the key body never
+/// reaches the output. A block with no END line is redacted to the end of
+/// the data: failing closed costs some context, leaking costs the key.
+/// Each line still gets its own marker, so line numbers do not shift.
+fn extend_private_key_blocks(lines: &[&[u8]], kinds: &mut BTreeMap<i64, String>) {
+    let begins: Vec<i64> = kinds
+        .iter()
+        .filter(|(_, kind)| kind.as_str() == PRIVATE_KEY_KIND)
+        .map(|(line, _)| *line)
+        .collect();
+    for begin in begins {
+        let Some(begin_line) = lines.get((begin - 1) as usize) else {
+            continue;
+        };
+        // A whole PEM on one line (e.g. a "\n"-escaped string) is already
+        // covered by redacting that line.
+        if contains(begin_line, PEM_END) {
+            continue;
+        }
+        // The empty element after a trailing newline is not a line.
+        let line_count = if lines.last().is_some_and(|last| last.is_empty()) {
+            lines.len() - 1
+        } else {
+            lines.len()
+        };
+        for (idx, line) in lines[..line_count].iter().enumerate().skip(begin as usize) {
+            kinds
+                .entry(idx as i64 + 1)
+                .or_insert_with(|| PRIVATE_KEY_KIND.to_string());
+            if contains(line, PEM_END) {
+                break;
+            }
+        }
+    }
+}
+
+fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+    haystack.windows(needle.len()).any(|w| w == needle)
 }
 
 #[cfg(test)]
@@ -111,6 +157,43 @@ mod tests {
         let input = b"a\nb\n";
         let out = redact_lines(input, &[w(0, "x"), w(-1, "y")]);
         assert_eq!(out, input);
+    }
+
+    #[test]
+    fn private_key_block_is_redacted_through_end_line() {
+        let input = b"a\n-----BEGIN RSA PRIVATE KEY-----\nMIIEbody\nmorebody\n-----END RSA PRIVATE KEY-----\nb\n";
+        let out = redact_lines(input, &[w(2, "private_key")]);
+        let got = String::from_utf8(out).unwrap();
+        assert_eq!(
+            got,
+            "a\n[REDACTED — kind=private_key]\n[REDACTED — kind=private_key]\n\
+             [REDACTED — kind=private_key]\n[REDACTED — kind=private_key]\nb\n"
+        );
+    }
+
+    #[test]
+    fn unterminated_private_key_block_is_redacted_to_eof() {
+        let input = b"-----BEGIN PRIVATE KEY-----\nMIIEbody\nmorebody\n";
+        let out = redact_lines(input, &[w(1, "private_key")]);
+        let got = String::from_utf8(out).unwrap();
+        assert_eq!(got, "[REDACTED — kind=private_key]\n".repeat(3));
+    }
+
+    #[test]
+    fn single_line_pem_redacts_only_that_line() {
+        let input =
+            b"k = \"-----BEGIN PRIVATE KEY-----\\nMII\\n-----END PRIVATE KEY-----\"\nnext\n";
+        let out = redact_lines(input, &[w(1, "private_key")]);
+        let got = String::from_utf8(out).unwrap();
+        assert_eq!(got, "[REDACTED — kind=private_key]\nnext\n");
+    }
+
+    #[test]
+    fn other_kinds_do_not_extend() {
+        let input = b"TOKEN=x\nnext\n";
+        let out = redact_lines(input, &[w(1, "generic_secret")]);
+        let got = String::from_utf8(out).unwrap();
+        assert_eq!(got, "[REDACTED — kind=generic_secret]\nnext\n");
     }
 
     #[test]
