@@ -200,6 +200,9 @@ pub(crate) fn where_command(args: WhereArgs) -> Result<(), String> {
         explain: args.explain,
     };
     let results = ctx_where::search_with_options(&files, &args.query, &opts);
+    if args.repos_only {
+        return render_where_repos(&root, &results, &args.format);
+    }
     let suggestions = if results.is_empty()
         && !args.no_suggest
         && args.regex.is_empty()
@@ -559,70 +562,80 @@ pub(crate) fn go_json_escape(body: &str) -> String {
         .replace('>', "\\u003e")
 }
 
+/// Name the repositories holding `results`, in rank order: a nested repository
+/// (a directory under `root` with a `.git` entry) by its root-relative path,
+/// and the repository enclosing `root` itself (at `root` or above it) as `.`.
+/// Matches outside any repository fall back to their top-level directory, or
+/// `.` for files directly under `root`; that fallback `.` is dropped when
+/// other entries exist, since it names no repository.
 pub(crate) fn extract_repositories(
     root: &Path,
     results: &[ctx_where::SearchResult],
 ) -> Vec<String> {
-    let mut repos = Vec::new();
-    let mut has_sub_repos = false;
+    // Canonicalize so `..` in the root does not skew the walk up its ancestors.
+    let canonical_root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    let root_in_repo = canonical_root
+        .ancestors()
+        .any(|dir| dir.join(".git").exists());
+    let mut repos: Vec<String> = Vec::new();
+    let mut loose_root_file = false;
 
     for res in results {
-        let abs_file_path = root.join(&res.path);
-        let mut curr = if abs_file_path.is_dir() {
-            abs_file_path.clone()
-        } else {
-            abs_file_path
-                .parent()
-                .unwrap_or(&abs_file_path)
-                .to_path_buf()
-        };
-
-        let mut found_repo: Option<PathBuf> = None;
-        while curr.starts_with(root) {
-            if curr.join(".git").exists() {
-                found_repo = Some(curr.clone());
-                break;
-            }
-            if curr == root || !curr.pop() {
-                break;
-            }
-        }
-
-        let repo_str = if let Some(repo_path) = found_repo {
-            let rel = repo_path.strip_prefix(root).unwrap_or(&repo_path);
-            if rel.as_os_str().is_empty() {
-                ".".to_string()
-            } else {
-                rel.to_string_lossy().replace('\\', "/")
-            }
-        } else {
-            let path = Path::new(&res.path);
-            if let Some(first) = path.components().next() {
-                let s = first.as_os_str().to_string_lossy().to_string();
-                if path.components().count() == 1 {
-                    ".".to_string()
-                } else {
-                    s
+        let rel = Path::new(&res.path);
+        let nested = rel
+            .parent()
+            .into_iter()
+            .flat_map(Path::ancestors)
+            .filter(|dir| !dir.as_os_str().is_empty())
+            .find(|dir| root.join(dir).join(".git").exists());
+        let repo = match nested {
+            Some(dir) => dir.to_string_lossy().replace('\\', "/"),
+            None if root_in_repo => ".".to_string(),
+            None => match rel.components().next() {
+                Some(first) if rel.components().count() > 1 => {
+                    first.as_os_str().to_string_lossy().into_owned()
                 }
-            } else {
-                ".".to_string()
-            }
+                _ => {
+                    loose_root_file = true;
+                    continue;
+                }
+            },
         };
-
-        if repo_str != "." {
-            has_sub_repos = true;
-        }
-
-        if !repos.contains(&repo_str) {
-            repos.push(repo_str);
+        if !repos.contains(&repo) {
+            repos.push(repo);
         }
     }
 
-    if has_sub_repos {
-        repos.retain(|r| r != ".");
+    if loose_root_file && repos.is_empty() {
+        repos.push(".".to_string());
     }
-
     repos
+}
+
+/// `--repos-only` output: one repository per line, or a JSON array.
+pub(crate) fn render_where_repos(
+    root: &Path,
+    results: &[ctx_where::SearchResult],
+    format: &str,
+) -> Result<(), String> {
+    let repos = extract_repositories(root, results);
+    match format {
+        "json" => {
+            let body = serde_json::to_string_pretty(&repos).map_err(|err| err.to_string())?;
+            println!("{}", go_json_escape(&body));
+        }
+        "default" | "" => {
+            for repo in repos {
+                println!("{repo}");
+            }
+        }
+        other => {
+            return Err(format!(
+                "unsupported where format for --repos-only: {other}"
+            ))
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn render_where(
@@ -630,25 +643,6 @@ pub(crate) fn render_where(
     suggestions: &[ctx_where::Suggestion],
     args: &WhereArgs,
 ) -> Result<(), String> {
-    if args.repos_only {
-        let root = if args.root.is_absolute() {
-            args.root.clone()
-        } else {
-            env::current_dir()
-                .unwrap_or_else(|_| PathBuf::from("."))
-                .join(&args.root)
-        };
-        let repos = extract_repositories(&root, results);
-        if args.format == "json" {
-            let body = serde_json::to_string_pretty(&repos).map_err(|err| err.to_string())?;
-            println!("{}", go_json_escape(&body));
-        } else {
-            for r in repos {
-                println!("{r}");
-            }
-        }
-        return Ok(());
-    }
     match args.format.as_str() {
         "json" => {
             if args.explain {
@@ -1120,7 +1114,13 @@ mod tests {
             },
         ];
         let repos = extract_repositories(&fx.0, &results);
-        assert_eq!(repos, vec!["repo-a", "repo-b"]);
+        // `Cargo.toml` belongs to no repository unless the temp dir itself does
+        // (e.g. `TMPDIR` inside a checkout), which is reported as `.`.
+        if fx.0.ancestors().any(|dir| dir.join(".git").exists()) {
+            assert_eq!(repos, vec!["repo-a", "repo-b", "."]);
+        } else {
+            assert_eq!(repos, vec!["repo-a", "repo-b"]);
+        }
     }
 
     #[test]
