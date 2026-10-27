@@ -248,7 +248,13 @@ pub(crate) fn write_pack_file_content(out: &mut String, file: &PackFile) -> Resu
     ));
     let data = std::fs::read(&file.abs_path)
         .map_err(|err| tool_error(format!("pack: read {}: {err}", file.path)))?;
-    let body = String::from_utf8_lossy(&data);
+    // ctx_pack output goes straight to an agent: redact secrets as the CLI
+    // pack does with its default `[security]` settings.
+    let body = ctx_pack::redact::redact_secrets(
+        &file.abs_path.to_string_lossy(),
+        &String::from_utf8_lossy(&data),
+        &Default::default(),
+    );
     out.push_str(&body);
     if !data.is_empty() && data.last() != Some(&b'\n') {
         out.push('\n');

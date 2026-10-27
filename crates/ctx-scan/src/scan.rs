@@ -48,8 +48,26 @@ pub fn scan_file_with_options(path: &str, opts: &Options) -> std::io::Result<Vec
         return Ok(Vec::new());
     }
     let file = fs::File::open(path)?;
-    let mut reader = BufReader::new(file);
+    scan_reader(path, BufReader::new(file), opts)
+}
 
+/// Scan in-memory content as if it were the file at `path`: `path` is
+/// reported in each warning and matched against `allowlist_files`, but is
+/// never opened. Callers that emit a transformed body (e.g. `pack
+/// --api-only`) scan the text they actually emit, so line numbers line up.
+pub fn scan_bytes_with_options(path: &str, data: &[u8], opts: &Options) -> Vec<Warning> {
+    if allowlisted_file(path, &opts.allowlist_files) {
+        return Vec::new();
+    }
+    // Reading from a byte slice cannot fail.
+    scan_reader(path, data, opts).unwrap_or_default()
+}
+
+fn scan_reader<R: BufRead>(
+    path: &str,
+    mut reader: R,
+    opts: &Options,
+) -> std::io::Result<Vec<Warning>> {
     let mut warnings: Vec<Warning> = Vec::new();
     let mut line_no: i64 = 0;
     // read_until + from_utf8_lossy instead of BufRead::lines(): lines()

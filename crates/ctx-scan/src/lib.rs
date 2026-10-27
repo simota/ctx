@@ -24,5 +24,7 @@ pub mod types;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
-pub use crate::scan::{scan_file, scan_file_with_options, scan_files, scan_files_with_options};
+pub use crate::scan::{
+    scan_bytes_with_options, scan_file, scan_file_with_options, scan_files, scan_files_with_options,
+};
 pub use crate::types::{Options, Warning};

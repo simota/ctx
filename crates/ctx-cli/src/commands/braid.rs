@@ -222,7 +222,8 @@ pub(crate) fn braid_command(args: BraidArgs) -> Result<(), String> {
     //   5. w.Write("\n"); w.Write(packBuf.Bytes())
     //
     // We replicate this with the native pack-file builder already present in this file.
-    let pack_files = braid_build_pack_files(&root, &merged)?;
+    let cfg = load_pack_ctx_toml(&root).map_err(|err| format!("braid: {err}"))?;
+    let pack_files = braid_build_pack_files(&root, &merged, &cfg.security)?;
 
     let pack_body = braid_render_pack_body(&pack_files, &args)?;
 
@@ -261,9 +262,12 @@ pub(crate) fn braid_command(args: BraidArgs) -> Result<(), String> {
 ///   - RespectCtxignore=false (user-selected paths must not be silently dropped)
 ///   - Selection order preserved by iterating `merged` in arrival order
 ///   - Uses estimate_path_tokens (ctx_tokens cl100k_base) for token counts
+///   - Applies the ctx.toml `[security]` redaction, as `ctx pack` does (Go's
+///     braid passed no config and emitted secrets verbatim)
 pub(crate) fn braid_build_pack_files(
     root: &Path,
     merged: &[ctx_braid::MergedFile],
+    security: &SecurityToml,
 ) -> Result<Vec<NativePackFile>, String> {
     let mut pack_files = Vec::with_capacity(merged.len());
     let canonical_root = canonical_walk_root(root);
@@ -274,10 +278,11 @@ pub(crate) fn braid_build_pack_files(
         if !resolves_to_file_in(&canonical_root, &abs) {
             continue;
         }
-        let content = match std::fs::read_to_string(&abs) {
+        let mut content = match std::fs::read_to_string(&abs) {
             Ok(s) => s,
             Err(_) => continue, // skip files that cannot be read (mirrors Go byPath lookup failure)
         };
+        redact_pack_body(&abs.to_string_lossy(), &mut content, security);
         let tokens = estimate_path_tokens(root, &mf.path);
         pack_files.push(NativePackFile {
             path: mf.path.clone(),
@@ -861,9 +866,35 @@ mod tests {
                 origin: "hot".to_string(),
             })
             .collect();
-        let files = braid_build_pack_files(&fx.0, &merged).unwrap();
+        let files = braid_build_pack_files(&fx.0, &merged, &SecurityToml::default()).unwrap();
         let paths: Vec<&str> = files.iter().map(|file| file.path.as_str()).collect();
         assert_eq!(paths, vec!["main.rs", "alias.rs"]);
+    }
+
+    #[test]
+    fn braid_pack_files_redact_secrets_unless_disabled() {
+        let token = ["ghp_", "123456789012345678901234567890123456"].concat();
+        let fx = TempDir::new("braid-redact");
+        fx.write(
+            "lib.rs",
+            &format!("const T: &str = \"{token}\";\nfn f() {{}}\n"),
+        );
+        let merged = vec![ctx_braid::MergedFile {
+            path: "lib.rs".to_string(),
+            origin: "hot".to_string(),
+        }];
+
+        let files = braid_build_pack_files(&fx.0, &merged, &SecurityToml::default()).unwrap();
+        assert!(!files[0].content.contains(&token), "{}", files[0].content);
+        assert!(files[0].content.contains("kind=github_pat"));
+        assert!(files[0].content.contains("fn f() {}"));
+
+        let off = SecurityToml {
+            redact: false,
+            ..SecurityToml::default()
+        };
+        let files = braid_build_pack_files(&fx.0, &merged, &off).unwrap();
+        assert!(files[0].content.contains(&token));
     }
 
     #[test]

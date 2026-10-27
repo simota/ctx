@@ -19,9 +19,10 @@
 //     UTF-8-safe under Rust's `regex` crate.
 //
 //   * `\b` in Rust's `regex` is Unicode-aware by default; Go's `\b`
-//     fires on ASCII word transitions. For the patterns here the inputs
-//     of interest are ASCII identifiers so the boundary check fires at
-//     the same positions.
+//     fires on ASCII word transitions. Every boundary below is written
+//     `(?-u:\b)` so it fires where Go's does: a Unicode `\b` sees no
+//     boundary between a letter such as `は` and `AKIA…`, which hid keys
+//     written next to CJK text.
 //
 //   * `(?i)` is supported on both engines identically.
 //
@@ -54,7 +55,7 @@ fn build_patterns() -> Vec<SecretPattern> {
     vec![
         SecretPattern {
             kind: "aws_access_key",
-            re: re(r"\bAKIA[0-9A-Z]{16}\b"),
+            re: re(r"(?-u:\b)AKIA[0-9A-Z]{16}(?-u:\b)"),
             severity: "high",
         },
         SecretPattern {
@@ -66,7 +67,7 @@ fn build_patterns() -> Vec<SecretPattern> {
         },
         SecretPattern {
             kind: "gcp_api_key",
-            re: re(r"\bAIza[0-9A-Za-z\-_]{35}\b"),
+            re: re(r"(?-u:\b)AIza[0-9A-Za-z\-_]{35}(?-u:\b)"),
             severity: "high",
         },
         SecretPattern {
@@ -79,32 +80,32 @@ fn build_patterns() -> Vec<SecretPattern> {
             // No trailing \b: after '=' (non-word) a boundary would REQUIRE a
             // following word char, so a key at EOL or before a quote could
             // never match. The leading \b still anchors the token start.
-            re: re(r"\b[a-zA-Z0-9+/=]{86}=="),
+            re: re(r"(?-u:\b)[a-zA-Z0-9+/=]{86}=="),
             severity: "medium",
         },
         SecretPattern {
             kind: "github_pat",
-            re: re(r"\bghp_[A-Za-z0-9]{36,255}\b"),
+            re: re(r"(?-u:\b)ghp_[A-Za-z0-9]{36,255}(?-u:\b)"),
             severity: "high",
         },
         SecretPattern {
             kind: "github_oauth",
-            re: re(r"\bgho_[A-Za-z0-9]{36,255}\b"),
+            re: re(r"(?-u:\b)gho_[A-Za-z0-9]{36,255}(?-u:\b)"),
             severity: "high",
         },
         SecretPattern {
             kind: "github_app",
-            re: re(r"\bghs_[A-Za-z0-9]{36,255}\b"),
+            re: re(r"(?-u:\b)ghs_[A-Za-z0-9]{36,255}(?-u:\b)"),
             severity: "high",
         },
         SecretPattern {
             kind: "github_refresh",
-            re: re(r"\bghr_[A-Za-z0-9]{36,255}\b"),
+            re: re(r"(?-u:\b)ghr_[A-Za-z0-9]{36,255}(?-u:\b)"),
             severity: "high",
         },
         SecretPattern {
             kind: "slack_token",
-            re: re(r"\bxox[abpr]-[A-Za-z0-9\-]{10,72}\b"),
+            re: re(r"(?-u:\b)xox[abpr]-[A-Za-z0-9\-]{10,72}(?-u:\b)"),
             severity: "high",
         },
         SecretPattern {
@@ -114,12 +115,17 @@ fn build_patterns() -> Vec<SecretPattern> {
         },
         SecretPattern {
             kind: "jwt",
-            re: re(r"\beyJ[A-Za-z0-9\-_=]+\.eyJ[A-Za-z0-9\-_=]+\.?[A-Za-z0-9\-_.+/=]*\b"),
+            re: re(
+                r"(?-u:\b)eyJ[A-Za-z0-9\-_=]+\.eyJ[A-Za-z0-9\-_=]+\.?[A-Za-z0-9\-_.+/=]*(?-u:\b)",
+            ),
             severity: "medium",
         },
         SecretPattern {
             kind: "private_key",
-            re: re(r"-----BEGIN (RSA |EC |DSA |OPENSSH |PGP |)PRIVATE KEY-----"),
+            // Go matched only the bare/RSA/EC/DSA/OPENSSH/PGP spellings; PKCS#8
+            // `ENCRYPTED PRIVATE KEY` and armored `PGP PRIVATE KEY BLOCK`
+            // headers slipped through, so they are accepted here as well.
+            re: re(r"-----BEGIN ((RSA|EC|DSA|OPENSSH|ENCRYPTED|PGP) )?PRIVATE KEY( BLOCK)?-----"),
             severity: "high",
         },
         SecretPattern {
@@ -133,7 +139,7 @@ fn build_patterns() -> Vec<SecretPattern> {
         SecretPattern {
             kind: "env_assignment",
             re: re(concat!(
-                r"\b[A-Z][A-Z0-9_]{2,}",
+                r"(?-u:\b)[A-Z][A-Z0-9_]{2,}",
                 r"(?:API_?KEY|SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE_?KEY|ACCESS_?KEY|AUTH_?KEY)",
                 r"[A-Z0-9_]*",
                 r"(?-u:\s)*[=:](?-u:\s)*",
@@ -178,6 +184,37 @@ mod tests {
         let line = format!("aws=\"{key}\"");
         let m = p.re.find(&line).unwrap();
         assert_eq!(m.as_str(), key);
+    }
+
+    fn kind_of(line: &str) -> Option<&'static str> {
+        secret_patterns()
+            .iter()
+            .find(|p| p.re.is_match(line))
+            .map(|p| p.kind)
+    }
+
+    #[test]
+    fn private_key_matches_pkcs8_encrypted_and_pgp_headers() {
+        for label in [
+            "PRIVATE KEY",
+            "RSA PRIVATE KEY",
+            "OPENSSH PRIVATE KEY",
+            "ENCRYPTED PRIVATE KEY",
+            "PGP PRIVATE KEY BLOCK",
+        ] {
+            let line = format!("-----BEGIN {label}-----");
+            assert_eq!(kind_of(&line), Some("private_key"), "{line}");
+        }
+        assert_eq!(kind_of("-----BEGIN PUBLIC KEY-----"), None);
+        assert_eq!(kind_of("-----BEGIN PGP PUBLIC KEY BLOCK-----"), None);
+    }
+
+    #[test]
+    fn word_boundaries_are_ascii_like_go() {
+        let key = sample_aws_access_key();
+        assert_eq!(kind_of(&format!("キーは{key}です")), Some("aws_access_key"));
+        // An ASCII word character still blocks the match, as in Go.
+        assert_eq!(kind_of(&format!("x{key}")), None);
     }
 
     #[test]

@@ -5,12 +5,14 @@ use rayon::prelude::*;
 
 use super::*;
 use crate::commands::where_cmd::extract_where_symbols;
+use crate::common::SecurityToml;
 
 pub(crate) fn read_pack_paths_ordered(
     root: &Path,
     paths: &[String],
     budget: i64,
     quiet: bool,
+    security: &SecurityToml,
 ) -> Result<Vec<NativePackFile>, String> {
     let mut files = Vec::new();
     let mut used = 0_i64;
@@ -28,7 +30,7 @@ pub(crate) fn read_pack_paths_ordered(
         // The where JSON may be hand-written or saved: like the walker, read
         // only regular files inside the repository (no absolute or `..`
         // escapes, no links leaving it, no FIFOs).
-        let body = match crate::common::resolves_to_file_in(&canonical_root, &abs)
+        let mut body = match crate::common::resolves_to_file_in(&canonical_root, &abs)
             .then(|| std::fs::read_to_string(&abs).ok())
             .flatten()
         {
@@ -40,6 +42,7 @@ pub(crate) fn read_pack_paths_ordered(
                 continue;
             }
         };
+        redact_pack_body(&abs.to_string_lossy(), &mut body, security);
         let tokens = estimate_text_tokens(&body);
         if used + tokens > budget {
             continue;
@@ -474,7 +477,7 @@ mod tests {
         let root = root.to_path_buf();
         let paths = paths.to_vec();
         finishes_within(30, move || {
-            read_pack_paths_ordered(&root, &paths, 10_000, true)
+            read_pack_paths_ordered(&root, &paths, 10_000, true, &SecurityToml::default())
                 .unwrap()
                 .into_iter()
                 .map(|file| file.path)

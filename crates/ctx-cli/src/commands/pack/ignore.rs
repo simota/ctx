@@ -57,7 +57,11 @@ pub(crate) fn matches_ignore_pattern(pattern: &str, rel: &str, is_dir: bool) -> 
         return false;
     }
     if let Some(dir) = pattern.strip_suffix('/') {
-        return rel == dir || rel.starts_with(&format!("{dir}/")) || (is_dir && rel.ends_with(dir));
+        // A nested directory matches only on a whole path component:
+        // `build/` must not swallow `src/rebuild/`.
+        return rel == dir
+            || rel.starts_with(&format!("{dir}/"))
+            || (is_dir && rel.ends_with(&format!("/{dir}")));
     }
     if let Some(prefix) = pattern.strip_suffix("/**") {
         return rel == prefix || rel.starts_with(&format!("{prefix}/"));
@@ -95,4 +99,19 @@ pub(crate) fn glob_match(pattern: &str, text: &str) -> bool {
         }
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dir_pattern_matches_whole_components_only() {
+        assert!(matches_ignore_pattern("build/", "build", true));
+        assert!(matches_ignore_pattern("build/", "build/gen.go", false));
+        assert!(matches_ignore_pattern("build/", "src/build", true));
+        assert!(!matches_ignore_pattern("build/", "src/rebuild", true));
+        assert!(!matches_ignore_pattern("build/", "rebuild", true));
+        assert!(!matches_ignore_pattern("build/", "src/build", false));
+    }
 }

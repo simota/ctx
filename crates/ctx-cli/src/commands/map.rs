@@ -225,6 +225,16 @@ pub(crate) fn validate_map_args(args: &MapArgs) -> Result<(), String> {
             ))
         }
     }
+    // The ASCII renderer allocates a width x height canvas and SVG scales
+    // both by 12, so an unbounded value aborts on allocation or overflows.
+    // Values <= 0 still fall back to the 80x20 default.
+    for (flag, value) in [("--width", args.width), ("--height", args.height)] {
+        if value > MAX_MAP_DIMENSION {
+            return Err(format!(
+                "{flag} must be at most {MAX_MAP_DIMENSION} (got {value})"
+            ));
+        }
+    }
     match args.format.as_str() {
         "ascii" | "json" | "svg" | "" => Ok(()),
         other => Err(format!(
@@ -232,6 +242,8 @@ pub(crate) fn validate_map_args(args: &MapArgs) -> Result<(), String> {
         )),
     }
 }
+
+const MAX_MAP_DIMENSION: i64 = 1000;
 
 /// Mirror of Go `loadMapFiles` walk options: `ctx map` uses the ctx.toml
 /// `[ignore]` config (RespectGitignore + Patterns from `config.Default()`
@@ -331,5 +343,28 @@ pub(crate) fn estimate_where_tokens(root: &Path, input: &ctx_where::FileInput) -
     match ctx_tokens::count_file(&abs_str) {
         Ok(n) => n,
         Err(_) => ctx_tokens::count_str(&input.lines.join("\n")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args_with(width: i64, height: i64) -> MapArgs {
+        let mut args = parse_map_args(&["map".into()]).expect("parse map args");
+        args.width = width;
+        args.height = height;
+        args
+    }
+
+    #[test]
+    fn validate_rejects_oversized_canvas() {
+        assert!(validate_map_args(&args_with(80, 20)).is_ok());
+        assert!(validate_map_args(&args_with(0, -1)).is_ok());
+        assert!(validate_map_args(&args_with(MAX_MAP_DIMENSION, MAX_MAP_DIMENSION)).is_ok());
+        let err = validate_map_args(&args_with(i64::MAX, 20)).unwrap_err();
+        assert!(err.contains("--width must be at most 1000"), "{err}");
+        let err = validate_map_args(&args_with(80, 1001)).unwrap_err();
+        assert!(err.contains("--height must be at most 1000"), "{err}");
     }
 }

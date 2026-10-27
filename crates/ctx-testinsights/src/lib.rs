@@ -98,7 +98,16 @@ pub fn analyze(root: impl AsRef<Path>, rel_path: &str, profile: &str) -> std::io
         return Ok(out);
     }
 
-    let target_info = parse_go_file(&root.join(from_slash(&rel_path)))?;
+    let target = root.join(from_slash(&rel_path));
+    // Opening a FIFO (or other special file) would block until a writer
+    // shows up; only regular files are analyzed.
+    if !fs::metadata(&target)?.is_file() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "path is not a regular file",
+        ));
+    }
+    let target_info = parse_go_file(&target)?;
     if rel_path.ends_with("_test.go") {
         out.sources = related_go_sources(root, &rel_path, &target_info)?;
         out.total_sources = out.sources.len() as i32;
@@ -541,7 +550,16 @@ fn read_coverage(root: &Path, rel_path: &str, profile: &str) -> std::io::Result<
             "coverage profile must be repo-relative",
         ));
     }
-    let file = match fs::File::open(root.join(from_slash(&profile))) {
+    let profile_path = root.join(from_slash(&profile));
+    // A profile that is not a regular file (a directory, or a FIFO that would
+    // block the open forever) is treated like a missing one.
+    match fs::metadata(&profile_path) {
+        Ok(meta) if meta.is_file() => {}
+        Ok(_) => return Ok(None),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e),
+    }
+    let file = match fs::File::open(&profile_path) {
         Ok(f) => f,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(e),
@@ -566,9 +584,11 @@ fn read_coverage(root: &Path, rel_path: &str, profile: &str) -> std::io::Result<
         if !cover_path_matches(&entry.path, rel_path) {
             continue;
         }
-        cov.total_stmts += entry.stmts;
+        // Saturate: the profile is user input and Go sums these as 64-bit
+        // ints, so huge counts must not overflow (a panic in debug builds).
+        cov.total_stmts = cov.total_stmts.saturating_add(entry.stmts);
         if entry.count > 0 {
-            cov.covered_stmts += entry.stmts;
+            cov.covered_stmts = cov.covered_stmts.saturating_add(entry.stmts);
         } else {
             cov.uncovered_lines.push(LineRange {
                 start: entry.start_line,
@@ -637,7 +657,7 @@ fn merge_ranges(mut ranges: Vec<LineRange>) -> Vec<LineRange> {
     let mut out = vec![ranges[0].clone()];
     for r in ranges.into_iter().skip(1) {
         let last = out.last_mut().expect("at least one");
-        if r.start <= last.end + 1 {
+        if r.start <= last.end.saturating_add(1) {
             if r.end > last.end {
                 last.end = r.end;
             }
@@ -786,6 +806,72 @@ mod tests {
         let paths: Vec<String> = walk(&dir).unwrap().into_iter().map(|f| f.path).collect();
         let _ = fs::remove_dir_all(&dir);
         assert_eq!(paths, vec!["a.go".to_string()]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fifo_target_or_profile_does_not_block() {
+        let dir = std::env::temp_dir().join(format!(
+            "ti-fifo-open-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("a.go"), "package a\n\nfunc A() {}\n").unwrap();
+        for name in ["pipe.go", "fifo.out"] {
+            let status = std::process::Command::new("mkfifo")
+                .arg(dir.join(name))
+                .status()
+                .expect("run mkfifo");
+            assert!(status.success(), "mkfifo failed");
+        }
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        let root = dir.clone();
+        std::thread::spawn(move || {
+            let target = analyze(&root, "pipe.go", "").map(|_| ());
+            let profile = analyze(&root, "a.go", "fifo.out").map(|i| i.coverage.is_none());
+            let _ = tx.send((target.is_err(), profile.ok()));
+        });
+        let got = rx
+            .recv_timeout(std::time::Duration::from_secs(30))
+            .expect("analyze blocked on a FIFO");
+        let _ = fs::remove_dir_all(&dir);
+        assert_eq!(got, (true, Some(true)));
+    }
+
+    #[test]
+    fn coverage_counts_saturate_instead_of_overflowing() {
+        let dir = std::env::temp_dir().join(format!(
+            "ti-cover-overflow-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("coverage.out"),
+            "mode: set\na.go:1.1,2.2 2147483647 1\na.go:3.1,4.2 1 1\n\
+             a.go:5.1,2147483647.2 1 0\na.go:7.1,8.2 1 0\n",
+        )
+        .unwrap();
+        let cov = read_coverage(&dir, "a.go", "").unwrap().unwrap();
+        let _ = fs::remove_dir_all(&dir);
+        assert_eq!(cov.total_stmts, i32::MAX);
+        assert_eq!(cov.covered_stmts, i32::MAX);
+        assert!(cov.percent > 0.0);
+        assert_eq!(
+            cov.uncovered_lines,
+            vec![LineRange {
+                start: 5,
+                end: i32::MAX
+            }]
+        );
     }
 
     /// Top-level-only symbol extraction: function parameters, locals, and

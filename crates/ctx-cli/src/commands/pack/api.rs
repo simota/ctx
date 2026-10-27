@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use crate::common::SecurityToml;
+
 use super::*;
 
 pub(crate) fn read_native_pack_content(
@@ -14,26 +16,24 @@ pub(crate) fn read_native_pack_content(
     } else {
         body
     };
-    if !args.api_only && cfg.security.secret_scan && cfg.security.redact {
-        let opts = ctx_scan::Options {
-            allowlist: cfg.security.allowlist.clone(),
-            allowlist_files: cfg.security.allowlist_files.clone(),
-            enable_entropy: cfg.security.enable_entropy,
-        };
-        if let Ok(warnings) = ctx_scan::scan_file_with_options(abs, &opts) {
-            let warning_inputs: Vec<ctx_pack::WarningInput> = warnings
-                .iter()
-                .map(|warning| ctx_pack::WarningInput {
-                    path: rel.to_string(),
-                    line: warning.line,
-                    kind: warning.kind.clone(),
-                })
-                .collect();
-            let redacted = ctx_pack::redact::redact_lines(body.as_bytes(), &warning_inputs);
-            body = String::from_utf8_lossy(&redacted).into_owned();
-        }
-    }
+    // Scan the text that is emitted, not the file on disk: `--api-only`
+    // keeps `export const TOKEN = "…"` lines but renumbers them, so file
+    // line numbers would not match (and skipping the scan leaked them).
+    redact_pack_body(abs, &mut body, &cfg.security);
     Ok(body)
+}
+
+/// Apply the `[security]` secret redaction to text about to be packed.
+pub(crate) fn redact_pack_body(abs: &str, body: &mut String, security: &SecurityToml) {
+    if !(security.secret_scan && security.redact) {
+        return;
+    }
+    let opts = ctx_scan::Options {
+        allowlist: security.allowlist.clone(),
+        allowlist_files: security.allowlist_files.clone(),
+        enable_entropy: security.enable_entropy,
+    };
+    *body = ctx_pack::redact::redact_secrets(abs, body, &opts);
 }
 
 pub(crate) fn extract_public_api_light(path: &str, body: &str) -> Option<String> {

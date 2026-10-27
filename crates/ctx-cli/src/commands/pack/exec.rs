@@ -83,7 +83,7 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
         return Ok(());
     }
     if !args.diff_spec.is_empty() {
-        let diffs = git_diff_entries(&root, &args.diff_spec, args.api_only)?;
+        let diffs = git_diff_entries(&root, &args.diff_spec, args.api_only, &cfg.security)?;
         let rendered = ctx_pack::diff::render(
             &diffs,
             &ctx_pack::DiffOptions {
@@ -100,7 +100,7 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
             .read_to_end(&mut stdin)
             .map_err(|err| format!("pack: read stdin: {err}"))?;
         let paths = ctx_pack::from_where::parse(&stdin).map_err(|err| err.to_string())?;
-        read_pack_paths_ordered(&root, &paths, args.budget, args.no_warnings)?
+        read_pack_paths_ordered(&root, &paths, args.budget, args.no_warnings, &cfg.security)?
     } else if args.from_stdin {
         let mut stdin = String::new();
         io::stdin()

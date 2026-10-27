@@ -5,7 +5,7 @@
 // (Unicode boundaries, NUL bytes, very long lines); we proactively
 // pin them here so a regression cannot land silently.
 
-use ctx_scan::scan::{scan_file_with_options, scan_files_with_options};
+use ctx_scan::scan::{scan_bytes_with_options, scan_file_with_options, scan_files_with_options};
 use ctx_scan::types::Options;
 
 use std::io::Write;
@@ -130,4 +130,26 @@ fn scan_files_skips_missing_paths() {
     let w = scan_files_with_options(&paths, &Options::default());
     assert_eq!(w.len(), 1);
     assert_eq!(w[0].kind, "aws_access_key");
+}
+
+/// R-scan-bytes: in-memory scanning reports the same warnings as the file
+/// scan and honours allowlist_files by the supplied path.
+#[test]
+fn scan_bytes_matches_file_scan_and_allowlist_files() {
+    let content = format!("a\r\nkey=\"{}\"\n", sample_aws_access_key());
+    let path = write_temp("scan-bytes", content.as_bytes());
+    let path = path.to_string_lossy();
+    let from_file = scan_file_with_options(&path, &Options::default()).unwrap();
+    let from_bytes = scan_bytes_with_options(&path, content.as_bytes(), &Options::default());
+    assert_eq!(from_file.len(), 1);
+    assert_eq!(from_bytes.len(), from_file.len());
+    assert_eq!(from_bytes[0].line, 2);
+    assert_eq!(from_bytes[0].kind, from_file[0].kind);
+    assert_eq!(from_bytes[0].path, from_file[0].path);
+
+    let opts = Options {
+        allowlist_files: vec!["fixtures/**".to_string()],
+        ..Default::default()
+    };
+    assert!(scan_bytes_with_options("fixtures/a.txt", content.as_bytes(), &opts).is_empty());
 }
