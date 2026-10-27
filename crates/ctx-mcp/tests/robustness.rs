@@ -157,3 +157,18 @@ fn long_multibyte_prompt_argument_is_truncated_not_panicked() {
 
     let _ = std::fs::remove_dir_all(root);
 }
+
+#[test]
+fn pack_redacts_secrets_in_file_contents() {
+    let token = ["ghp_", "123456789012345678901234567890123456"].concat();
+    let root = temp_dir("redact");
+    std::fs::write(
+        root.join("main.rs"),
+        format!("const T: &str = \"{token}\";\nfn kept() {{}}\n"),
+    )
+    .unwrap();
+    let pack = call_tool(&root, "ctx_pack", json!({}));
+    assert!(!pack.contains(&token), "token leaked: {pack}");
+    assert!(pack.contains("kind=github_pat"), "{pack}");
+    assert!(pack.contains("fn kept()"), "{pack}");
+}

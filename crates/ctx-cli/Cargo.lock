@@ -548,6 +548,7 @@ version = "0.1.0"
 dependencies = [
  "cbindgen",
  "ctx-contract",
+ "ctx-scan",
  "ctx-tokens",
  "libc",
  "once_cell",

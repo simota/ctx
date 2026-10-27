@@ -414,6 +414,8 @@ pub fn pack_markdown(inputs: &[FileInput], goal: &str, budget: i64) -> Result<St
             Err(err) if err.kind() == std::io::ErrorKind::InvalidData => continue,
             Err(err) => return Err(format!("pack: read {}: {err}", input.path)),
         };
+        // Redact as the CLI pack does with its default `[security]` settings.
+        let content = crate::redact::redact_secrets(&input.abs_path, &content, &Default::default());
         // Gate and accumulate with the SAME measured count: gating on the
         // caller-supplied estimate (input.tokens) lets a low/zero estimate
         // overrun the budget.
@@ -569,6 +571,17 @@ mod tests {
             !out.contains("### NOTES.md"),
             "non-UTF-8 file skipped: {out}"
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn pack_markdown_redacts_secrets() {
+        let dir = temp_workspace("redact");
+        let token = ["ghp_", "123456789012345678901234567890123456"].concat();
+        let input = file_input(&dir, "a.rs", &format!("const T: &str = \"{token}\";\n"));
+        let out = pack_markdown(&[input], "", 50_000).expect("pack_markdown");
+        assert!(!out.contains(&token), "{out}");
+        assert!(out.contains("[REDACTED — kind=github_pat]"), "{out}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

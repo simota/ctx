@@ -72,6 +72,26 @@ pub fn redact_lines(data: &[u8], warnings: &[WarningInput]) -> Vec<u8> {
     joined
 }
 
+/// Scan `body` for secrets and redact the lines that hit. The text that is
+/// emitted is what gets scanned, so line numbers match even when the caller
+/// transformed the file (e.g. `--api-only`); `path` is used only for the
+/// warnings and for `allowlist_files` matching.
+pub fn redact_secrets(path: &str, body: &str, opts: &ctx_scan::Options) -> String {
+    let warnings = ctx_scan::scan_bytes_with_options(path, body.as_bytes(), opts);
+    if warnings.is_empty() {
+        return body.to_string();
+    }
+    let inputs: Vec<WarningInput> = warnings
+        .into_iter()
+        .map(|warning| WarningInput {
+            path: path.to_string(),
+            line: warning.line,
+            kind: warning.kind,
+        })
+        .collect();
+    String::from_utf8_lossy(&redact_lines(body.as_bytes(), &inputs)).into_owned()
+}
+
 const PRIVATE_KEY_KIND: &str = "private_key";
 const PEM_END: &[u8] = b"-----END ";
 
