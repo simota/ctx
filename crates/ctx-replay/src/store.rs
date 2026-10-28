@@ -327,9 +327,11 @@ mod tests {
         std::fs::create_dir_all(&store_dir).unwrap();
         std::os::unix::fs::symlink(&victim, store_dir.join("baseline.tmp")).unwrap();
         let store = open_store(&store_dir.to_string_lossy()).unwrap();
-        let mut m = Manifest::default();
-        m.id = "baseline".into();
-        m.created_at = "2026-01-01T00:00:00Z".into();
+        let m = Manifest {
+            id: "baseline".into(),
+            created_at: "2026-01-01T00:00:00Z".into(),
+            ..Default::default()
+        };
         store.save(&m).unwrap();
         assert_eq!(std::fs::read_to_string(&victim).unwrap(), "keep me");
         let saved = store_dir.join("baseline.json");
@@ -346,8 +348,10 @@ mod tests {
         let dir = tmp_dir("danglink");
         let store = open_store(&dir.to_string_lossy()).unwrap();
         std::os::unix::fs::symlink(dir.join("missing"), dir.join("s.json")).unwrap();
-        let mut m = Manifest::default();
-        m.id = "s".into();
+        let m = Manifest {
+            id: "s".into(),
+            ..Default::default()
+        };
         assert!(matches!(store.save(&m).unwrap_err(), StoreError::Exists(_)));
     }
 
@@ -356,9 +360,11 @@ mod tests {
     fn list_and_load_skip_fifos_and_symlinks() {
         let dir = tmp_dir("fifo");
         let store = open_store(&dir.to_string_lossy()).unwrap();
-        let mut m = Manifest::default();
-        m.id = "real".into();
-        m.created_at = "2026-01-01T00:00:00Z".into();
+        let m = Manifest {
+            id: "real".into(),
+            created_at: "2026-01-01T00:00:00Z".into(),
+            ..Default::default()
+        };
         store.save(&m).unwrap();
         let fifo = dir.join("pipe.json");
         let status = std::process::Command::new("mkfifo")

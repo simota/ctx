@@ -1761,7 +1761,16 @@ mod tests {
             parse_log_args(&os_args(&["log", "--path", "src/main.rs", "--ref", "main"]))
                 .unwrap()
                 .expect("parsed");
-        assert_eq!(path_args.path.as_deref(), Some("src/main.rs"));
+        // `--path` is relative to the current directory, which for unit tests
+        // is the crate directory inside the work tree.
+        let cwd = env::current_dir().unwrap();
+        let prefix = work_tree_top(&cwd)
+            .map(|(_, prefix)| prefix)
+            .unwrap_or_default();
+        assert_eq!(
+            path_args.path.as_deref(),
+            Some(format!("{prefix}src/main.rs").as_str())
+        );
         assert_eq!(path_args.ref_name.as_deref(), Some("main"));
 
         let query_args = parse_log_args(&os_args(&["log", "--query=auth", "--plain"]))
