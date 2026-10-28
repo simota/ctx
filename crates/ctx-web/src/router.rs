@@ -7,7 +7,7 @@
 //! parity harness picks it up by adding one entry to its route matrix.
 
 use axum::middleware;
-use axum::routing::{any, get};
+use axum::routing::{any, get, post};
 use axum::Router;
 
 use crate::embed;
@@ -26,7 +26,13 @@ pub fn build(state: AppState) -> Router {
         .route("/api/file", get(handlers::file::handle))
         .route("/api/where", get(handlers::where_::handle))
         .route("/api/relations", get(handlers::relations::handle))
-        .route("/api/roots", get(handlers::roots::handle))
+        .route(
+            "/api/roots",
+            get(handlers::roots::handle)
+                .post(handlers::roots::handle_unsupported)
+                .delete(handlers::roots::handle_unsupported),
+        )
+        .route("/api/roots/open", post(handlers::roots::handle_unsupported))
         .route("/api/symbols", get(handlers::symbols::handle_symbols))
         .route("/api/definition", get(handlers::symbols::handle_definition))
         .route("/api/evidence", get(handlers::evidence::handle))
@@ -83,5 +89,16 @@ pub fn build(state: AppState) -> Router {
 }
 
 async fn spa_fallback(uri: axum::http::Uri) -> axum::response::Response {
+    // An unknown API path is a client/server version mismatch, not a page:
+    // answer with the JSON error envelope the SPA parses instead of the
+    // index.html shell (which the SPA reported as "Invalid JSON").
+    let path = uri.path();
+    if path == "/api" || path.starts_with("/api/") {
+        return crate::response::error(
+            axum::http::StatusCode::NOT_FOUND,
+            "not_found",
+            "no such API endpoint",
+        );
+    }
     embed::serve(&uri)
 }

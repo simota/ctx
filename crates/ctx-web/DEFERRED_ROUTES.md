@@ -23,6 +23,17 @@ rows that formerly filled this table are ported (see below)._
 > (Go performs the create/delete: 201/204). See the `/api/mix` mutations
 > section below — this divergence blocks cutover.
 
+> **Note:** unregistered `/api/*` paths answer `404` with the JSON error
+> envelope (`{"error":{"code":"not_found",…}}`) from the router fallback;
+> before, they received the SPA's `index.html` with `200`, which the frontend
+> reported as "Invalid JSON".
+
+> **Note:** `/api/roots` mutations used by the roots picker — `POST
+> /api/roots` (register), `DELETE /api/roots?name=` (remove) and `POST
+> /api/roots/open` (spawn a server) — are deferred. They are registered and
+> return `501 not_supported` with the equivalent `ctx roots add|remove|open`
+> command in the message, which the picker shows as its error banner.
+
 > **Note:** `/api/file` is registered and functionally ported, but the Rust
 > handler currently emits fs metadata fields (`modified_at`, `created_at`,
 > `mode`, `owner`, `group`) added for the Svelte file detail view. The Go

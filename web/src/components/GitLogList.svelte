@@ -2,7 +2,7 @@
   import { formatRelative, basename } from '../lib/format';
   import { announce } from '../lib/announce.svelte';
   import { route, navigate, toGitLogHash, toGitReviewHash } from '../lib/router.svelte';
-  import { gitlog, loadGitLog } from '../lib/gitlog.svelte';
+  import { gitlog, ensureGitLog, loadGitLog } from '../lib/gitlog.svelte';
   import { computeGraph, type GraphEdge } from '../lib/git-graph';
   import {
     fetchBranches,
@@ -50,7 +50,7 @@
   let selectedRef = $state('');
 
   $effect(() => {
-    void loadGitLog(LIMIT);
+    void ensureGitLog(LIMIT);
   });
 
   $effect(() => {
