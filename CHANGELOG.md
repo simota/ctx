@@ -91,6 +91,14 @@ and this project does not yet follow strict semver — see release notes per tag
   quote-containing file names are reported verbatim instead of as C-quoted
   strings with a token/symbol delta of 0 (and unusable "next reads"
   anchors).
+- `ctx log` (TUI file list) and `ctx browse` `/api/git/commit-files`: a
+  merge commit lists the files it changed against its first parent instead
+  of nothing.
+- `ctx browse` `/api/git/commit-files` and `/api/git/changed-files`: file
+  names containing `"`, `\`, a tab or a control character are reported raw
+  instead of C-quoted (which made them unresolvable in `commit-diff` and
+  dropped their line counts), and a rename into a parent directory
+  (`src/{sub => }/x`) keeps its `+/-` counts in the row and the summary.
 - `ctx browse`: `/api/tests` no longer hangs when `path` or `profile` names
   a FIFO; a non-regular `path` gets `400 not_a_file` and a non-regular
   profile is treated as missing (`profile=.` no longer returns 500).
