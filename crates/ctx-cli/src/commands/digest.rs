@@ -152,63 +152,26 @@ pub(crate) fn generate_digest(since: &str, top: usize) -> Result<DigestBrief, St
     let head = git_output(&["rev-parse", "HEAD"]).unwrap_or_else(|_| "N/A".to_string());
     let head_ref = head.trim().to_string();
 
-    // Collect commits: one line per commit (hash\x00email), plus name-status lines.
-    // We also track root commits (no-parent) via a separate pass to avoid marking
-    // their initial files as "added" — matching Go's go-git behaviour.
+    // Collect commits: one header per commit (hash, email, parents), plus
+    // name-status records. `-z` keeps paths unquoted (non-ASCII, `"`, `\`) so
+    // they can be fed back to `git show`, and `--no-renames` reports a rename
+    // as a delete of the old path plus an add of the new one, like go-git's
+    // tree diff did (otherwise only the old path of `R100\told\tnew` was read).
     let log = git_output(&[
         "log",
         &format!("--since={since_arg}"),
+        "-z",
+        "--no-renames",
         "--name-status",
-        "--format=commit:%H%x00%ae%x00%P",
+        "--format=commit:%H%x1f%ae%x1f%P",
     ])
     .map_err(|err| format!("digest: git log failed: {err}"))?;
+    let log = parse_digest_log(&log);
 
-    let mut commit_count = 0usize;
-    let mut authors = std::collections::BTreeSet::new();
-    // (commit_count, is_added, is_deleted)
-    let mut files: std::collections::BTreeMap<String, (usize, bool, bool)> =
-        std::collections::BTreeMap::new();
-    let mut oldest_hash = String::new();
-    let mut current_is_root = false;
-
-    for line in log.lines() {
-        if let Some(rest) = line.strip_prefix("commit:") {
-            commit_count += 1;
-            // Format: hash\x00email\x00parents
-            let mut parts = rest.splitn(3, '\0');
-            let hash = parts.next().unwrap_or("").trim().to_string();
-            let email = parts.next().unwrap_or("").trim().to_string();
-            let parents = parts.next().unwrap_or("").trim().to_string();
-            // git log prints newest-first, so last seen hash = oldest
-            oldest_hash = hash;
-            // A root commit has no parents
-            current_is_root = parents.is_empty();
-            if !email.is_empty() {
-                authors.insert(email);
-            }
-            continue;
-        }
-        let mut fields = line.split('\t');
-        let Some(status) = fields.next() else {
-            continue;
-        };
-        let Some(path) = fields.next() else {
-            continue;
-        };
-        if status.is_empty() || path.is_empty() {
-            continue;
-        }
-        let entry = files.entry(path.to_string()).or_insert((0, false, false));
-        entry.0 += 1;
-        // For root commits, Go iterates c.Files() without marking added/deleted.
-        // Only non-root commits (where from==nil means truly new file) set added.
-        if !current_is_root && status.starts_with('A') {
-            entry.1 = true;
-        }
-        if status.starts_with('D') {
-            entry.2 = true;
-        }
-    }
+    let commit_count = log.commits;
+    let authors = log.authors;
+    let files = log.files;
+    let oldest_hash = log.oldest_hash;
 
     let files_added = files.values().filter(|(_, added, _)| *added).count();
     let files_deleted = files.values().filter(|(_, _, deleted)| *deleted).count();
@@ -295,6 +258,69 @@ pub(crate) fn generate_digest(since: &str, top: usize) -> Result<DigestBrief, St
         symbol_delta: total_symbol_delta,
         hot_files,
     })
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct DigestLog {
+    pub(crate) commits: usize,
+    pub(crate) authors: std::collections::BTreeSet<String>,
+    /// path → (commit_count, is_added, is_deleted)
+    pub(crate) files: std::collections::BTreeMap<String, (usize, bool, bool)>,
+    pub(crate) oldest_hash: String,
+}
+
+/// Parse `git log -z --no-renames --name-status
+/// --format=commit:%H%x1f%ae%x1f%P` output. Records are NUL-separated: a
+/// `commit:` header, then `STATUS`, `path` pairs (the first status of a
+/// commit is preceded by a newline).
+pub(crate) fn parse_digest_log(raw: &str) -> DigestLog {
+    let mut log = DigestLog::default();
+    let mut current_is_root = false;
+    let mut tokens = raw.split('\0');
+    while let Some(token) = tokens.next() {
+        let token = token.trim_start_matches('\n');
+        if let Some(rest) = token.strip_prefix("commit:") {
+            log.commits += 1;
+            let mut parts = rest.splitn(3, '\x1f');
+            let hash = parts.next().unwrap_or("").trim().to_string();
+            let email = parts.next().unwrap_or("").trim().to_string();
+            let parents = parts.next().unwrap_or("").trim();
+            // git log prints newest-first, so last seen hash = oldest
+            log.oldest_hash = hash;
+            // A root commit has no parents
+            current_is_root = parents.is_empty();
+            if !email.is_empty() {
+                log.authors.insert(email);
+            }
+            continue;
+        }
+        let status = token;
+        if status.is_empty() {
+            continue;
+        }
+        // The path always follows its status, so a file named `commit:…`
+        // is never mistaken for a header.
+        let Some(path) = tokens.next() else {
+            break;
+        };
+        if path.is_empty() {
+            continue;
+        }
+        let entry = log
+            .files
+            .entry(path.to_string())
+            .or_insert((0, false, false));
+        entry.0 += 1;
+        // For root commits, Go iterates c.Files() without marking added/deleted.
+        // Only non-root commits (where from==nil means truly new file) set added.
+        if !current_is_root && status.starts_with('A') {
+            entry.1 = true;
+        }
+        if status.starts_with('D') {
+            entry.2 = true;
+        }
+    }
+    log
 }
 
 /// Fetch file content at a git ref:path using `git show`.

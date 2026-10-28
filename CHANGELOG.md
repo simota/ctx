@@ -74,6 +74,12 @@ and this project does not yet follow strict semver — see release notes per tag
   drop such links the same way.
 
 ### Fixed
+- `ctx digest`: a renamed file is listed under its new path (as an add,
+  with the old path as a delete) instead of only under the old path with
+  its whole size as a negative token delta, and non-ASCII or
+  quote-containing file names are reported verbatim instead of as C-quoted
+  strings with a token/symbol delta of 0 (and unusable "next reads"
+  anchors).
 - `ctx browse`: `/api/tests` no longer hangs when `path` or `profile` names
   a FIFO; a non-regular `path` gets `400 not_a_file` and a non-regular
   profile is treated as missing (`profile=.` no longer returns 500).
