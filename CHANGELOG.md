@@ -8,6 +8,17 @@ and this project does not yet follow strict semver — see release notes per tag
 ## [Unreleased]
 
 ### Security
+- Replay snapshot store (`ctx pack --snapshot`, `ctx replay`, `ctx browse`
+  replay/evidence): saving a snapshot no longer writes through a fixed
+  `<id>.tmp` path, so a repository that commits
+  `.ctx/replay/<id>.tmp -> ~/somefile` can no longer make
+  `ctx pack --snapshot <id> --shared` overwrite that file; the temporary file
+  gets a fresh name and is created with `O_EXCL`. A dangling `<id>.json`
+  symlink now counts as an existing snapshot. `--shared` refuses a `.ctx` or
+  `.ctx/replay` that is a symlink. Listing and loading read only regular
+  files, so a `*.json` FIFO or a link to `/dev/stdin` in the store no longer
+  hangs `ctx replay list` / `show` / `diff` / `prune`, and a `*.json` link to
+  a file outside the store is no longer read.
 - `ctx pack`: a private key was redacted only on its
   `-----BEGIN … PRIVATE KEY-----` line; the key body and END line were
   packed in clear. The key-material lines after it, through the matching

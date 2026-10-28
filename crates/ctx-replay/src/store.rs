@@ -65,6 +65,20 @@ pub fn resolve(opts: ResolveOptions) -> std::io::Result<String> {
         };
         let abs = fs::canonicalize(root).unwrap_or_else(|_| PathBuf::from(root));
         let p = abs.join(".ctx").join("replay");
+        // The shared store lives in the repository, so its directories may
+        // come from a clone. A committed `.ctx` or `.ctx/replay` symlink
+        // would send every snapshot write (and read) wherever it points.
+        for dir in [abs.join(".ctx"), p.clone()] {
+            if fs::symlink_metadata(&dir).is_ok_and(|meta| meta.file_type().is_symlink()) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!(
+                        "replay: refusing symlinked shared store directory {}",
+                        dir.display()
+                    ),
+                ));
+            }
+        }
         return Ok(p.to_string_lossy().into_owned());
     }
     if let Ok(xdg) = std::env::var("XDG_STATE_HOME") {
@@ -111,28 +125,57 @@ impl Store {
     pub fn save(&self, m: &Manifest) -> Result<(), StoreError> {
         validate_id(&m.id)?;
         let path = self.dir.join(format!("{}.json", m.id));
-        match fs::metadata(&path) {
+        // `symlink_metadata` so a dangling `<id>.json` link also counts as
+        // taken instead of being replaced.
+        match fs::symlink_metadata(&path) {
             Ok(_) => return Err(StoreError::Exists(m.id.clone())),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
             Err(e) => return Err(StoreError::Io(e)),
         }
         let data = serde_json::to_vec_pretty(m)?;
-        let tmp = path.with_extension("tmp");
-        fs::write(&tmp, &data)?;
-        fs::rename(&tmp, &path)?;
+        // A fixed `<id>.tmp` name could be a planted symlink that `fs::write`
+        // follows, overwriting a file outside the store. Use a fresh name
+        // and `create_new` (O_EXCL), which never follows or reuses an entry.
+        let tmp = self.dir.join(format!(
+            ".{}.{}.{}.tmp",
+            m.id,
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        let written = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&tmp)
+            .and_then(|mut file| std::io::Write::write_all(&mut file, &data));
+        if let Err(e) = written.and_then(|()| fs::rename(&tmp, &path)) {
+            let _ = fs::remove_file(&tmp);
+            return Err(StoreError::Io(e));
+        }
         Ok(())
     }
 
     pub fn load(&self, id: &str) -> Result<Manifest, StoreError> {
         validate_id(id)?;
         let path = self.dir.join(format!("{id}.json"));
-        let data = match fs::read(&path) {
-            Ok(d) => d,
+        // Only regular files are snapshots: reading a FIFO or a link to
+        // `/dev/stdin` would block, and a link may point outside the store.
+        match fs::symlink_metadata(&path) {
+            Ok(meta) if meta.file_type().is_file() => {}
+            Ok(_) => {
+                return Err(StoreError::Io(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("{} is not a regular file", path.display()),
+                )));
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 return Err(StoreError::NotFound(id.to_string()));
             }
             Err(e) => return Err(StoreError::Io(e)),
-        };
+        }
+        let data = fs::read(&path)?;
         Ok(serde_json::from_slice(&data)?)
     }
 
@@ -148,7 +191,8 @@ impl Store {
                 Ok(t) => t,
                 Err(_) => continue,
             };
-            if ft.is_dir() {
+            // `DirEntry::file_type` does not follow symlinks.
+            if !ft.is_file() {
                 continue;
             }
             let name = entry.file_name();
@@ -271,6 +315,91 @@ mod tests {
         assert_eq!(got.len(), 2);
         assert_eq!(got[0].id, "b");
         assert_eq!(got[1].id, "a");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn save_does_not_follow_a_planted_tmp_symlink() {
+        let dir = tmp_dir("tmplink");
+        let victim = dir.join("victim.txt");
+        std::fs::write(&victim, "keep me").unwrap();
+        let store_dir = dir.join("store");
+        std::fs::create_dir_all(&store_dir).unwrap();
+        std::os::unix::fs::symlink(&victim, store_dir.join("baseline.tmp")).unwrap();
+        let store = open_store(&store_dir.to_string_lossy()).unwrap();
+        let mut m = Manifest::default();
+        m.id = "baseline".into();
+        m.created_at = "2026-01-01T00:00:00Z".into();
+        store.save(&m).unwrap();
+        assert_eq!(std::fs::read_to_string(&victim).unwrap(), "keep me");
+        let saved = store_dir.join("baseline.json");
+        assert!(std::fs::symlink_metadata(&saved)
+            .unwrap()
+            .file_type()
+            .is_file());
+        assert_eq!(store.load("baseline").unwrap().id, "baseline");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn save_treats_a_dangling_json_symlink_as_existing() {
+        let dir = tmp_dir("danglink");
+        let store = open_store(&dir.to_string_lossy()).unwrap();
+        std::os::unix::fs::symlink(dir.join("missing"), dir.join("s.json")).unwrap();
+        let mut m = Manifest::default();
+        m.id = "s".into();
+        assert!(matches!(store.save(&m).unwrap_err(), StoreError::Exists(_)));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn list_and_load_skip_fifos_and_symlinks() {
+        let dir = tmp_dir("fifo");
+        let store = open_store(&dir.to_string_lossy()).unwrap();
+        let mut m = Manifest::default();
+        m.id = "real".into();
+        m.created_at = "2026-01-01T00:00:00Z".into();
+        store.save(&m).unwrap();
+        let fifo = dir.join("pipe.json");
+        let status = std::process::Command::new("mkfifo")
+            .arg(&fifo)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        std::os::unix::fs::symlink(dir.join("real.json"), dir.join("alias.json")).unwrap();
+        let ids: Vec<String> = store.list().unwrap().into_iter().map(|m| m.id).collect();
+        assert_eq!(ids, vec!["real".to_string()]);
+        assert!(matches!(store.load("pipe").unwrap_err(), StoreError::Io(_)));
+        assert!(matches!(
+            store.load("alias").unwrap_err(),
+            StoreError::Io(_)
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_shared_rejects_a_symlinked_store_directory() {
+        let dir = tmp_dir("sharedlink");
+        let outside = dir.join("outside");
+        std::fs::create_dir_all(&outside).unwrap();
+        let repo = dir.join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        std::os::unix::fs::symlink(&outside, repo.join(".ctx")).unwrap();
+        let err = resolve(ResolveOptions {
+            shared: true,
+            root: repo.to_string_lossy().into_owned(),
+        })
+        .unwrap_err();
+        assert!(err.to_string().contains("symlinked"), "{err}");
+
+        std::fs::remove_file(repo.join(".ctx")).unwrap();
+        std::fs::create_dir_all(repo.join(".ctx")).unwrap();
+        std::os::unix::fs::symlink(&outside, repo.join(".ctx/replay")).unwrap();
+        assert!(resolve(ResolveOptions {
+            shared: true,
+            root: repo.to_string_lossy().into_owned(),
+        })
+        .is_err());
     }
 
     #[test]
