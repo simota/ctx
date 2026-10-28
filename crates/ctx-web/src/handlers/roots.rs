@@ -16,10 +16,12 @@
 //! (which yields zero `time.Time{}`). We reproduce this by using "" as the
 //! sentinel for "absent" and emitting "0001-01-01T00:00:00Z" in that case.
 //!
-//! Only GET is handled here; POST/DELETE are mutation endpoints restricted to
-//! loopback and are DEFERRED — they are not registered in the router so the
-//! Go server's method-routing behaviour (returns 405 for POST) is preserved
-//! on the Rust side by axum's default method-not-allowed response.
+//! Only GET is ported. The mutations the SPA's roots picker calls —
+//! `POST /api/roots` (register), `DELETE /api/roots?name=` (remove) and
+//! `POST /api/roots/open` (spawn a server) — are DEFERRED: they answer
+//! `501 not_supported` with the equivalent `ctx roots` command, so the picker
+//! shows an actionable message instead of a bare 405 or, for `/open`, an
+//! "Invalid JSON" error from the SPA shell.
 
 use std::path::{Path, PathBuf};
 
@@ -193,6 +195,26 @@ fn load_roots(path: &Path) -> Result<RootsFile, String> {
     let raw = std::fs::read_to_string(path)
         .map_err(|e| format!("roots: read {}: {e}", path.display()))?;
     toml::from_str(&raw).map_err(|e| format!("roots: decode {}: {e}", path.display()))
+}
+
+/// `POST`/`DELETE /api/roots` and `POST /api/roots/open` — not ported; see
+/// the module docs.
+pub async fn handle_unsupported(method: axum::http::Method, uri: axum::http::Uri) -> Response {
+    let message = match (method.as_str(), uri.path()) {
+        (_, "/api/roots/open") => {
+            "opening a root from the browser is not supported by this server yet; \
+             run `ctx roots open <name>` in a terminal"
+        }
+        ("DELETE", _) => {
+            "removing a root from the browser is not supported by this server yet; \
+             run `ctx roots remove <name>` in a terminal"
+        }
+        _ => {
+            "registering a root from the browser is not supported by this server yet; \
+             run `ctx roots add <path>` in a terminal"
+        }
+    };
+    response::error(StatusCode::NOT_IMPLEMENTED, "not_supported", message)
 }
 
 #[cfg(test)]

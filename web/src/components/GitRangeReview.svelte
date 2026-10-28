@@ -218,6 +218,9 @@
       }
       diffByPath = { ...diffByPath, [path]: r };
     } catch (e) {
+      if (!manifest || manifest.effective_base !== activeBase || manifest.effective_head !== activeHead) {
+        return;
+      }
       diffError = {
         ...diffError,
         [path]:

@@ -7,7 +7,7 @@
     type GitDiffResponse,
   } from '../lib/api';
   import { formatRelative, langFromPath } from '../lib/format';
-  import { findCommit, loadGitLog } from '../lib/gitlog.svelte';
+  import { ensureGitLog, findCommit } from '../lib/gitlog.svelte';
   import { toFileHash, navigate } from '../lib/router.svelte';
   import { view, toggleDiffContextOnly } from '../lib/view.svelte';
   import hljs from '../lib/highlight';
@@ -94,7 +94,7 @@
   // Commit metadata is shared from the list store; ensure it is loaded so a
   // deep link to #/gitlog/<hash> can still show the header.
   $effect(() => {
-    void loadGitLog();
+    void ensureGitLog();
   });
 
   let commit = $derived(hash ? findCommit(hash) : undefined);
@@ -132,11 +132,16 @@
   // Fetch a file's diff once (no-op if already loaded or errored).
   async function loadDiff(path: string): Promise<void> {
     if (diffByPath[path] || diffError[path]) return;
+    // A response for the previously selected commit must not be cached under
+    // this commit (the hash effect resets the maps, then the late reply lands).
+    const requested = hash;
     try {
       // `${hash}^` resolves to the first parent (root commit -> empty before).
-      const r = await fetchFileCommitDiff(path, `${hash}^`, hash);
+      const r = await fetchFileCommitDiff(path, `${requested}^`, requested);
+      if (hash !== requested) return;
       diffByPath = { ...diffByPath, [path]: r };
     } catch (e) {
+      if (hash !== requested) return;
       diffError = {
         ...diffError,
         [path]:

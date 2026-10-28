@@ -8,6 +8,17 @@ and this project does not yet follow strict semver — see release notes per tag
 ## [Unreleased]
 
 ### Security
+- Replay snapshot store (`ctx pack --snapshot`, `ctx replay`, `ctx browse`
+  replay/evidence): saving a snapshot no longer writes through a fixed
+  `<id>.tmp` path, so a repository that commits
+  `.ctx/replay/<id>.tmp -> ~/somefile` can no longer make
+  `ctx pack --snapshot <id> --shared` overwrite that file; the temporary file
+  gets a fresh name and is created with `O_EXCL`. A dangling `<id>.json`
+  symlink now counts as an existing snapshot. `--shared` refuses a `.ctx` or
+  `.ctx/replay` that is a symlink. Listing and loading read only regular
+  files, so a `*.json` FIFO or a link to `/dev/stdin` in the store no longer
+  hangs `ctx replay list` / `show` / `diff` / `prune`, and a `*.json` link to
+  a file outside the store is no longer read.
 - `ctx pack`: a private key was redacted only on its
   `-----BEGIN … PRIVATE KEY-----` line; the key body and END line were
   packed in clear. The key-material lines after it, through the matching
@@ -74,6 +85,40 @@ and this project does not yet follow strict semver — see release notes per tag
   drop such links the same way.
 
 ### Fixed
+- `ctx digest`: a renamed file is listed under its new path (as an add,
+  with the old path as a delete) instead of only under the old path with
+  its whole size as a negative token delta, and non-ASCII or
+  quote-containing file names are reported verbatim instead of as C-quoted
+  strings with a token/symbol delta of 0 (and unusable "next reads"
+  anchors).
+- `ctx browse` git log: picking a branch or worktree in "Show log for"
+  reloaded `HEAD` over the branch request, so the list kept showing `HEAD`'s
+  commits under the selected branch name; the branch's log is now shown.
+- `ctx browse`: a slow response for the previously viewed item can no longer
+  overwrite the current one — the working-tree diff and hex view of the
+  file detail (switching files while a diff loads showed the previous
+  file's diff), per-file diffs in commit detail and range review, and the
+  Largest files list when "Respect .gitignore" is toggled quickly.
+- `ctx browse`: an unknown `/api/*` path answers `404` with the JSON error
+  envelope instead of the SPA's `index.html`, and the roots picker's
+  register / remove / open actions, which this server does not implement
+  yet, now explain which `ctx roots` command to run instead of failing with
+  "Method Not Allowed" or "Invalid JSON".
+- `ctx browse`: the embedded frontend is rebuilt from `web/src`; the shipped
+  bundle predated the hash-route decoding fix, so a malformed `%` escape in
+  the URL still broke the page and `%2C` in a file name split `open=`.
+- `ctx log` run from a subdirectory of a repository printed `no commits`;
+  it now reads the enclosing repository's history, and `--path` (or the
+  positional path) is taken relative to the current directory, as with
+  `git log -- <path>`.
+- `ctx log` (TUI file list) and `ctx browse` `/api/git/commit-files`: a
+  merge commit lists the files it changed against its first parent instead
+  of nothing.
+- `ctx browse` `/api/git/commit-files` and `/api/git/changed-files`: file
+  names containing `"`, `\`, a tab or a control character are reported raw
+  instead of C-quoted (which made them unresolvable in `commit-diff` and
+  dropped their line counts), and a rename into a parent directory
+  (`src/{sub => }/x`) keeps its `+/-` counts in the row and the summary.
 - `ctx browse`: `/api/tests` no longer hangs when `path` or `profile` names
   a FIFO; a non-regular `path` gets `400 not_a_file` and a non-regular
   profile is treated as missing (`profile=.` no longer returns 500).

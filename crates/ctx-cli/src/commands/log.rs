@@ -245,9 +245,13 @@ fn parse_log_args(args: &[OsString]) -> Result<Option<LogArgs>, String> {
         return Err("use either --path or --query for this MVP".to_string());
     }
 
-    let root = env::current_dir().map_err(|err| format!("cannot determine current dir: {err}"))?;
+    let cwd = env::current_dir().map_err(|err| format!("cannot determine current dir: {err}"))?;
+    // Run from a subdirectory, history still lives at the work-tree top
+    // (`ctx-git` only looks for `<root>/.git`), and `--path` is relative to
+    // where the user stands, as with `git log -- <path>`.
+    let (root, prefix) = work_tree_top(&cwd).unwrap_or_else(|| (cwd.clone(), String::new()));
     let path = match path {
-        Some(path) => Some(normalize_log_path(&root, &path)?),
+        Some(path) => Some(normalize_log_path(&root, &cwd, &prefix, &path)?),
         None => None,
     };
 
@@ -297,15 +301,44 @@ fn is_valid_ref(ref_name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '/' | '@' | '-'))
 }
 
-fn normalize_log_path(root: &Path, raw: &str) -> Result<String, String> {
+/// The work-tree top holding `cwd` and the `/`-terminated prefix of `cwd`
+/// below it (empty at the top), or `None` outside a git work tree.
+fn work_tree_top(cwd: &Path) -> Option<(PathBuf, String)> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel", "--show-prefix"])
+        .current_dir(cwd)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8(output.stdout).ok()?;
+    let mut lines = text.lines();
+    let top = lines.next().filter(|top| !top.is_empty())?;
+    let prefix = lines.next().unwrap_or("").to_string();
+    Some((PathBuf::from(top), prefix))
+}
+
+/// Express `raw` relative to the repository `root`. A relative `raw` is
+/// taken from `cwd`, which sits at `prefix` below `root`.
+fn normalize_log_path(root: &Path, cwd: &Path, prefix: &str, raw: &str) -> Result<String, String> {
     let raw_path = PathBuf::from(raw);
     let path = if raw_path.is_absolute() {
-        raw_path
-            .strip_prefix(root)
-            .map_err(|err| format!("path {raw:?} is outside the repository root: {err}"))?
-            .to_path_buf()
+        match raw_path.strip_prefix(root) {
+            Ok(rel) => rel.to_path_buf(),
+            // `root` is git's resolved top; `cwd` may spell the same place
+            // through a symlink.
+            Err(err) => match raw_path.strip_prefix(cwd) {
+                Ok(rel) => Path::new(prefix).join(rel),
+                Err(_) => {
+                    return Err(format!(
+                        "path {raw:?} is outside the repository root: {err}"
+                    ))
+                }
+            },
+        }
     } else {
-        raw_path
+        Path::new(prefix).join(raw_path)
     };
     clean_relative_path(&path).ok_or_else(|| format!("path {raw:?} is outside the repository root"))
 }
@@ -1728,7 +1761,16 @@ mod tests {
             parse_log_args(&os_args(&["log", "--path", "src/main.rs", "--ref", "main"]))
                 .unwrap()
                 .expect("parsed");
-        assert_eq!(path_args.path.as_deref(), Some("src/main.rs"));
+        // `--path` is relative to the current directory, which for unit tests
+        // is the crate directory inside the work tree.
+        let cwd = env::current_dir().unwrap();
+        let prefix = work_tree_top(&cwd)
+            .map(|(_, prefix)| prefix)
+            .unwrap_or_default();
+        assert_eq!(
+            path_args.path.as_deref(),
+            Some(format!("{prefix}src/main.rs").as_str())
+        );
         assert_eq!(path_args.ref_name.as_deref(), Some("main"));
 
         let query_args = parse_log_args(&os_args(&["log", "--query=auth", "--plain"]))

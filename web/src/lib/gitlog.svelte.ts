@@ -2,6 +2,7 @@
 // list (GitLogList) and the right detail pane (GitCommitDetail) so deep links
 // to `#/gitlog/<hash>` resolve commit metadata without a second round-trip.
 
+import { untrack } from 'svelte';
 import { fetchGitLog, ApiCallError, type FileLogEntry } from './api';
 
 export const gitlog = $state<{
@@ -38,6 +39,14 @@ export async function loadGitLog(limit = 100, ref: string | null = null, force =
   } finally {
     if (token === requestToken) gitlog.loading = false;
   }
+}
+
+// Mount-time "make sure the log is there" for components' `$effect`s. It
+// keeps the currently selected ref and reads the store untracked: calling
+// `loadGitLog(limit)` from an effect subscribed it to `gitlog.ref`, so picking
+// a branch re-ran the effect, which reloaded HEAD over the branch request.
+export function ensureGitLog(limit = 100): Promise<void> {
+  return untrack(() => loadGitLog(limit, gitlog.ref));
 }
 
 export function findCommit(hashFull: string): FileLogEntry | undefined {

@@ -698,8 +698,13 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
   /** Whether /raw has been fetched for the current path (avoid refetch on toggle) */
   let hexFetchedPath = $state('');
 
+  // Bumped per request and by `load()` so a slow /raw fetch for the previous
+  // file can't fill this file's hex view.
+  let hexEpoch = 0;
+
   function loadHexBytes(url: string, currentPath: string) {
     if (hexFetchedPath === currentPath && hexBytes !== null) return; // already loaded
+    const epoch = ++hexEpoch;
     hexLoading = true;
     hexError = null;
     hexBytes = null;
@@ -709,14 +714,16 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
         return r.arrayBuffer();
       })
       .then((buf) => {
+        if (epoch !== hexEpoch) return;
         hexBytes = new Uint8Array(buf);
         hexFetchedPath = currentPath;
       })
       .catch((e: unknown) => {
+        if (epoch !== hexEpoch) return;
         hexError = e instanceof Error ? e.message : String(e);
       })
       .finally(() => {
-        hexLoading = false;
+        if (epoch === hexEpoch) hexLoading = false;
       });
   }
 
@@ -767,19 +774,27 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     }));
   }
 
+  // Bumped per request and by `load()`: without it the previous file's late
+  // diff landed in `diffData`, and toggling Diff on this file then showed it
+  // (the `!diffData` check skipped the fetch).
+  let worktreeDiffEpoch = 0;
+
   function loadDiff(p: string) {
+    const epoch = ++worktreeDiffEpoch;
     diffLoading = true;
     diffError = null;
     diffData = null;
     fetchGitDiff(p)
       .then((r) => {
+        if (epoch !== worktreeDiffEpoch) return;
         diffData = r;
       })
       .catch((e: unknown) => {
+        if (epoch !== worktreeDiffEpoch) return;
         diffError = e instanceof Error ? e.message : String(e);
       })
       .finally(() => {
-        diffLoading = false;
+        if (epoch === worktreeDiffEpoch) diffLoading = false;
       });
   }
 
@@ -938,6 +953,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     // Reset diff state when navigating to a different file — the cached diff
     // belongs to the previous path.
     diffMode = false;
+    worktreeDiffEpoch++;
     diffData = null;
     diffError = null;
     diffLoading = false;
@@ -950,6 +966,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     historyLoading = false;
     historyError = null;
     // Reset hex state for the new path.
+    hexEpoch++;
     hexBytes = null;
     hexError = null;
     hexLoading = false;

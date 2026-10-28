@@ -2,7 +2,7 @@
   import { formatRelative, basename } from '../lib/format';
   import { announce } from '../lib/announce.svelte';
   import { route, navigate, toGitLogHash, toGitReviewHash } from '../lib/router.svelte';
-  import { gitlog, loadGitLog } from '../lib/gitlog.svelte';
+  import { gitlog, ensureGitLog, loadGitLog } from '../lib/gitlog.svelte';
   import { computeGraph, type GraphEdge } from '../lib/git-graph';
   import {
     fetchBranches,
@@ -47,10 +47,12 @@
   // failures just hide the selector — they never block the default HEAD log.
   let branches = $state<BranchEntry[]>([]);
   let worktrees = $state<WorktreeEntry[]>([]);
-  let selectedRef = $state('');
+  // Start from the store's ref: it survives leaving and re-entering the
+  // view (the list keeps showing that ref), so the select must match it.
+  let selectedRef = $state(gitlog.ref ?? '');
 
   $effect(() => {
-    void loadGitLog(LIMIT);
+    void ensureGitLog(LIMIT);
   });
 
   $effect(() => {

@@ -439,82 +439,141 @@ pub fn commit_files(repo_root: impl AsRef<Path>, hash: &str) -> Result<Vec<Commi
     }
     reject_option_like(hash)?;
     let git_dir = git_dir(repo_root.as_ref());
-    let status_args = [
-        "-c",
-        "core.quotepath=false",
+    // A one-commit `diff-tree <merge>` prints nothing (combined diffs are
+    // off), and `-m --first-parent` still lists every parent's diff, so
+    // compare against the first parent explicitly. Ask git for it: it accepts
+    // every revision `diff-tree` did (`HEAD~1`, tags) and never decodes the
+    // commit object, whose message need not be UTF-8.
+    let parents_out = git_output(&git_dir, &["rev-list", "--parents", "-n1", hash, "--"])?;
+    let parents_line = String::from_utf8_lossy(&parents_out);
+    let mut oids = parents_line.split_whitespace();
+    let commit_oid = oids
+        .next()
+        .ok_or_else(|| GitError::new(format!("cannot resolve hash={hash:?}")))?
+        .to_string();
+    let first_parent = oids.next().map(str::to_string);
+    let mut trees: Vec<&str> = match first_parent.as_deref() {
+        Some(parent) => vec![parent, &commit_oid],
+        None => vec!["--root", &commit_oid],
+    };
+    // `-z` keeps every path raw: without it git C-quotes names holding `"`,
+    // `\`, tabs or control bytes even with `core.quotepath=false`.
+    let mut status_args = vec![
         "diff-tree",
+        "-z",
         "--no-commit-id",
         "--name-status",
         "--no-renames",
         "-r",
-        "--root",
-        hash,
     ];
+    status_args.append(&mut trees.clone());
     let status_out = git_output(&git_dir, &status_args)?;
-    let status_text = String::from_utf8_lossy(&status_out);
 
     // `--numstat` gives `<additions>\t<deletions>\t<path>` per file (a binary
     // file reports `-\t-\t<path>`). Run it alongside name-status and merge by
     // path so each row carries both its A/M/D status and its +/- line counts.
-    let numstat_args = [
-        "-c",
-        "core.quotepath=false",
+    let mut numstat_args = vec![
         "diff-tree",
+        "-z",
         "--no-commit-id",
         "--numstat",
         "--no-renames",
         "-r",
-        "--root",
-        hash,
     ];
+    numstat_args.append(&mut trees);
     let numstat_out = git_output(&git_dir, &numstat_args)?;
-    let numstat_text = String::from_utf8_lossy(&numstat_out);
-    let mut stats: HashMap<String, (u32, u32, bool)> = HashMap::new();
-    for line in numstat_text.lines() {
-        let mut parts = line.splitn(3, '\t');
-        let Some(add_raw) = parts.next() else {
-            continue;
-        };
-        let Some(del_raw) = parts.next() else {
-            continue;
-        };
-        let Some(path) = parts.next() else { continue };
-        if path.is_empty() {
-            continue;
-        }
-        let binary = add_raw == "-" || del_raw == "-";
-        let additions = add_raw.parse::<u32>().unwrap_or(0);
-        let deletions = del_raw.parse::<u32>().unwrap_or(0);
-        stats.insert(path.to_string(), (additions, deletions, binary));
-    }
+    let stats = parse_numstat_z(&numstat_out);
 
     let mut files = Vec::new();
-    for line in status_text.lines() {
-        let mut parts = line.splitn(2, '\t');
-        let Some(status_raw) = parts.next() else {
-            continue;
-        };
-        let Some(path) = parts.next() else {
-            continue;
-        };
-        if status_raw.is_empty() || path.is_empty() {
-            continue;
-        }
-        let status = match status_raw.chars().next() {
+    for entry in parse_name_status_z(&status_out) {
+        let status = match entry.status.chars().next() {
             Some('A') => "added",
             Some('D') => "deleted",
             _ => "modified",
         };
-        let (additions, deletions, binary) = stats.get(path).copied().unwrap_or((0, 0, false));
+        let (additions, deletions, binary) =
+            stats.get(&entry.path).copied().unwrap_or((0, 0, false));
         files.push(CommitFile {
             status: status.to_string(),
-            path: path.to_string(),
+            path: entry.path,
             additions,
             deletions,
             binary,
         });
     }
     Ok(files)
+}
+
+/// One `--name-status -z` record. `path` is the post-change path; for a
+/// rename or copy `old_path` holds the source.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct NameStatusEntry {
+    status: String,
+    old_path: Option<String>,
+    path: String,
+}
+
+/// Parse `--name-status -z` output: `STATUS\0path\0`, or
+/// `R<score>\0old\0new\0` / `C<score>\0old\0new\0` for renames and copies.
+fn parse_name_status_z(out: &[u8]) -> Vec<NameStatusEntry> {
+    let mut entries = Vec::new();
+    let mut fields = out.split(|b| *b == 0);
+    while let Some(raw_status) = fields.next() {
+        let status = String::from_utf8_lossy(raw_status).trim().to_string();
+        if status.is_empty() {
+            continue;
+        }
+        let Some(first) = fields.next() else { break };
+        let first = String::from_utf8_lossy(first).into_owned();
+        let (old_path, path) = if status.starts_with('R') || status.starts_with('C') {
+            let Some(second) = fields.next() else { break };
+            (Some(first), String::from_utf8_lossy(second).into_owned())
+        } else {
+            (None, first)
+        };
+        if path.is_empty() {
+            continue;
+        }
+        entries.push(NameStatusEntry {
+            status,
+            old_path,
+            path,
+        });
+    }
+    entries
+}
+
+/// Parse `--numstat -z` output into `path → (additions, deletions, binary)`,
+/// keyed by the post-change path. A plain record is `add\tdel\tpath\0`; a
+/// rename is `add\tdel\t\0old\0new\0` (no `{a => b}` folding to undo).
+fn parse_numstat_z(out: &[u8]) -> HashMap<String, (u32, u32, bool)> {
+    let mut stats = HashMap::new();
+    let mut fields = out.split(|b| *b == 0);
+    while let Some(record) = fields.next() {
+        let record = String::from_utf8_lossy(record);
+        let record = record.trim_start_matches('\n');
+        let mut parts = record.splitn(3, '\t');
+        let (Some(add_raw), Some(del_raw), Some(path)) = (parts.next(), parts.next(), parts.next())
+        else {
+            continue;
+        };
+        let path = if path.is_empty() {
+            // Rename/copy: the old and new paths follow as their own fields.
+            let _old = fields.next();
+            let Some(new) = fields.next() else { break };
+            String::from_utf8_lossy(new).into_owned()
+        } else {
+            path.to_string()
+        };
+        if path.is_empty() {
+            continue;
+        }
+        let binary = add_raw == "-" || del_raw == "-";
+        let additions = add_raw.parse::<u32>().unwrap_or(0);
+        let deletions = del_raw.parse::<u32>().unwrap_or(0);
+        stats.insert(path, (additions, deletions, binary));
+    }
+    stats
 }
 
 pub fn changed_files_between(
@@ -557,9 +616,8 @@ pub fn changed_files_between(
     let status_out = git_output(
         &git_dir,
         &[
-            "-c",
-            "core.quotepath=false",
             "diff",
+            "-z",
             "--name-status",
             "-M",
             &effective_base,
@@ -567,47 +625,23 @@ pub fn changed_files_between(
             "--",
         ],
     )?;
-    let status_text = String::from_utf8_lossy(&status_out);
     let mut files = Vec::new();
-    for line in status_text.lines() {
-        if line.is_empty() {
-            continue;
-        }
-        let mut parts = line.split('\t');
-        let raw_status = parts.next().unwrap_or("").to_string();
-        if raw_status.is_empty() {
-            continue;
-        }
-        let Some(first_path) = parts.next() else {
-            continue;
+    for entry in parse_name_status_z(&status_out) {
+        let (status, old_path) = match entry.status.chars().next().unwrap_or('M') {
+            'A' => ("added", None),
+            'D' => ("deleted", None),
+            'R' => ("renamed", entry.old_path),
+            _ => ("modified", None),
         };
-        if first_path.is_empty() {
-            continue;
-        }
-        let status_code = raw_status.chars().next().unwrap_or('M');
-        let (status, old_path, path) = match status_code {
-            'A' => ("added", None, first_path),
-            'D' => ("deleted", None, first_path),
-            'R' => {
-                let Some(new_path) = parts.next() else {
-                    continue;
-                };
-                ("renamed", Some(first_path.to_string()), new_path)
-            }
-            _ => ("modified", None, first_path),
-        };
-        if path.is_empty() {
-            continue;
-        }
-        let (additions, deletions, binary) = stats.remove(path).unwrap_or((0, 0, false));
+        let (additions, deletions, binary) = stats.remove(&entry.path).unwrap_or((0, 0, false));
         files.push(ChangedFile {
             status: status.to_string(),
-            path: path.to_string(),
+            path: entry.path,
             old_path,
             additions,
             deletions,
             binary,
-            raw_status,
+            raw_status: entry.status,
         });
     }
 
@@ -645,9 +679,8 @@ fn diff_numstat(
     let numstat_out = git_output(
         git_dir,
         &[
-            "-c",
-            "core.quotepath=false",
             "diff",
+            "-z",
             "--numstat",
             "-M",
             effective_base,
@@ -655,45 +688,7 @@ fn diff_numstat(
             "--",
         ],
     )?;
-    let numstat_text = String::from_utf8_lossy(&numstat_out);
-    let mut stats = HashMap::new();
-    for line in numstat_text.lines() {
-        let mut parts = line.splitn(3, '\t');
-        let Some(add_raw) = parts.next() else {
-            continue;
-        };
-        let Some(del_raw) = parts.next() else {
-            continue;
-        };
-        let Some(path_raw) = parts.next() else {
-            continue;
-        };
-        if path_raw.is_empty() {
-            continue;
-        }
-        let binary = add_raw == "-" || del_raw == "-";
-        let additions = add_raw.parse::<u32>().unwrap_or(0);
-        let deletions = del_raw.parse::<u32>().unwrap_or(0);
-        stats.insert(numstat_path_key(path_raw), (additions, deletions, binary));
-    }
-    Ok(stats)
-}
-
-fn numstat_path_key(path_raw: &str) -> String {
-    if let Some((prefix, suffix)) = path_raw.split_once(" => ") {
-        if let Some((_, close)) = suffix.split_once('}') {
-            if let Some((before_open, _old_part)) = prefix.rsplit_once('{') {
-                let new_part = suffix
-                    .split_once('}')
-                    .map(|(new_part, _)| new_part)
-                    .unwrap_or(suffix);
-                return format!("{before_open}{new_part}{close}");
-            }
-            return suffix.trim_start_matches('}').to_string();
-        }
-        return suffix.to_string();
-    }
-    path_raw.to_string()
+    Ok(parse_numstat_z(&numstat_out))
 }
 
 pub fn worktree_files(repo_root: impl AsRef<Path>) -> Result<Vec<CommitFile>> {
@@ -2827,6 +2822,160 @@ mod tests {
             .env("GIT_AUTHOR_DATE", date)
             .env("GIT_COMMITTER_DATE", date);
         assert!(commit.status().expect("git commit").success());
+    }
+
+    fn commit_now(root: &Path, message: &str) {
+        git(root, &["add", "-A"]);
+        git(root, &["commit", "-q", "-m", message]);
+    }
+
+    fn rev(root: &Path, spec: &str) -> String {
+        let out = Command::new("git")
+            .args(["rev-parse", spec])
+            .current_dir(root)
+            .output()
+            .expect("git rev-parse");
+        String::from_utf8(out.stdout)
+            .expect("utf8")
+            .trim()
+            .to_string()
+    }
+
+    #[test]
+    fn commit_files_lists_a_merge_commit_against_its_first_parent() {
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("base.txt"), "base\n").unwrap();
+        commit_now(&root, "base");
+        git(&root, &["checkout", "-q", "-b", "side"]);
+        fs::write(root.join("side.txt"), "one\ntwo\n").unwrap();
+        commit_now(&root, "side");
+        git(&root, &["checkout", "-q", "main"]);
+        fs::write(root.join("main.txt"), "main\n").unwrap();
+        commit_now(&root, "main");
+        git(&root, &["merge", "-q", "--no-edit", "side"]);
+
+        let files = commit_files(&root, &rev(&root, "HEAD")).expect("commit files");
+        let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
+        assert_eq!(paths, vec!["side.txt"], "{files:?}");
+        assert_eq!(files[0].status, "added");
+        assert_eq!(files[0].additions, 2);
+
+        // Root commits still list every file.
+        let root_files = commit_files(&root, &rev(&root, "HEAD~2")).expect("root files");
+        assert_eq!(root_files.len(), 1);
+        assert_eq!(root_files[0].path, "base.txt");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn commit_files_accepts_git_revisions_and_non_utf8_commits() {
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("a.txt"), "a\n").unwrap();
+        commit_now(&root, "init");
+        git(&root, &["tag", "-a", "-m", "release", "v1", "HEAD"]);
+        fs::write(root.join("b.txt"), "b\n").unwrap();
+        git(&root, &["add", "-A"]);
+        // A Latin-1 message: the commit object is not valid UTF-8.
+        let mut commit = Command::new("git");
+        commit
+            .args([
+                "-c",
+                "i18n.commitEncoding=ISO-8859-1",
+                "commit",
+                "-q",
+                "-F",
+                "-",
+            ])
+            .current_dir(&root)
+            .stdin(std::process::Stdio::piped());
+        pin_git_env(&mut commit);
+        let mut child = commit.spawn().expect("git commit");
+        std::io::Write::write_all(child.stdin.as_mut().unwrap(), b"caf\xe9\n").unwrap();
+        assert!(child.wait().unwrap().success());
+
+        let latest = commit_files(&root, &rev(&root, "HEAD")).expect("latin-1 commit");
+        assert_eq!(latest.len(), 1);
+        assert_eq!(latest[0].path, "b.txt");
+        let first = commit_files(&root, "HEAD~1").expect("HEAD~1");
+        assert_eq!(first[0].path, "a.txt");
+        let tagged = commit_files(&root, "v1").expect("annotated tag");
+        assert_eq!(tagged[0].path, "a.txt");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn commit_files_keeps_quoted_names_raw() {
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("a.txt"), "a\n").unwrap();
+        commit_now(&root, "init");
+        fs::write(root.join("quo\"te.txt"), "x\ny\n").unwrap();
+        fs::write(root.join("日本語.txt"), "z\n").unwrap();
+        commit_now(&root, "names");
+
+        let files = commit_files(&root, &rev(&root, "HEAD")).expect("commit files");
+        let mut got: Vec<(String, u32)> = files
+            .iter()
+            .map(|f| (f.path.clone(), f.additions))
+            .collect();
+        got.sort();
+        assert_eq!(
+            got,
+            vec![
+                ("quo\"te.txt".to_string(), 2),
+                ("日本語.txt".to_string(), 1)
+            ]
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn changed_files_between_counts_a_rename_into_the_parent_directory() {
+        let root = unique_temp_dir();
+        fs::create_dir_all(root.join("src/sub")).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        let body: String = (0..20).map(|i| format!("line {i}\n")).collect();
+        fs::write(root.join("src/sub/moved.txt"), &body).unwrap();
+        commit_now(&root, "init");
+        git(&root, &["mv", "src/sub/moved.txt", "src/moved.txt"]);
+        fs::write(root.join("src/moved.txt"), format!("{body}extra\n")).unwrap();
+        fs::write(root.join("q\"x.txt"), "1\n2\n3\n").unwrap();
+        commit_now(&root, "move");
+
+        let (base, head) = (rev(&root, "HEAD~1"), rev(&root, "HEAD"));
+        let manifest = changed_files_between(&root, &base, &head, ChangedFilesMode::Direct, 100)
+            .expect("changed files");
+        let moved = manifest
+            .files
+            .iter()
+            .find(|f| f.path == "src/moved.txt")
+            .unwrap_or_else(|| panic!("{:?}", manifest.files));
+        assert_eq!(moved.status, "renamed");
+        assert_eq!(moved.old_path.as_deref(), Some("src/sub/moved.txt"));
+        assert_eq!((moved.additions, moved.deletions), (1, 0));
+        let quoted = manifest
+            .files
+            .iter()
+            .find(|f| f.path == "q\"x.txt")
+            .unwrap_or_else(|| panic!("{:?}", manifest.files));
+        assert_eq!(quoted.additions, 3);
+        assert_eq!(manifest.summary.additions, 4);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn parse_numstat_z_reads_plain_binary_and_renamed_records() {
+        let raw = b"3\t1\ta.txt\0-\t-\timg.png\x002\t0\t\0old/x\0new/x\0";
+        let stats = parse_numstat_z(raw);
+        assert_eq!(stats.get("a.txt"), Some(&(3, 1, false)));
+        assert_eq!(stats.get("img.png"), Some(&(0, 0, true)));
+        assert_eq!(stats.get("new/x"), Some(&(2, 0, false)));
+        assert!(!stats.contains_key("old/x"));
     }
 
     fn unique_temp_dir() -> PathBuf {

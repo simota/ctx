@@ -60,7 +60,12 @@
     }
   }
 
+  // A toggle flip while the previous walk is in flight must not let that
+  // walk (the unpruned one is slower) overwrite the newer list.
+  let loadEpoch = 0;
+
   function load(gitignore: boolean) {
+    const epoch = ++loadEpoch;
     loading = true;
     error = null;
     allFiles = [];
@@ -70,16 +75,18 @@
     // `gitignore` prunes `.gitignore`-matched files server-side.
     fetchTree({ gitignore: gitignore || undefined })
       .then((r) => {
+        if (epoch !== loadEpoch) return;
         const rows: FileRow[] = [];
         flatten(r.tree, rows);
         rows.sort((a, b) => b.lines - a.lines);
         allFiles = rows;
       })
       .catch((e: unknown) => {
+        if (epoch !== loadEpoch) return;
         error = e instanceof Error ? e.message : String(e);
       })
       .finally(() => {
-        loading = false;
+        if (epoch === loadEpoch) loading = false;
       });
   }
 
