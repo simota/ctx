@@ -136,20 +136,23 @@ impl Store {
         // A fixed `<id>.tmp` name could be a planted symlink that `fs::write`
         // follows, overwriting a file outside the store. Use a fresh name
         // and `create_new` (O_EXCL), which never follows or reuses an entry.
+        // The name does not embed the id, so an id that fits as `<id>.json`
+        // cannot overflow NAME_MAX here.
         let tmp = self.dir.join(format!(
-            ".{}.{}.{}.tmp",
-            m.id,
+            ".tmp-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_nanos())
                 .unwrap_or(0)
         ));
-        let written = fs::OpenOptions::new()
+        let mut file = fs::OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(&tmp)
-            .and_then(|mut file| std::io::Write::write_all(&mut file, &data));
+            .open(&tmp)?;
+        // From here on `tmp` is ours to clean up on failure.
+        let written = std::io::Write::write_all(&mut file, &data);
+        drop(file);
         if let Err(e) = written.and_then(|()| fs::rename(&tmp, &path)) {
             let _ = fs::remove_file(&tmp);
             return Err(StoreError::Io(e));
@@ -340,6 +343,25 @@ mod tests {
             .file_type()
             .is_file());
         assert_eq!(store.load("baseline").unwrap().id, "baseline");
+    }
+
+    #[test]
+    fn save_accepts_an_id_near_the_file_name_limit() {
+        let dir = tmp_dir("longid");
+        let store = open_store(&dir.to_string_lossy()).unwrap();
+        // `<id>.json` is 250 bytes, within the common 255-byte NAME_MAX.
+        let m = Manifest {
+            id: "a".repeat(245),
+            ..Default::default()
+        };
+        store.save(&m).unwrap();
+        assert_eq!(store.load(&m.id).unwrap().id, m.id);
+        let leftovers: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .flatten()
+            .filter(|e| e.file_name().to_string_lossy().starts_with(".tmp-"))
+            .collect();
+        assert!(leftovers.is_empty());
     }
 
     #[cfg(unix)]

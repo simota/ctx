@@ -441,12 +441,20 @@ pub fn commit_files(repo_root: impl AsRef<Path>, hash: &str) -> Result<Vec<Commi
     let git_dir = git_dir(repo_root.as_ref());
     // A one-commit `diff-tree <merge>` prints nothing (combined diffs are
     // off), and `-m --first-parent` still lists every parent's diff, so
-    // compare against the first parent explicitly.
-    let first_parent = resolve_commit_revision(&git_dir, hash, "hash")?
-        .and_then(|commit| commit.parents.first().cloned());
+    // compare against the first parent explicitly. Ask git for it: it accepts
+    // every revision `diff-tree` did (`HEAD~1`, tags) and never decodes the
+    // commit object, whose message need not be UTF-8.
+    let parents_out = git_output(&git_dir, &["rev-list", "--parents", "-n1", hash, "--"])?;
+    let parents_line = String::from_utf8_lossy(&parents_out);
+    let mut oids = parents_line.split_whitespace();
+    let commit_oid = oids
+        .next()
+        .ok_or_else(|| GitError::new(format!("cannot resolve hash={hash:?}")))?
+        .to_string();
+    let first_parent = oids.next().map(str::to_string);
     let mut trees: Vec<&str> = match first_parent.as_deref() {
-        Some(parent) => vec![parent, hash],
-        None => vec!["--root", hash],
+        Some(parent) => vec![parent, &commit_oid],
+        None => vec!["--root", &commit_oid],
     };
     // `-z` keeps every path raw: without it git C-quotes names holding `"`,
     // `\`, tabs or control bytes even with `core.quotepath=false`.
@@ -2858,6 +2866,44 @@ mod tests {
         let root_files = commit_files(&root, &rev(&root, "HEAD~2")).expect("root files");
         assert_eq!(root_files.len(), 1);
         assert_eq!(root_files[0].path, "base.txt");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn commit_files_accepts_git_revisions_and_non_utf8_commits() {
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("a.txt"), "a\n").unwrap();
+        commit_now(&root, "init");
+        git(&root, &["tag", "-a", "-m", "release", "v1", "HEAD"]);
+        fs::write(root.join("b.txt"), "b\n").unwrap();
+        git(&root, &["add", "-A"]);
+        // A Latin-1 message: the commit object is not valid UTF-8.
+        let mut commit = Command::new("git");
+        commit
+            .args([
+                "-c",
+                "i18n.commitEncoding=ISO-8859-1",
+                "commit",
+                "-q",
+                "-F",
+                "-",
+            ])
+            .current_dir(&root)
+            .stdin(std::process::Stdio::piped());
+        pin_git_env(&mut commit);
+        let mut child = commit.spawn().expect("git commit");
+        std::io::Write::write_all(child.stdin.as_mut().unwrap(), b"caf\xe9\n").unwrap();
+        assert!(child.wait().unwrap().success());
+
+        let latest = commit_files(&root, &rev(&root, "HEAD")).expect("latin-1 commit");
+        assert_eq!(latest.len(), 1);
+        assert_eq!(latest[0].path, "b.txt");
+        let first = commit_files(&root, "HEAD~1").expect("HEAD~1");
+        assert_eq!(first[0].path, "a.txt");
+        let tagged = commit_files(&root, "v1").expect("annotated tag");
+        assert_eq!(tagged[0].path, "a.txt");
         let _ = fs::remove_dir_all(root);
     }
 

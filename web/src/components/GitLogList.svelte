@@ -47,7 +47,9 @@
   // failures just hide the selector — they never block the default HEAD log.
   let branches = $state<BranchEntry[]>([]);
   let worktrees = $state<WorktreeEntry[]>([]);
-  let selectedRef = $state('');
+  // Start from the store's ref: it survives leaving and re-entering the
+  // view (the list keeps showing that ref), so the select must match it.
+  let selectedRef = $state(gitlog.ref ?? '');
 
   $effect(() => {
     void ensureGitLog(LIMIT);
