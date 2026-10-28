@@ -91,6 +91,10 @@ and this project does not yet follow strict semver — see release notes per tag
   quote-containing file names are reported verbatim instead of as C-quoted
   strings with a token/symbol delta of 0 (and unusable "next reads"
   anchors).
+- `ctx log` run from a subdirectory of a repository printed `no commits`;
+  it now reads the enclosing repository's history, and `--path` (or the
+  positional path) is taken relative to the current directory, as with
+  `git log -- <path>`.
 - `ctx log` (TUI file list) and `ctx browse` `/api/git/commit-files`: a
   merge commit lists the files it changed against its first parent instead
   of nothing.
