@@ -91,6 +91,22 @@ and this project does not yet follow strict semver — see release notes per tag
   quote-containing file names are reported verbatim instead of as C-quoted
   strings with a token/symbol delta of 0 (and unusable "next reads"
   anchors).
+- `ctx browse` git log: picking a branch or worktree in "Show log for"
+  reloaded `HEAD` over the branch request, so the list kept showing `HEAD`'s
+  commits under the selected branch name; the branch's log is now shown.
+- `ctx browse`: a slow response for the previously viewed item can no longer
+  overwrite the current one — the working-tree diff and hex view of the
+  file detail (switching files while a diff loads showed the previous
+  file's diff), per-file diffs in commit detail and range review, and the
+  Largest files list when "Respect .gitignore" is toggled quickly.
+- `ctx browse`: an unknown `/api/*` path answers `404` with the JSON error
+  envelope instead of the SPA's `index.html`, and the roots picker's
+  register / remove / open actions, which this server does not implement
+  yet, now explain which `ctx roots` command to run instead of failing with
+  "Method Not Allowed" or "Invalid JSON".
+- `ctx browse`: the embedded frontend is rebuilt from `web/src`; the shipped
+  bundle predated the hash-route decoding fix, so a malformed `%` escape in
+  the URL still broke the page and `%2C` in a file name split `open=`.
 - `ctx log` run from a subdirectory of a repository printed `no commits`;
   it now reads the enclosing repository's history, and `--path` (or the
   positional path) is taken relative to the current directory, as with
