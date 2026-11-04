@@ -165,7 +165,7 @@
     font-size: 11px;
   }
   .phony.on {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
   .deps {
     display: flex;

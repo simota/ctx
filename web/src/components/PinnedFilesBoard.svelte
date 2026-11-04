@@ -283,7 +283,7 @@
   .title {
     margin: 0;
     font-size: 18px;
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
   .title:focus-visible {
     outline: 2px solid var(--ctx-accent);
@@ -437,7 +437,7 @@
   }
   .danger,
   .danger-text {
-    color: var(--ctx-danger, #d14);
+    color: var(--ctx-err);
   }
   .warning,
   .notice,

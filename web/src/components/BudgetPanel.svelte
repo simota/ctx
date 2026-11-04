@@ -147,7 +147,7 @@
     font-size: 18px;
   }
   .used {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
     font-weight: 600;
   }
   .total {

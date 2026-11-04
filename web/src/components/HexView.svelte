@@ -225,12 +225,17 @@
     overflow-x: auto;
     flex: 1 1 auto;
     min-height: 0;
-    font-family: ui-monospace, SFMono-Regular, Menlo, 'Cascadia Code', monospace;
-    font-size: var(--ctx-code-font-size, 13px);
+    font-family: var(--ctx-font-mono);
+    font-size: 13px;
     line-height: 1;
     background: var(--ctx-bg, #1e1e1e);
     color: var(--ctx-fg, #d4d4d4);
     outline: none;
+  }
+  /* The grid is a tabindex=0 scroll container: keyboard focus must show. */
+  .hex-view:focus-visible {
+    outline: 2px solid var(--ctx-accent);
+    outline-offset: -2px;
   }
 
   .hex-empty {

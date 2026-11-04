@@ -77,7 +77,7 @@
     }
   }
   .conn {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
   .conn.offline {
     color: var(--ctx-err);

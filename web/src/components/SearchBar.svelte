@@ -170,12 +170,12 @@
   }
   .mode-button.active {
     color: var(--ctx-bg);
-    background: var(--ctx-accent);
+    background: var(--ctx-accent-text);
   }
   .submit {
     min-height: 24px;
     padding: 2px 10px;
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
   @media (max-width: 720px) {
     .search-bar {

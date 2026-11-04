@@ -645,7 +645,7 @@
   }
   .git-filter.active {
     color: var(--ctx-git-modified);
-    background: rgba(215, 186, 125, 0.16);
+    background: color-mix(in srgb, var(--ctx-git-modified) 16%, transparent);
   }
   .git-filter-glyph {
     display: inline-block;
@@ -773,7 +773,7 @@
     outline-offset: 1px;
   }
   .since-preset.active {
-    background: var(--ctx-accent);
+    background: var(--ctx-accent-text);
     color: var(--ctx-bg);
     border-color: var(--ctx-accent);
   }

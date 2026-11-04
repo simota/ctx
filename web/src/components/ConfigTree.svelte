@@ -150,7 +150,7 @@
     border-radius: 3px;
   }
   .ln:hover {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
     background: var(--ctx-bg-elev);
   }
 </style>

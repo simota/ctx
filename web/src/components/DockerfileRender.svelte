@@ -98,7 +98,7 @@
     gap: 4px;
   }
   .chip {
-    font-family: var(--ctx-mono, monospace);
+    font-family: var(--ctx-font-mono);
     font-size: 11px;
     padding: 2px 8px;
     border-radius: 999px;
@@ -174,7 +174,7 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: var(--ctx-accent);
+    background: var(--ctx-accent-text);
     color: var(--ctx-bg);
     font-size: 11px;
     font-weight: 700;
@@ -198,7 +198,7 @@
   }
   .port {
     font-size: 11px;
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
     background: color-mix(in srgb, var(--ctx-accent) 14%, transparent);
     border-radius: 4px;
     padding: 0 5px;
@@ -249,6 +249,6 @@
     white-space: nowrap;
   }
   .entry .kw {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
 </style>

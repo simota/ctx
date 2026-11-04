@@ -216,7 +216,7 @@
     color: var(--ctx-fg);
   }
   .head .accent {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
   .head .count {
     font-weight: 400;
@@ -281,7 +281,7 @@
     word-break: break-all;
   }
   .opt .line {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
     margin-left: 2px;
   }
   .opt .meta {
