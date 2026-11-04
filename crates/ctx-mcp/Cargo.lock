@@ -298,6 +298,7 @@ dependencies = [
  "ctx-symbols",
  "ctx-tokens",
  "ctx-where",
+ "rayon",
  "serde",
  "serde_json",
  "toml",

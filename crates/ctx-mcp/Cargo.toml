@@ -17,6 +17,7 @@ ctx-focus = { path = "../ctx-focus" }
 ctx-pack = { path = "../ctx-pack" }
 ctx-tokens = { path = "../ctx-tokens" }
 ctx-where = { path = "../ctx-where" }
+rayon = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value"] }
 toml = "0.8"

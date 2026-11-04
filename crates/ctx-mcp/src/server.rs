@@ -12,6 +12,7 @@ use crate::types::*;
 use crate::util::*;
 use crate::where_q::*;
 use crate::*;
+use rayon::prelude::*;
 use serde_json::{json, value::RawValue, Value};
 
 pub(crate) struct Server {
@@ -136,10 +137,11 @@ impl Server {
         if args.changed {
             files.clear();
         }
-        for file in &mut files {
+        // Per-file token counting + symbol extraction are independent.
+        files.par_iter_mut().for_each(|file| {
             file.tokens = count_file_tokens(&file.abs_path, file.size);
             file.symbols = ctx_symbols::extract(&file.abs_path).unwrap_or_default();
-        }
+        });
         let plan = build_pack_plan(files, &args);
         match args.format.as_str() {
             "json" => render_pack_json(&plan, &args).map_err(tool_error),
@@ -212,10 +214,19 @@ impl Server {
         };
 
         let mut files_by_path = BTreeMap::new();
-        for mut file in files {
-            file.tokens = count_file_tokens(&file.abs_path, file.size);
+        for file in files {
             files_by_path.insert(file.path.clone(), file);
         }
+        // Only the expanded neighbourhood is read below, so only those files
+        // need a token count (counting the whole repository was wasted work).
+        let wanted: std::collections::BTreeSet<&str> =
+            result.files.iter().map(|file| file.path.as_str()).collect();
+        files_by_path
+            .par_iter_mut()
+            .filter(|(path, _)| wanted.contains(path.as_str()))
+            .for_each(|(_, file)| {
+                file.tokens = count_file_tokens(&file.abs_path, file.size);
+            });
 
         let mut pack_files = Vec::new();
         let mut used = 0;
@@ -355,9 +366,9 @@ impl Server {
         let root = self.resolve_path(&args.path)?;
         let mut files =
             collect_budget_files(&root, &self.walk_boundary(&root)).map_err(tool_error)?;
-        for file in &mut files {
+        files.par_iter_mut().for_each(|file| {
             file.tokens = count_file_tokens(&file.abs_path, file.size);
-        }
+        });
         format_budget_plan(&files, args.budget).map_err(tool_error)
     }
 
@@ -530,13 +541,13 @@ impl Server {
             })
             .collect();
 
-        for file in &mut files {
+        files.par_iter_mut().for_each(|file| {
             file.tokens = if with_tokens {
                 count_file_tokens(&file.abs_path, file.size)
             } else {
                 0
             };
-        }
+        });
         files.sort_by(|a, b| a.path.cmp(&b.path));
 
         let entries: Vec<TreeEntry> = files
