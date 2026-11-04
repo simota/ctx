@@ -180,6 +180,14 @@ fn collect_files_inner(root: &Path, dir: &Path, out: &mut Vec<FileInput>) -> Res
             .to_string_lossy()
             .replace('\\', "/");
 
+        // Only regular files are read — the same lstat rule as the tree/dir
+        // walks (`tree::cached_file_stats`). A symlinked file could point out
+        // of root (its matching lines would be returned in the response), and
+        // a FIFO or device would block or never reach EOF.
+        if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
+            continue;
+        }
+
         // Skip binary-like files (non-UTF-8).
         let Ok(body) = std::fs::read_to_string(&path) else {
             continue;
@@ -204,4 +212,61 @@ fn collect_files_inner(root: &Path, dir: &Path, out: &mut Vec<FileInput>) -> Res
         });
     }
     Ok(())
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    fn temp_dir(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "ctx-web-where-{tag}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn walk_does_not_read_symlinked_files_out_of_root() {
+        let outside = temp_dir("outside");
+        std::fs::write(outside.join("secret.txt"), "needle TOP SECRET\n").unwrap();
+        let root = temp_dir("root");
+        std::fs::write(root.join("a.txt"), "needle here\n").unwrap();
+        std::os::unix::fs::symlink(outside.join("secret.txt"), root.join("link.txt")).unwrap();
+
+        let files = collect_files(&root, &root).unwrap();
+        let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
+        assert_eq!(paths, vec!["a.txt"]);
+        assert!(files
+            .iter()
+            .all(|f| f.lines.iter().all(|l| !l.contains("TOP SECRET"))));
+
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(outside);
+    }
+
+    #[test]
+    fn fifo_does_not_block_the_walk() {
+        let root = temp_dir("fifo");
+        std::fs::write(root.join("a.txt"), "x\n").unwrap();
+        let fifo = root.join("pipe");
+        let c = std::ffi::CString::new(fifo.to_string_lossy().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(c.as_ptr(), 0o600) }, 0);
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        let r = root.clone();
+        std::thread::spawn(move || {
+            let _ = tx.send(collect_files(&r, &r).map(|f| f.len()));
+        });
+        let got = rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("walk blocked on a FIFO");
+        assert_eq!(got.unwrap(), 1);
+        let _ = std::fs::remove_dir_all(root);
+    }
 }
