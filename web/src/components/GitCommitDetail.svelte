@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scrollBehavior } from '../lib/motion';
   import {
     fetchCommitFiles,
     fetchFileCommitDiff,
@@ -208,7 +209,7 @@
       }
       if (target === -1) target = targets.length - 1;
     }
-    targets[target]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    targets[target]?.scrollIntoView({ behavior: scrollBehavior(), block: 'center' });
   }
 
   function onGlobalKey(e: KeyboardEvent): void {
@@ -252,7 +253,7 @@
     </header>
 
     {#if filesError}
-      <p class="muted note">{filesError}</p>
+      <p class="note error" role="alert">{filesError}</p>
     {:else if filesLoading}
       <p class="muted note" aria-busy="true">Loading changed files…</p>
     {:else if files.length === 0}
@@ -313,7 +314,7 @@
 
             {#if openDiff.has(f.path)}
               {#if diffError[f.path]}
-                <p class="muted note">{diffError[f.path]}</p>
+                <p class="note error" role="alert">{diffError[f.path]}</p>
               {:else if !diffByPath[f.path]}
                 <p class="muted note" aria-busy="true">Loading diff…</p>
               {:else if diffByPath[f.path].binary}
@@ -347,7 +348,7 @@
     color: var(--ctx-fg-dim);
   }
   .mono {
-    font-family: var(--ctx-font-mono, var(--ctx-mono, ui-monospace, monospace));
+    font-family: var(--ctx-font-mono);
   }
   .head {
     border-bottom: 1px solid var(--ctx-border);
@@ -367,7 +368,7 @@
     flex-wrap: wrap;
   }
   .hash {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
   .note {
     padding: 6px 0;
@@ -504,7 +505,7 @@
     border: 1px solid var(--ctx-border);
     border-radius: 6px;
     overflow: auto;
-    font-family: var(--ctx-font-mono, var(--ctx-mono, ui-monospace, monospace));
+    font-family: var(--ctx-font-mono);
     font-size: 0.82em;
     line-height: 1.5;
   }

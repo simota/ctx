@@ -119,7 +119,9 @@
       onclick={closeCheatsheet}
     >×</button>
   </header>
-  <div class="body">
+  <!-- Scrollable region: keyboard users must be able to scroll it. -->
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <div class="body" tabindex="0" role="region" aria-label="Shortcuts">
     {#each sections as section, si (`${section.title}|${si}`)}
       <section class="group" aria-labelledby={`ctx-cs-${section.title}`}>
         <h3 id={`ctx-cs-${section.title}`}>{section.title}</h3>

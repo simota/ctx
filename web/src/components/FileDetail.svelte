@@ -1,4 +1,5 @@
 <script module lang="ts">
+  import { prefersReducedMotion, scrollBehavior } from '../lib/motion';
   import hljs from '../lib/highlight';
   import { marked } from 'marked';
   import { markedHighlight } from 'marked-highlight';
@@ -243,7 +244,7 @@
     if (!doc) return;
     const target = doc.getElementById(slug);
     if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      target.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
       announce(`Jumped to heading ${slug}`);
     }
   }
@@ -1273,7 +1274,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     if (!diffEl) return;
     const el = diffEl.querySelector<HTMLElement>(`[data-diff-line="${lineIdx}"]`);
     if (!el) return;
-    el.scrollIntoView({ behavior, block: 'center' });
+    el.scrollIntoView({ behavior: scrollBehavior(behavior), block: 'center' });
   }
 
   function jumpDiff(delta: 1 | -1) {
@@ -1291,7 +1292,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     if (!codeEl) return;
     const el = codeEl.querySelector<HTMLElement>(`#L${line}`);
     if (!el) return;
-    el.scrollIntoView({ behavior, block: 'center' });
+    el.scrollIntoView({ behavior: scrollBehavior(behavior), block: 'center' });
   }
 
   function pulse(line: number) {
@@ -1389,12 +1390,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     }
   }
 
-  function reduceMotion(): boolean {
-    return (
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    );
-  }
+  const reduceMotion = prefersReducedMotion;
 
   // Selectors for highlight.js identifier-bearing spans across common langs.
   // Using `[class*="hljs-title"]` covers `hljs-title.function_`, `.class_`,
@@ -2914,10 +2910,16 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <!-- svelte-ignore a11y_mouse_events_have_key_events -->
+      <!-- Scrollable region: tabindex lets keyboard users scroll long or
+           unwrapped lines (WCAG 2.1.1); the gutter links stay tabindex=-1. -->
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <pre
         class="code"
         class:wrap
         class:reduce-motion={reduceMotion()}
+        tabindex="0"
+        role="region"
+        aria-label={`Source of ${path}`}
         bind:this={codeEl}
         onmouseover={onCodeMouseOver}
         onmouseout={onCodeMouseOut}
@@ -3019,15 +3021,18 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
   }
   .meta-top {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
+    gap: 6px 12px;
   }
   .breadcrumb {
     margin: 0;
     font-size: 13px;
     font-weight: 500;
     word-break: break-all;
-    flex: 1 1 auto;
+    /* 12em basis: on a narrow pane the action row wraps below the path
+       instead of squeezing the file name to one letter per line. */
+    flex: 1 1 12em;
     min-width: 0;
     display: flex;
     flex-wrap: wrap;
@@ -3061,8 +3066,9 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
   }
   .actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
-    flex: 0 0 auto;
+    flex: 0 1 auto;
   }
   .actions .action {
     font-size: 11px;
@@ -3264,7 +3270,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     border-radius: 6px;
     border-left: 4px solid var(--hl-name);
     white-space: pre-wrap;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--ctx-font-mono);
     font-size: 12px;
   }
   .mmd-controls {

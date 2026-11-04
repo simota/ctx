@@ -55,7 +55,7 @@
 
 <section class="refs" aria-label="git branches and worktrees">
   {#if error}
-    <p class="muted note err"><code class="mono">{error}</code></p>
+    <p class="note err" role="alert">Couldn’t load branches: <code class="mono">{error}</code></p>
   {:else}
     <div class="current" title={current?.name}>
       <span class="branch-icon" aria-hidden="true">⎇</span>
@@ -135,7 +135,7 @@
     color: var(--ctx-fg-dim);
   }
   .mono {
-    font-family: var(--ctx-font-mono, var(--ctx-mono, ui-monospace, monospace));
+    font-family: var(--ctx-font-mono);
   }
   .note {
     font-size: 0.82em;
@@ -152,7 +152,7 @@
     margin-bottom: 4px;
   }
   .branch-icon {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
   .current-name {
     overflow: hidden;
@@ -166,6 +166,7 @@
   summary {
     cursor: pointer;
     list-style: none;
+    min-height: 24px; /* WCAG 2.5.8 target size */
     padding: 3px 0;
     color: var(--ctx-fg-dim);
     user-select: none;
@@ -193,7 +194,7 @@
     padding: 2px 0;
   }
   .ref-row.active .name {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
     font-weight: 600;
   }
   .dot {
@@ -217,7 +218,7 @@
   }
   .hash {
     flex: 0 0 auto;
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
     font-size: 0.92em;
   }
   .ab {

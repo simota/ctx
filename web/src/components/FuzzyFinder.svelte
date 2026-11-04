@@ -209,6 +209,7 @@
         bind:value={finder.query}
         type="text"
         class="input"
+        aria-label="File name"
         role="combobox"
         aria-expanded={results.length > 0}
         aria-controls="ctx-finder-list"
@@ -229,11 +230,11 @@
         aria-label="Matching files"
       >
         {#if finder.error}
-          <li class="empty error">Failed to load files: {finder.error}</li>
+          <li class="empty error" role="option" aria-disabled="true" aria-selected="false">Failed to load files: {finder.error}</li>
         {:else if finder.loading && finder.files.length === 0}
-          <li class="empty muted">Loading file list…</li>
+          <li class="empty muted" role="option" aria-disabled="true" aria-selected="false">Loading file list…</li>
         {:else if results.length === 0}
-          <li class="empty muted">
+          <li class="empty muted" role="option" aria-disabled="true" aria-selected="false">
             {finder.query === '' ? 'No files indexed.' : 'No matches.'}
           </li>
         {:else}
@@ -348,7 +349,7 @@
   }
   .opt mark {
     background: transparent;
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
     font-weight: 600;
     padding: 0;
   }

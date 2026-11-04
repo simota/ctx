@@ -248,7 +248,7 @@
   {#if loading}
     <p class="muted note" aria-busy="true">Loading relations…</p>
   {:else if error}
-    <p class="note err"><code class="mono">{error}</code></p>
+    <p class="note err" role="alert">Couldn’t load relations: <code class="mono">{error}</code></p>
   {:else if !layout}
     <p class="muted note">No co-change relationships found.</p>
   {:else}
@@ -448,7 +448,7 @@
     font-size: 10px;
     fill: var(--ctx-fg-dim);
     pointer-events: none;
-    font-family: var(--ctx-font-mono, var(--ctx-mono, ui-monospace, monospace));
+    font-family: var(--ctx-font-mono);
     /* Halo: outline the glyphs so labels stay readable when they overlap. */
     paint-order: stroke;
     stroke: var(--ctx-bg-panel, var(--ctx-bg));
@@ -506,6 +506,6 @@
     color: var(--ctx-err);
   }
   .mono {
-    font-family: var(--ctx-font-mono, var(--ctx-mono, ui-monospace, monospace));
+    font-family: var(--ctx-font-mono);
   }
 </style>

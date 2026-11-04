@@ -183,31 +183,42 @@
       {@const active = path === activePath}
       {@const dragging = dragFrom === idx}
       {@const dropHere = dropTarget === idx && dragFrom !== null && dragFrom !== idx}
+      <!-- The tab role sits on the label, not the wrapper, so the close
+           button is a sibling of the tab rather than nested inside an
+           interactive element (axe nested-interactive). -->
       <div
         class="tab"
         class:active
         class:dragging
         class:drop-target={dropHere}
-        role="tab"
-        tabindex={active ? 0 : -1}
-        aria-selected={active}
+        role="presentation"
         title={path}
-        data-tab-path={path}
         draggable="true"
-        onclick={() => onTabClick(path)}
         oncontextmenu={(e) => onTabContextMenu(e, path)}
-        onkeydown={(e) => onTabKey(e, path)}
         ondragstart={(e) => onDragStart(e, idx)}
         ondragover={(e) => onDragOver(e, idx)}
         ondragleave={onDragLeave}
         ondrop={(e) => onDrop(e, idx)}
         ondragend={onDragEnd}
       >
-        <span class="label mono">{basename(path)}</span>
+        <span
+          class="label mono"
+          role="tab"
+          tabindex={active ? 0 : -1}
+          aria-selected={active}
+          aria-keyshortcuts="Delete"
+          data-tab-path={path}
+          onclick={() => onTabClick(path)}
+          onkeydown={(e) => onTabKey(e, path)}
+        >{basename(path)}</span>
+        <!-- Pointer-only affordance: a tablist may own only tabs, so the
+             button is hidden from AT; keyboard and AT users close the tab
+             with Delete / Backspace (aria-keyshortcuts on the tab). -->
         <button
           type="button"
           class="close"
           aria-label={`Close ${path}`}
+          aria-hidden="true"
           tabindex="-1"
           draggable="false"
           onclick={(e) => onCloseClick(e, path)}
@@ -236,7 +247,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 8px 4px 12px;
+    padding: 0 8px 0 0;
     border-right: 1px solid var(--ctx-border);
     border-bottom: 2px solid transparent;
     background: transparent;
@@ -261,9 +272,12 @@
     color: var(--ctx-fg);
     border-bottom-color: var(--ctx-accent);
   }
-  .tab:focus-visible {
+  .tab:has(> .label:focus-visible) {
     outline: 2px solid var(--ctx-accent);
     outline-offset: -2px;
+  }
+  .label:focus-visible {
+    outline: none;
   }
   /* Source tab during a drag — dimmed so the user can see the pointer ghost. */
   .tab.dragging {
@@ -282,6 +296,10 @@
     pointer-events: none;
   }
   .label {
+    /* The label is the tab (click target), so it carries the padding. */
+    display: block;
+    padding: 4px 0 4px 12px;
+    cursor: pointer;
     overflow: hidden;
     text-overflow: ellipsis;
     min-width: 0;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scrollBehavior } from '../lib/motion';
   import {
     ApiCallError,
     fetchBranches,
@@ -290,7 +291,7 @@
       }
       if (target === -1) target = targets.length - 1;
     }
-    targets[target]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    targets[target]?.scrollIntoView({ behavior: scrollBehavior(), block: 'center' });
   }
 
   function onGlobalKey(e: KeyboardEvent): void {
@@ -522,7 +523,7 @@
     color: var(--ctx-fg-dim);
   }
   .mono {
-    font-family: var(--ctx-font-mono, var(--ctx-mono, ui-monospace, monospace));
+    font-family: var(--ctx-font-mono);
   }
   .note {
     padding: 6px 0;
@@ -676,7 +677,7 @@
     border: 1px solid var(--ctx-border);
     border-radius: 6px;
     overflow: auto;
-    font-family: var(--ctx-font-mono, var(--ctx-mono, ui-monospace, monospace));
+    font-family: var(--ctx-font-mono);
     font-size: 0.82em;
     line-height: 1.5;
   }
