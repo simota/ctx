@@ -58,14 +58,18 @@ pub(crate) fn run_tui_command(args: &[OsString]) -> Option<ExitCode> {
         return Some(ExitCode::from(1));
     }
 
-    let tree = match ctx_tui::build_tree(root_path) {
+    // Same containment boundary as the CLI pack walker: every listed file
+    // can be packed into context.md, so links out of the repository are
+    // neither listed nor read.
+    let boundary = crate::common::canonical_walk_root(std::path::Path::new(root_path));
+    let tree = match ctx_tui::build_tree(root_path, &boundary) {
         Ok(t) => t,
         Err(err) => {
             eprintln!("ctx tui: {err}");
             return Some(ExitCode::from(1));
         }
     };
-    match ctx_tui::run(tree, root_path) {
+    match ctx_tui::run(tree, root_path, &boundary) {
         Ok(()) => Some(ExitCode::SUCCESS),
         Err(err) => {
             eprintln!("ctx tui: {err}");

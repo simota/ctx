@@ -418,7 +418,9 @@ pub fn is_interactive() -> bool {
 /// `root_path` is the filesystem root the `root` tree was built from
 /// (the same path handed to `build_tree`); the `p` pack action resolves
 /// the tree's repo-relative paths against it when reading file contents.
-pub fn run(root: FileInfo, root_path: &str) -> io::Result<()> {
+/// `boundary` is the containment root handed to `build_tree`; the pack
+/// re-checks it before reading each file.
+pub fn run(root: FileInfo, root_path: &str, boundary: &Path) -> io::Result<()> {
     // Guard: refuse to drive an interactive UI without a real terminal.
     if !is_interactive() {
         return Err(io::Error::new(
@@ -437,7 +439,7 @@ pub fn run(root: FileInfo, root_path: &str) -> io::Result<()> {
 
     let backend = CrosstermBackend::new(stdout);
     Terminal::new(backend)
-        .and_then(|mut terminal| event_loop(&mut terminal, root, Path::new(root_path)))
+        .and_then(|mut terminal| event_loop(&mut terminal, root, Path::new(root_path), boundary))
 }
 
 /// Best-effort terminal teardown on drop. `LeaveAlternateScreen` is harmless
@@ -457,6 +459,7 @@ fn event_loop<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
     root: FileInfo,
     root_path: &Path,
+    boundary: &Path,
 ) -> io::Result<()> {
     let mut model = Model::new(root);
 
@@ -488,7 +491,7 @@ fn event_loop<B: ratatui::backend::Backend>(
                     // does not touch the filesystem, so do the write here and
                     // surface a failure status instead of "saved context.md".
                     if mapped == Key::Char('p') {
-                        match write_pack(&model, root_path) {
+                        match write_pack(&model, root_path, boundary) {
                             Ok(()) => model.update(mapped),
                             Err(err) => model.status = format!("pack failed: {err}"),
                         }
@@ -525,18 +528,19 @@ fn map_key(code: KeyCode) -> Option<Key> {
 /// → `ctx_pack::assemble::pack_markdown(inputs, "", model.budget)`).
 /// `context.md` is written to the current working directory, exactly like
 /// Go's `os.Create("context.md")`; file contents are resolved against
-/// `root` (the path the tree was built from).
+/// `root` (the path the tree was built from) and only read when they still
+/// resolve to a regular file inside `boundary` (see [`build_tree`]).
 ///
 /// Errors are propagated so the event loop can surface a failure status
 /// instead of the snapshot-locked "saved context.md" success string.
-fn write_pack(model: &Model, root: &Path) -> io::Result<()> {
-    write_pack_to(model, root, Path::new("context.md"))
+fn write_pack(model: &Model, root: &Path, boundary: &Path) -> io::Result<()> {
+    write_pack_to(model, root, boundary, Path::new("context.md"))
 }
 
 /// Testable core of `write_pack` — renders the pack for the currently
 /// included files and writes it to `out`.
-fn write_pack_to(model: &Model, root: &Path, out: &Path) -> io::Result<()> {
-    let inputs = model.pack_inputs(root);
+fn write_pack_to(model: &Model, root: &Path, boundary: &Path, out: &Path) -> io::Result<()> {
+    let inputs = model.pack_inputs(root, &canonical_or_given(boundary));
     let rendered = ctx_pack::assemble::pack_markdown(&inputs, "", model.budget)
         .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
     std::fs::write(out, rendered)
@@ -546,15 +550,21 @@ impl Model {
     /// Pack inputs for the currently-included files, in tree order —
     /// the Rust shape of Go's `m.includedFiles()` handed to `pack.Pack`.
     /// Paths are resolved against `root` (the tree's build root, NOT
-    /// blindly the cwd). Unreadable files are skipped; token counts are
-    /// the model's existing per-file counts from `build_tree`.
-    fn pack_inputs(&self, root: &Path) -> Vec<ctx_pack::FileInput> {
+    /// blindly the cwd). Unreadable files are skipped, and so is a path
+    /// that no longer resolves to a regular file inside `boundary` (it was
+    /// swapped for a symlink out of the repository, or for a FIFO, after
+    /// the walk); token counts are the model's existing per-file counts
+    /// from `build_tree`.
+    fn pack_inputs(&self, root: &Path, boundary: &Path) -> Vec<ctx_pack::FileInput> {
         let mut inputs = Vec::new();
         collect_files(&self.root, &mut |file| {
             if !self.included.contains(&file.path) {
                 return;
             }
             let abs = root.join(&file.path);
+            if !resolves_to_file_in(boundary, &abs) {
+                return;
+            }
             let Ok(bytes) = std::fs::read(&abs) else {
                 return;
             };
@@ -597,13 +607,40 @@ impl Model {
 /// (`.git`, `node_modules`, `dist`, `coverage`, `target`, `*.lock`) are
 /// excluded; children are sorted by file name to match Go's `os.ReadDir`
 /// ordering.
-pub fn build_tree(root_path: &str) -> io::Result<FileInfo> {
+///
+/// Every listed file can be packed into `context.md`, so entries follow the
+/// CLI pack walker's policy: symlinked directories are never recursed into,
+/// a symlink is listed only when it resolves to a regular file inside
+/// `boundary` (callers pass the git work tree holding the root, or the root
+/// itself outside git), and FIFOs, sockets and devices are left out instead
+/// of being read, which would block the walk.
+pub fn build_tree(root_path: &str, boundary: &Path) -> io::Result<FileInfo> {
     // Follow a symlink only for the requested root (e.g. /tmp on macOS);
     // deeper symlinked dirs are never recursed into (see build_node).
     let root = Path::new(root_path)
         .canonicalize()
         .unwrap_or_else(|_| PathBuf::from(root_path));
-    build_node(&root, ".")
+    let meta = std::fs::metadata(&root)?;
+    if !meta.is_dir() && !meta.is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("{root_path}: not a directory or regular file"),
+        ));
+    }
+    build_node(&root, ".", meta.is_dir(), &canonical_or_given(boundary))
+}
+
+fn canonical_or_given(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+}
+
+/// Whether `path`, after resolving every symlink, is a regular file inside
+/// `canonical_boundary` (mirror of the CLI's `resolves_to_file_in`).
+fn resolves_to_file_in(canonical_boundary: &Path, path: &Path) -> bool {
+    std::fs::canonicalize(path).is_ok_and(|target| {
+        target.starts_with(canonical_boundary)
+            && std::fs::metadata(&target).is_ok_and(|meta| meta.is_file())
+    })
 }
 
 /// ExtraIgnore from Go `walk.DefaultOptions().ExtraIgnore`, aligned with the
@@ -617,16 +654,13 @@ fn should_skip(name: &str) -> bool {
     ) || name.ends_with(".lock")
 }
 
-fn build_node(path: &Path, rel: &str) -> io::Result<FileInfo> {
-    // symlink_metadata (NOT metadata): a symlinked dir is treated as a
-    // non-dir and never recursed into, so cyclic links cannot loop.
-    // Matches the CLI walker (tree/json.rs).
-    let meta = std::fs::symlink_metadata(path)?;
-
-    if !meta.is_dir() {
+/// Build the node for `path`, already classified by the caller as a real
+/// directory (`is_dir`) or a file that is safe to read.
+fn build_node(path: &Path, rel: &str, is_dir: bool, boundary: &Path) -> io::Result<FileInfo> {
+    if !is_dir {
         let tokens = match ctx_tokens::count_file(&path.to_string_lossy()) {
             Ok(n) => n,
-            Err(_) => ctx_tokens::estimate_by_size(meta.len() as i64),
+            Err(_) => ctx_tokens::estimate_by_size(std::fs::metadata(path)?.len() as i64),
         };
         return Ok(FileInfo {
             path: rel.to_string(),
@@ -649,12 +683,27 @@ fn build_node(path: &Path, rel: &str) -> io::Result<FileInfo> {
         if should_skip(&child_name) {
             continue;
         }
+        // file_type does not follow symlinks: a symlinked dir is never
+        // recursed into, so cyclic links cannot loop.
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        let child_path = entry.path();
+        let child_is_dir = if file_type.is_dir() {
+            true
+        } else if file_type.is_file()
+            || (file_type.is_symlink() && resolves_to_file_in(boundary, &child_path))
+        {
+            false
+        } else {
+            continue;
+        };
         let child_rel = if rel == "." {
             child_name.to_string()
         } else {
             format!("{rel}/{child_name}")
         };
-        match build_node(&entry.path(), &child_rel) {
+        match build_node(&child_path, &child_rel, child_is_dir, boundary) {
             Ok(node) => children.push(node),
             Err(_) => continue,
         }
@@ -680,10 +729,10 @@ mod write_pack_tests {
         std::fs::write(dir.join("src/main.rs"), "fn main() {}\n").expect("write main.rs");
         std::fs::write(dir.join("README.md"), "# readme\n").expect("write README.md");
 
-        let tree = build_tree(&dir.to_string_lossy()).expect("build_tree");
+        let tree = build_tree(&dir.to_string_lossy(), &dir).expect("build_tree");
         let model = Model::new(tree);
         let out = dir.join("context.md");
-        write_pack_to(&model, &dir, &out).expect("write_pack_to");
+        write_pack_to(&model, &dir, &dir, &out).expect("write_pack_to");
 
         let pack = std::fs::read_to_string(&out).expect("context.md written");
         // Full rendered markdown pack (Go writePack parity), NOT a path list.
@@ -694,5 +743,108 @@ mod write_pack_tests {
         assert!(pack.contains("### README.md\n\n```markdown\n# readme\n```\n"));
         assert!(!pack.contains("ctx:contract"));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(all(test, unix))]
+mod walk_bounds_tests {
+    use super::*;
+    use std::sync::mpsc;
+
+    struct TempDir(PathBuf);
+    impl TempDir {
+        fn new(name: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!("ctx-tui-{name}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            TempDir(dir.canonicalize().unwrap())
+        }
+    }
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn paths(node: &FileInfo) -> Vec<String> {
+        let mut out = Vec::new();
+        collect_files(node, &mut |f| out.push(f.path.clone()));
+        out
+    }
+
+    /// Runs `f` on a worker thread so a regression (a read blocking on a
+    /// FIFO) fails the test instead of hanging the suite.
+    fn within_timeout<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(f());
+        });
+        rx.recv_timeout(std::time::Duration::from_secs(10))
+            .expect("build_tree blocked (read through a FIFO?)")
+    }
+
+    #[test]
+    fn build_tree_skips_fifos_instead_of_blocking() {
+        let fx = TempDir::new("fifo");
+        std::fs::write(fx.0.join("a.rs"), "fn a() {}\n").unwrap();
+        let status = std::process::Command::new("mkfifo")
+            .arg(fx.0.join("pipe"))
+            .status()
+            .unwrap();
+        assert!(status.success());
+        std::os::unix::fs::symlink("pipe", fx.0.join("pipe-link")).unwrap();
+        let root = fx.0.clone();
+        let tree = within_timeout(move || build_tree(&root.to_string_lossy(), &root).unwrap());
+        assert_eq!(paths(&tree), vec!["a.rs".to_string()]);
+    }
+
+    #[test]
+    fn symlink_out_of_boundary_is_neither_listed_nor_packed() {
+        let outside = TempDir::new("outside");
+        std::fs::write(outside.0.join("secret.txt"), "outside-only-content\n").unwrap();
+        let fx = TempDir::new("leak");
+        std::fs::write(fx.0.join("a.rs"), "fn a() {}\n").unwrap();
+        std::fs::write(fx.0.join("b.rs"), "fn b() {}\n").unwrap();
+        std::os::unix::fs::symlink(outside.0.join("secret.txt"), fx.0.join("leak.rs")).unwrap();
+        std::os::unix::fs::symlink("a.rs", fx.0.join("inside.rs")).unwrap();
+        std::fs::create_dir(fx.0.join("dir")).unwrap();
+        std::os::unix::fs::symlink(&outside.0, fx.0.join("dir/out")).unwrap();
+
+        let tree = build_tree(&fx.0.to_string_lossy(), &fx.0).unwrap();
+        assert_eq!(
+            paths(&tree),
+            vec![
+                "a.rs".to_string(),
+                "b.rs".to_string(),
+                "inside.rs".to_string()
+            ]
+        );
+
+        // A file swapped for an outside link after the walk is not read
+        // at pack time either.
+        let model = Model::new(tree);
+        std::fs::remove_file(fx.0.join("b.rs")).unwrap();
+        std::os::unix::fs::symlink(outside.0.join("secret.txt"), fx.0.join("b.rs")).unwrap();
+        let out = outside.0.join("context.md");
+        write_pack_to(&model, &fx.0, &fx.0, &out).unwrap();
+        let pack = std::fs::read_to_string(&out).unwrap();
+        assert!(pack.contains("### inside.rs\n"), "got: {pack}");
+        assert!(!pack.contains("outside-only-content"), "got: {pack}");
+    }
+
+    #[test]
+    fn pack_root_inside_boundary_keeps_sibling_links() {
+        // Serving a subdirectory keeps links to sibling files of the same
+        // repository (boundary = work tree), as the CLI pack walker does.
+        let fx = TempDir::new("sibling");
+        std::fs::create_dir(fx.0.join("sub")).unwrap();
+        std::fs::write(fx.0.join("shared.rs"), "fn shared() {}\n").unwrap();
+        std::os::unix::fs::symlink("../shared.rs", fx.0.join("sub/shared.rs")).unwrap();
+        let sub = fx.0.join("sub");
+        let tree = build_tree(&sub.to_string_lossy(), &fx.0).unwrap();
+        assert_eq!(paths(&tree), vec!["shared.rs".to_string()]);
+        // ...but the same layout bounded by the subdirectory drops it.
+        let tree = build_tree(&sub.to_string_lossy(), &sub).unwrap();
+        assert!(paths(&tree).is_empty());
     }
 }
