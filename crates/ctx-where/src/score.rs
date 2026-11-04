@@ -479,7 +479,7 @@ pub fn context_lines(lines: &[String], line_no: i64, n: i64) -> (Vec<String>, Ve
         return (Vec::new(), Vec::new());
     }
     let start = ((line_no - 1) - n).max(0) as usize;
-    let end = ((line_no + n) as usize).min(lines.len());
+    let end = (line_no.saturating_add(n) as usize).min(lines.len());
     let before: Vec<String> = lines[start..(line_no - 1) as usize].to_vec();
     let after: Vec<String> = lines[line_no as usize..end].to_vec();
     (before, after)
@@ -530,6 +530,17 @@ pub fn has_all_keyword_sets(sets: &[KeywordSet], fi: &FileForScore) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn context_lines_saturates_huge_context() {
+        // `--context 9223372036854775807` used to overflow `line_no + n`
+        // (a panic in debug builds); it now returns the whole file around
+        // the match.
+        let lines: Vec<String> = ["a", "b", "c"].iter().map(|s| s.to_string()).collect();
+        let (before, after) = context_lines(&lines, 2, i64::MAX);
+        assert_eq!(before, vec!["a".to_string()]);
+        assert_eq!(after, vec!["c".to_string()]);
+    }
+
     use super::*;
 
     #[test]
