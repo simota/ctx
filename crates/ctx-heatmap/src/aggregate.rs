@@ -135,12 +135,11 @@ pub fn weight_for(by: &str, tokens: i64, files: i64, symbols: i64, churn: i64) -
 /// format_number inserts thousand separators ("8420" -> "8,420").
 /// Lives in the aggregate module because every renderer needs it.
 pub fn format_number(n: i64) -> String {
-    if n < 0 {
-        return format!("-{}", format_number(-n));
-    }
-    let s = n.to_string();
+    let sign = if n < 0 { "-" } else { "" };
+    // unsigned_abs: `-n` would overflow for i64::MIN.
+    let s = n.unsigned_abs().to_string();
     if s.len() <= 3 {
-        return s;
+        return format!("{sign}{s}");
     }
     let bytes = s.as_bytes();
     let mut parts: Vec<&str> = Vec::with_capacity((s.len() + 2) / 3);
@@ -152,12 +151,22 @@ pub fn format_number(n: i64) -> String {
     }
     parts.push(std::str::from_utf8(&bytes[..end]).unwrap());
     parts.reverse();
-    parts.join(",")
+    format!("{sign}{}", parts.join(","))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn format_number_handles_i64_min() {
+        // `-i64::MIN` overflows: a debug panic, and in release a wrap back
+        // to i64::MIN that recursed until the stack overflowed (an abort
+        // the FFI's catch_unwind cannot catch).
+        assert_eq!(format_number(i64::MIN), "-9,223,372,036,854,775,808");
+        assert_eq!(format_number(-1_234), "-1,234");
+        assert_eq!(format_number(999), "999");
+    }
 
     fn metric(path: &str, tokens: i64, symbols: i64) -> FileMetric {
         FileMetric {
