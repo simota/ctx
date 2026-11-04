@@ -173,42 +173,61 @@ pub fn extract(path: impl AsRef<Path>) -> std::io::Result<Vec<Symbol>> {
     if meta.len() > MAX_PARSE_BYTES {
         return Ok(Vec::new());
     }
-
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_ascii_lowercase())
-        .unwrap_or_default();
-    let spec = match lang_spec_for_ext(&ext) {
+    let spec = match lang_spec_for_path(path) {
         Some(spec) => spec,
         None => return Ok(Vec::new()),
     };
-
     let source = std::fs::read(path)?;
+    Ok(parse_symbols(&spec, &source))
+}
 
+/// [`extract`] for a caller that has already read the file: `source` is the
+/// content of `path` (the extension still selects the grammar). Applies the
+/// same 500 KiB cap to `source.len()` — the length `extract` stats — so a
+/// walker that reads every file anyway avoids a second stat + read.
+pub fn extract_source(path: impl AsRef<Path>, source: &[u8]) -> Vec<Symbol> {
+    if source.len() as u64 > MAX_PARSE_BYTES {
+        return Vec::new();
+    }
+    match lang_spec_for_path(path.as_ref()) {
+        Some(spec) => parse_symbols(&spec, source),
+        None => Vec::new(),
+    }
+}
+
+fn parse_symbols(spec: &LangSpec, source: &[u8]) -> Vec<Symbol> {
     let mut parser = Parser::new();
     // set_language only fails on ABI mismatch — impossible for grammars we
     // compiled against this tree-sitter version. Treat as "no symbols",
     // mirroring Go's parse-failure → (nil, nil).
     if parser.set_language(&spec.language).is_err() {
-        return Ok(Vec::new());
+        return Vec::new();
     }
-    let tree = match parser.parse(&source, None) {
+    let tree = match parser.parse(source, None) {
         Some(tree) => tree,
-        None => return Ok(Vec::new()),
+        None => return Vec::new(),
     };
 
     let mut out = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
     walk_node(
         tree.root_node(),
-        &source,
+        source,
         spec.kinds,
         spec.name_fallback,
         &mut out,
         &mut seen,
     );
-    Ok(out)
+    out
+}
+
+fn lang_spec_for_path(path: &Path) -> Option<LangSpec> {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase())
+        .unwrap_or_default();
+    lang_spec_for_ext(&ext)
 }
 
 /// Direct port of Go's `walkNode`: DFS pre-order over NamedChild. On a kind

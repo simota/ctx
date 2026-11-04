@@ -41,7 +41,11 @@ pub fn serve(uri: &Uri) -> Response {
             (
                 StatusCode::OK,
                 [(header::CONTENT_TYPE, ct)],
-                file.data.into_owned(),
+                // Release builds embed the bytes as `Cow::Borrowed(&'static
+                // [u8])`: hand them to the body as-is (Bytes::from_static)
+                // instead of copying every asset on every request. Same
+                // headers as the owned `Vec<u8>` path.
+                file.data,
             )
                 .into_response()
         }
@@ -58,7 +62,7 @@ fn serve_index() -> Response {
                 (header::CONTENT_TYPE, "text/html; charset=utf-8"),
                 (header::CACHE_CONTROL, "no-store"),
             ],
-            file.data.into_owned(),
+            file.data,
         )
             .into_response(),
         None => (StatusCode::INTERNAL_SERVER_ERROR, "index.html missing").into_response(),

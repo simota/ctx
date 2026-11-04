@@ -434,6 +434,7 @@ dependencies = [
 name = "ctx-cli"
 version = "0.1.0"
 dependencies = [
+ "aho-corasick",
  "clap",
  "crossterm",
  "ctx-braid",
@@ -453,6 +454,7 @@ dependencies = [
  "ctx-tui",
  "ctx-web",
  "ctx-where",
+ "libc",
  "ratatui",
  "rayon",
  "regex",
@@ -537,6 +539,7 @@ dependencies = [
  "ctx-symbols",
  "ctx-tokens",
  "ctx-where",
+ "rayon",
  "serde",
  "serde_json",
  "toml",
@@ -626,6 +629,9 @@ dependencies = [
 name = "ctx-tokens"
 version = "0.1.0"
 dependencies = [
+ "base64",
+ "regex-syntax",
+ "rustc-hash",
  "tiktoken-rs",
 ]
 

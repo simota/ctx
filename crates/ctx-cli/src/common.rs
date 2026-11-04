@@ -232,14 +232,33 @@ pub(crate) fn default_true() -> bool {
     true
 }
 
+/// `date -u +%Y-%m-%dT%H:%M:%SZ`, computed in-process (no `date` spawn).
 pub(crate) fn rfc3339_now_utc() -> String {
-    let output = Command::new("date")
-        .args(["-u", "+%Y-%m-%dT%H:%M:%SZ"])
-        .output();
-    match output {
-        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).trim().to_string(),
-        _ => "1970-01-01T00:00:00Z".to_string(),
+    ctx_pack::assemble::current_rfc3339_utc()
+}
+
+/// Files larger than this get a [`release_memory_after_large_file`] call.
+const LARGE_FILE_BYTES: u64 = 64 * 1024;
+
+/// Hands freed heap pages back to the OS after a walk worker processed a
+/// large file. The parallel walks parse files with tree-sitter on several
+/// threads; glibc gives each thread its own malloc arena and an arena keeps
+/// its high-water mark after the (many times source-sized) parse tree is
+/// freed, so without this every worker that ever met a large file retained
+/// that much memory and peak RSS rose above the sequential walk. Trimming
+/// only after large files (rare) costs nothing measurable. A no-op on other
+/// allocators.
+pub(crate) fn release_memory_after_large_file(len: u64) {
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    if len > LARGE_FILE_BYTES {
+        // SAFETY: malloc_trim only returns already-freed memory to the OS
+        // and is thread-safe (it locks each arena it trims).
+        unsafe {
+            libc::malloc_trim(0);
+        }
     }
+    #[cfg(not(all(target_os = "linux", target_env = "gnu")))]
+    let _ = len;
 }
 
 /// Containment boundary for [`walk_entry_kind`] / [`resolves_to_file_in`]:

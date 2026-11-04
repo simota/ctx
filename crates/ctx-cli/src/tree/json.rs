@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::time::SystemTime;
 
+use rayon::prelude::*;
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -205,8 +206,17 @@ pub(crate) fn build_json_tree_node(
                 .collect();
             // os.ReadDir returns entries sorted by filename.
             entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
-            for entry in entries {
-                if let Some(child) = build_json_tree_node(root, &entry.path(), depth + 1, opts)? {
+            // Children are built in parallel (each node is independent: file
+            // stats, token count and symbol extraction only read its own
+            // file). The indexed collect keeps the sorted entry order, and
+            // walking the results in that order returns the same first error
+            // the sequential loop would have stopped at.
+            let built: Vec<Result<Option<JsonTreeNode>, String>> = entries
+                .par_iter()
+                .map(|entry| build_json_tree_node(root, &entry.path(), depth + 1, opts))
+                .collect();
+            for child in built {
+                if let Some(child) = child? {
                     children.push(child);
                 }
             }
@@ -236,24 +246,24 @@ pub(crate) fn build_json_tree_node(
     // an unreadable file (no stats, size-based token estimate, no symbols).
     let size = meta.len() as i64;
     let readable = std::fs::metadata(path).is_ok_and(|target| target.is_file());
-    let (lines, chars) = if readable {
-        count_text_stats(path)
-    } else {
-        (0, 0)
-    };
+    // Read the file once for the text stats, the token count and the symbols
+    // (each used to read it separately); a failed read falls back for all
+    // three exactly as their own failed reads did.
+    let data = readable.then(|| std::fs::read(path).ok()).flatten();
+    let (lines, chars) = data.as_deref().map_or((0, 0), text_stats);
     let role = infer_json_role(&rel);
-    let tokens = match readable
-        .then(|| ctx_tokens::count_file(&path.to_string_lossy()))
-        .and_then(Result::ok)
+    let tokens = match data
+        .as_deref()
+        .and_then(|data| std::str::from_utf8(data).ok())
     {
-        Some(n) => n,
+        Some(text) => ctx_tokens::count_str(text),
         None => ctx_tokens::estimate_by_size(size),
     };
     // Display.Symbols defaults to true and --symbols is not explicitly set, so
     // Go runs symbol extraction and embeds the result (rendered via JSONTree).
-    let symbols = readable
-        .then(|| ctx_symbols::extract(path).ok())
-        .flatten()
+    let symbols = data
+        .as_deref()
+        .map(|data| ctx_symbols::extract_source(path, data))
         .map(|syms| {
             syms.into_iter()
                 .map(|s| SymbolsJsonEntry {
@@ -264,6 +274,11 @@ pub(crate) fn build_json_tree_node(
                 .collect()
         })
         .unwrap_or_default();
+    if let Some(data) = data {
+        let len = data.len() as u64;
+        drop(data);
+        crate::common::release_memory_after_large_file(len);
+    }
 
     Ok(Some(JsonTreeNode {
         path: rel,
@@ -293,10 +308,8 @@ pub(crate) fn json_tree_should_skip(name: &str) -> bool {
 /// Mirrors Go `walk.countTextStats`: returns (lines, chars). Binary or
 /// non-UTF-8 files (NUL byte or invalid UTF-8 in the first 512 bytes) yield
 /// (0, 0). `chars` is the UTF-8 rune count of the whole file.
-pub(crate) fn count_text_stats(path: &Path) -> (i64, i64) {
-    let Ok(data) = std::fs::read(path) else {
-        return (0, 0);
-    };
+/// Takes the file content (the caller reads it once for all per-file stats).
+pub(crate) fn text_stats(data: &[u8]) -> (i64, i64) {
     if data.is_empty() {
         return (0, 0);
     }
@@ -308,7 +321,7 @@ pub(crate) fn count_text_stats(path: &Path) -> (i64, i64) {
     if *data.last().unwrap() != b'\n' {
         lines += 1;
     }
-    let chars = String::from_utf8_lossy(&data).chars().count() as i64;
+    let chars = String::from_utf8_lossy(data).chars().count() as i64;
     (lines, chars)
 }
 

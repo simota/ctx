@@ -347,24 +347,59 @@ pub fn value_or_dash(input: &str) -> &str {
     }
 }
 
+/// Today's UTC date as `YYYY-MM-DD` (what `date -u +%Y-%m-%d` printed —
+/// computed in-process instead of spawning `date` on every pack).
 pub fn current_date_utc() -> String {
-    let output = std::process::Command::new("date")
-        .args(["-u", "+%Y-%m-%d"])
-        .output();
-    match output {
-        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).trim().to_string(),
-        _ => "1970-01-01".to_string(),
+    let (year, month, day, ..) = utc_parts(unix_now_secs());
+    format!("{year:04}-{month:02}-{day:02}")
+}
+
+/// The current UTC time as RFC 3339 with second precision
+/// (`date -u +%Y-%m-%dT%H:%M:%SZ`).
+pub fn current_rfc3339_utc() -> String {
+    format_rfc3339_utc(unix_now_secs())
+}
+
+/// Formats Unix seconds as `YYYY-MM-DDTHH:MM:SSZ`.
+pub fn format_rfc3339_utc(secs: i64) -> String {
+    let (year, month, day, hour, minute, second) = utc_parts(secs);
+    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z")
+}
+
+fn unix_now_secs() -> i64 {
+    match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(since) => since.as_secs() as i64,
+        // Before the epoch: floor to the whole second, as `date` does.
+        Err(err) => {
+            let before = err.duration();
+            -(before.as_secs() as i64) - i64::from(before.subsec_nanos() > 0)
+        }
     }
 }
 
-pub fn current_rfc3339_utc() -> String {
-    let output = std::process::Command::new("date")
-        .args(["-u", "+%Y-%m-%dT%H:%M:%SZ"])
-        .output();
-    match output {
-        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).trim().to_string(),
-        _ => format!("{}T00:00:00Z", current_date_utc()),
-    }
+/// Splits Unix seconds into UTC (year, month, day, hour, minute, second)
+/// using the proleptic Gregorian calendar (Howard Hinnant's
+/// `civil_from_days`).
+fn utc_parts(secs: i64) -> (i64, u32, u32, u32, u32, u32) {
+    let days = secs.div_euclid(86_400);
+    let rem = secs.rem_euclid(86_400);
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    (
+        year,
+        month,
+        day,
+        (rem / 3_600) as u32,
+        (rem % 3_600 / 60) as u32,
+        (rem % 60) as u32,
+    )
 }
 
 pub fn lang_for_path(path: &str) -> &'static str {
@@ -452,6 +487,68 @@ pub fn pack_markdown(inputs: &[FileInput], goal: &str, budget: i64) -> Result<St
 mod tests {
     use super::*;
     use crate::types::MetadataInput;
+
+    #[test]
+    fn formats_unix_seconds_as_utc_rfc3339() {
+        for (secs, want) in [
+            (0, "1970-01-01T00:00:00Z"),
+            (-1, "1969-12-31T23:59:59Z"),
+            (951_782_400, "2000-02-29T00:00:00Z"),
+            (1_709_208_000, "2024-02-29T12:00:00Z"),
+            (1_735_689_599, "2024-12-31T23:59:59Z"),
+            (1_793_836_800, "2026-11-05T00:00:00Z"),
+            (4_102_444_799, "2099-12-31T23:59:59Z"),
+            (4_107_542_400, "2100-03-01T00:00:00Z"),
+        ] {
+            assert_eq!(format_rfc3339_utc(secs), want, "{secs}");
+        }
+    }
+
+    #[test]
+    fn utc_parts_walks_every_day_in_order() {
+        // Consecutive days from 1900 to 2200 advance the civil date by one.
+        let mut prev = utc_parts(-2_208_988_800); // 1900-01-01
+        assert_eq!(prev, (1900, 1, 1, 0, 0, 0));
+        for day in -25_566..84_000_i64 {
+            let next = utc_parts(day * 86_400);
+            let leap = |y: i64| (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+            let days_in = |y: i64, m: u32| match m {
+                2 if leap(y) => 29,
+                2 => 28,
+                4 | 6 | 9 | 11 => 30,
+                _ => 31,
+            };
+            let expected = if prev.2 < days_in(prev.0, prev.1) {
+                (prev.0, prev.1, prev.2 + 1)
+            } else if prev.1 < 12 {
+                (prev.0, prev.1 + 1, 1)
+            } else {
+                (prev.0 + 1, 1, 1)
+            };
+            assert_eq!((next.0, next.1, next.2), expected, "day {day}");
+            prev = next;
+        }
+    }
+
+    #[test]
+    fn current_time_matches_the_date_command() {
+        // Where `date` exists, the in-process clock agrees with it (date part;
+        // the seconds could tick between the two reads).
+        let Ok(out) = std::process::Command::new("date")
+            .args(["-u", "+%Y-%m-%d"])
+            .output()
+        else {
+            return;
+        };
+        let date = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let ours = current_date_utc();
+        if ours != date {
+            // Midnight rollover between the two reads.
+            assert_eq!(current_date_utc(), ours);
+        } else {
+            assert!(current_rfc3339_utc().starts_with(&date));
+        }
+    }
 
     fn pack_file(path: &str, content: &str, tokens: i64) -> PackFile {
         PackFile {

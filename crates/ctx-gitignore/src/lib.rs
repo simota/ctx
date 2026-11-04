@@ -16,9 +16,10 @@
 //!   (same as Go).
 
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::OnceLock;
 
-use regex::Regex;
+use regex::{Regex, RegexSet};
 
 /// One compiled ignore pattern (mirrors Go's `IgnorePattern`, minus the
 /// line-number metadata which the walker never uses).
@@ -30,7 +31,19 @@ struct IgnorePattern {
 /// Mirrors Go's `GitIgnore`: an ordered list of compiled patterns.
 pub struct GitIgnore {
     patterns: Vec<IgnorePattern>,
+    /// Number of `matches_path` calls so far (drives the lazy `set` build).
+    calls: AtomicUsize,
+    /// All patterns compiled into one automaton, so a path is matched against
+    /// every pattern in a single pass (~10x faster than one regex run per
+    /// pattern). Index `i` of the set is `patterns[i]`. Compiling it costs
+    /// about as much as a few hundred per-pattern lookups, so it is built only
+    /// once a walk has made `SET_AFTER_CALLS` calls; `None` inside means the
+    /// combined set could not be built and the per-pattern loop is kept.
+    set: OnceLock<Option<RegexSet>>,
 }
+
+/// Calls answered by the per-pattern loop before the `RegexSet` is built.
+const SET_AFTER_CALLS: usize = 256;
 
 /// Port of Go's `getPatternFromLine`. Returns `None` when the line is a
 /// comment, blank, or fails to compile (Go drops those lines silently).
@@ -137,7 +150,11 @@ impl GitIgnore {
                 patterns.push(IgnorePattern { pattern, negate });
             }
         }
-        Self { patterns }
+        Self {
+            patterns,
+            calls: AtomicUsize::new(0),
+            set: OnceLock::new(),
+        }
     }
 
     /// Port of Go's `CompileIgnoreFile`.
@@ -164,17 +181,45 @@ impl GitIgnore {
         } else {
             std::borrow::Cow::Owned(f.replace(std::path::MAIN_SEPARATOR, "/"))
         };
-        let mut matches = false;
-        for ip in &self.patterns {
-            if ip.pattern.is_match(&f) {
-                if !ip.negate {
-                    matches = true;
-                } else if matches {
-                    matches = false;
-                }
-            }
+        match self.regex_set() {
+            // `SetMatches::iter` yields the matching indices in ascending
+            // (= pattern) order, and a non-matching pattern never changes
+            // the state, so this is the same fold as the per-pattern loop.
+            Some(set) => fold_matches(set.matches(&f).iter().map(|idx| &self.patterns[idx])),
+            None => self.matches_path_per_pattern(&f),
         }
-        matches
+    }
+
+    fn matches_path_per_pattern(&self, f: &str) -> bool {
+        fold_matches(self.patterns.iter().filter(|ip| ip.pattern.is_match(f)))
+    }
+}
+
+/// Folds the patterns that match a path, in pattern order: a pattern sets the
+/// match, a negated one clears a match an earlier pattern established.
+fn fold_matches<'a>(matching: impl Iterator<Item = &'a IgnorePattern>) -> bool {
+    let mut matches = false;
+    for ip in matching {
+        if !ip.negate {
+            matches = true;
+        } else if matches {
+            matches = false;
+        }
+    }
+    matches
+}
+
+impl GitIgnore {
+    fn regex_set(&self) -> Option<&RegexSet> {
+        if let Some(set) = self.set.get() {
+            return set.as_ref();
+        }
+        if self.calls.fetch_add(1, Ordering::Relaxed) < SET_AFTER_CALLS {
+            return None;
+        }
+        self.set
+            .get_or_init(|| RegexSet::new(self.patterns.iter().map(|ip| ip.pattern.as_str())).ok())
+            .as_ref()
     }
 }
 
@@ -388,5 +433,65 @@ mod tests {
         let object = compile(&[r"a\*b"]);
         assert!(object.matches_path("a*b"));
         assert!(!object.matches_path("axb"));
+    }
+
+    #[test]
+    fn regex_set_agrees_with_per_pattern_matching() {
+        let lines = [
+            "*.log",
+            "!keep.log",
+            "build/",
+            "/root-only",
+            "**/deep",
+            "a/**/z",
+            "docs/*.md",
+            "!docs/README.md",
+            "target/",
+            "!",
+            "?ab",
+            "\\#hash",
+            "node_modules/",
+            "!node_modules/keep/",
+        ];
+        let paths = [
+            "x.log",
+            "keep.log",
+            "src/keep.log",
+            "build",
+            "build/",
+            "src/build/out.o",
+            "root-only",
+            "src/root-only",
+            "deep",
+            "x/y/deep/z",
+            "a/z",
+            "a/b/c/z",
+            "docs/guide.md",
+            "docs/README.md",
+            "docs/sub/x.md",
+            "target/",
+            "crates/x/target/",
+            "?ab",
+            "xab",
+            "#hash",
+            "node_modules/keep/",
+            "node_modules/pkg/index.js",
+            "src/main.rs",
+            "",
+            "/",
+        ];
+        let ignore = compile(&lines);
+        // Past the threshold every call is answered by the RegexSet.
+        for _ in 0..=SET_AFTER_CALLS {
+            ignore.matches_path("warm-up");
+        }
+        assert!(matches!(ignore.set.get(), Some(Some(_))));
+        for path in paths {
+            assert_eq!(
+                ignore.matches_path(path),
+                ignore.matches_path_per_pattern(path),
+                "{path:?}"
+            );
+        }
     }
 }

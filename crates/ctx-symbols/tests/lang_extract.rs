@@ -137,3 +137,38 @@ fn extract_java_symbols() {
         ]
     );
 }
+
+#[test]
+fn extract_source_matches_extract_on_the_same_bytes() {
+    // Every repository source with a supported extension: parsing the bytes
+    // the caller already read must give exactly what `extract` reads itself.
+    let src_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut checked = 0;
+    for entry in std::fs::read_dir(&src_dir).unwrap().flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let bytes = std::fs::read(&path).unwrap();
+        assert_eq!(
+            tuples(&ctx_symbols::extract_source(&path, &bytes)),
+            tuples(&extract(&path).unwrap()),
+            "{}",
+            path.display()
+        );
+        checked += 1;
+    }
+    assert!(checked > 0);
+
+    // The size cap and unsupported extensions behave like `extract`.
+    let big = "x".repeat(600 * 1024);
+    assert!(ctx_symbols::extract_source("big.go", big.as_bytes()).is_empty());
+    assert!(ctx_symbols::extract_source("notes.txt", b"func main() {}").is_empty());
+    assert_eq!(
+        tuples(&ctx_symbols::extract_source(
+            "m.go",
+            b"package m\nfunc Main() {}\n"
+        )),
+        vec![("Main", "function", 2)]
+    );
+}

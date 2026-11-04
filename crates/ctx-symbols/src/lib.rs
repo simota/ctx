@@ -63,6 +63,6 @@ pub mod types;
 pub mod testing;
 
 pub use crate::apionly::{is_comment_line, leading_comment_start, render_api};
-pub use crate::extract::extract;
+pub use crate::extract::{extract, extract_source};
 pub use crate::lookup::{resolve, session::LookupSession, sort_hits};
 pub use crate::types::{APIRange, APIRenderRequest, FileSymbols, Hit, LookupArgs, Symbol};

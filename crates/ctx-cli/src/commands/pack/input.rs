@@ -48,7 +48,7 @@ pub(crate) fn read_pack_paths_ordered(
             continue;
         }
         used += tokens;
-        let lines: Vec<String> = body.lines().map(ToString::to_string).collect();
+        let lines: Vec<&str> = body.lines().collect();
         let symbols = extract_where_symbols(&rel, &lines)
             .into_iter()
             .map(|sym| sym.name)
@@ -298,8 +298,9 @@ pub(crate) fn build_pack_input(
         return None;
     }
     let bytes = std::fs::read(path).ok()?;
-    let body = String::from_utf8(bytes.clone()).ok()?;
-    let lines: Vec<String> = body.lines().map(ToString::to_string).collect();
+    // Validate in place: the body is only read here, so no owned copy.
+    let body = std::str::from_utf8(&bytes).ok()?;
+    let lines: Vec<&str> = body.lines().collect();
     let symbols = extract_where_symbols(&rel, &lines)
         .into_iter()
         .map(|sym| ctx_pack::SymbolInput {
@@ -308,7 +309,7 @@ pub(crate) fn build_pack_input(
             line: sym.line,
         })
         .collect();
-    let tokens = estimate_text_tokens(&body);
+    let tokens = estimate_text_tokens(body);
     Some(ctx_pack::FileInput {
         path: rel,
         abs_path: path.to_string_lossy().into_owned(),
@@ -321,7 +322,7 @@ pub(crate) fn build_pack_input(
             role: String::new(),
             symbols,
         },
-        content_head: bytes.into_iter().take(512).collect(),
+        content_head: bytes[..bytes.len().min(512)].to_vec(),
     })
 }
 

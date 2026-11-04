@@ -4,6 +4,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use rayon::prelude::*;
+
 use crate::commands::where_cmd::{where_files_with, WalkIgnoreOptions};
 use crate::common::*;
 
@@ -305,17 +307,20 @@ pub(crate) fn heatmap_metrics(
         std::collections::HashMap::new()
     };
     let files = where_files_with(root, &map_walk_options(root))?;
+    // Per-file token counting is independent, so it runs in parallel; the
+    // indexed `collect` keeps the walk's (sorted) order.
     Ok(files
-        .into_iter()
+        .into_par_iter()
         .map(|fi| {
             let tokens = estimate_where_tokens(root, &fi);
             // Mirror Go map's extractSymbols: tree-sitter extraction via
             // symbols.New() (NOT the where regex extractor — Go map counts 0
             // symbols for languages tree-sitter doesn't cover, e.g. Rust).
             // Extraction errors leave the count at 0, like Go's warn-and-skip.
-            let symbols = ctx_symbols::extract(root.join(&fi.path))
-                .map(|syms| syms.len() as i64)
-                .unwrap_or(0);
+            // The walk already ran exactly that extraction on this file
+            // (`build_where_input` → `ctx_symbols::extract`), so reuse its
+            // result instead of parsing every file a second time.
+            let symbols = fi.symbols.len() as i64;
             let churn_commits = churn.get(&fi.path).map(|c| c.commits as i64).unwrap_or(0);
             ctx_heatmap::FileMetric {
                 path: fi.path,

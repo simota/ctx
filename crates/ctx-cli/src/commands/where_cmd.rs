@@ -404,8 +404,8 @@ pub(crate) fn build_where_input(root: &Path, path: &Path) -> Option<ctx_where::F
     // extractor diverged from the oracle on languages tree-sitter does
     // not cover (e.g. Rust files scored where symbol bonuses Go never
     // awards). Errors leave symbols empty, like Go's err == nil guard.
-    let symbols = ctx_symbols::extract(path)
-        .unwrap_or_default()
+    // Parse the body read above (same bytes `extract` would re-read).
+    let symbols = ctx_symbols::extract_source(path, body.as_bytes())
         .into_iter()
         .map(|sym| ctx_where::SymbolInput {
             name: sym.name,
@@ -421,19 +421,23 @@ pub(crate) fn build_where_input(root: &Path, path: &Path) -> Option<ctx_where::F
     })
 }
 
-pub(crate) fn extract_where_symbols(path: &str, lines: &[String]) -> Vec<ctx_where::SymbolInput> {
+pub(crate) fn extract_where_symbols<S: AsRef<str>>(
+    path: &str,
+    lines: &[S],
+) -> Vec<ctx_where::SymbolInput> {
     let mut out = Vec::new();
-    for (idx, line) in lines.iter().enumerate() {
-        let line_no = (idx + 1) as i64;
+    // The extractor depends only on the extension: resolve it once, and skip
+    // the line loop entirely for files no extractor handles.
+    let extract: fn(&str, i64, &mut Vec<ctx_where::SymbolInput>) =
         match Path::new(path).extension().and_then(OsStr::to_str) {
-            Some("go") => extract_go_symbol(line, line_no, &mut out),
-            Some("rs") => extract_rust_symbol(line, line_no, &mut out),
-            Some("ts" | "tsx" | "js" | "jsx" | "mjs" | "cjs") => {
-                extract_js_symbol(line, line_no, &mut out)
-            }
-            Some("py") => extract_python_symbol(line, line_no, &mut out),
-            _ => {}
-        }
+            Some("go") => extract_go_symbol,
+            Some("rs") => extract_rust_symbol,
+            Some("ts" | "tsx" | "js" | "jsx" | "mjs" | "cjs") => extract_js_symbol,
+            Some("py") => extract_python_symbol,
+            _ => return out,
+        };
+    for (idx, line) in lines.iter().enumerate() {
+        extract(line.as_ref(), (idx + 1) as i64, &mut out);
     }
     out
 }

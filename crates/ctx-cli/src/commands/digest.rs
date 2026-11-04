@@ -346,7 +346,7 @@ pub(crate) fn count_digest_symbols(path: &str, content: &str) -> i64 {
     if content.is_empty() {
         return 0;
     }
-    let lines: Vec<String> = content.lines().map(ToString::to_string).collect();
+    let lines: Vec<&str> = content.lines().collect();
     let syms = extract_where_symbols(path, &lines);
     syms.len() as i64
 }

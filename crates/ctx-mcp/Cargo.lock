@@ -298,6 +298,7 @@ dependencies = [
  "ctx-symbols",
  "ctx-tokens",
  "ctx-where",
+ "rayon",
  "serde",
  "serde_json",
  "toml",
@@ -354,6 +355,9 @@ dependencies = [
 name = "ctx-tokens"
 version = "0.1.0"
 dependencies = [
+ "base64",
+ "regex-syntax",
+ "rustc-hash",
  "tiktoken-rs",
 ]
 
