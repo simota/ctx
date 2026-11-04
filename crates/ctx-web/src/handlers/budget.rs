@@ -330,7 +330,7 @@ fn collect_files(root: &str, dir: &Path, out: &mut Vec<FileInfo>) {
 /// symlink could point out of root and a FIFO or `/dev/zero` would block.
 fn count_tokens_for_file(abs_path: &str, size: i64, is_regular: bool) -> i64 {
     if !is_regular {
-        return ctx_tokens::estimate_by_size(size) as i64;
+        return ctx_tokens::estimate_by_size(size);
     }
     // ctx_tokens::count_file counts tiktoken tokens; returns 0 for binary/error.
     match ctx_tokens::count_file(abs_path) {
