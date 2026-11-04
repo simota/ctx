@@ -232,14 +232,9 @@ pub(crate) fn default_true() -> bool {
     true
 }
 
+/// `date -u +%Y-%m-%dT%H:%M:%SZ`, computed in-process (no `date` spawn).
 pub(crate) fn rfc3339_now_utc() -> String {
-    let output = Command::new("date")
-        .args(["-u", "+%Y-%m-%dT%H:%M:%SZ"])
-        .output();
-    match output {
-        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).trim().to_string(),
-        _ => "1970-01-01T00:00:00Z".to_string(),
-    }
+    ctx_pack::assemble::current_rfc3339_utc()
 }
 
 /// Containment boundary for [`walk_entry_kind`] / [`resolves_to_file_in`]:
