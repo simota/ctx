@@ -8,6 +8,20 @@ and this project does not yet follow strict semver — see release notes per tag
 ## [Unreleased]
 
 ### Security
+- `ctx tui`: the tree listed every non-directory entry and read it, so a
+  symlink to a file outside the repository was shown and its contents were
+  written into `context.md` by `p`, and a FIFO in the tree hung startup. The
+  walk now follows the `ctx pack` rule: FIFOs, sockets and devices are left
+  out, symlinked directories are not entered, and a symlink is listed only
+  when it resolves to a regular file inside the git work tree holding the
+  root (or the root itself outside git); `p` re-checks this before reading
+  each file. Behaviour change: such entries no longer appear in the tree.
+- `ctx browse`: `/api/where` no longer reads a symlink whose target is
+  outside the served root (its lines were returned in `matches[].text`), and
+  a FIFO in the tree no longer hangs the request; only regular files and
+  links resolving to a regular file inside the served root are searched
+  (the bound the other `ctx browse` handlers use; `ctx where` bounds links
+  by the git work tree instead).
 - Replay snapshot store (`ctx pack --snapshot`, `ctx replay`, `ctx browse`
   replay/evidence): saving a snapshot no longer writes through a fixed
   `<id>.tmp` path, so a repository that commits
@@ -85,6 +99,10 @@ and this project does not yet follow strict semver — see release notes per tag
   drop such links the same way.
 
 ### Fixed
+- `ctx where` (and `ctx braid` `where` strands): `--context` near
+  `i64::MAX` no longer panics with an integer overflow in debug builds.
+- `ctx-heatmap`: `format_number(i64::MIN)` no longer recurses until the
+  stack overflows (reachable through the FFI render entry points).
 - `ctx digest`: a renamed file is listed under its new path (as an add,
   with the old path as a delete) instead of only under the old path with
   its whole size as a negative token delta, and non-ASCII or

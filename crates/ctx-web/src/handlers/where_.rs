@@ -92,7 +92,8 @@ fn handle_sync(state: AppState, params: WhereParams) -> Response {
         Err(e) => return response::bad_path(e),
     };
 
-    let files = match collect_files(&target, &target) {
+    let boundary = crate::handlers::file::canonical_root(&state.root);
+    let files = match collect_files(&target, &boundary) {
         Ok(f) => f,
         Err(e) => {
             return response::error(StatusCode::INTERNAL_SERVER_ERROR, "where", &e);
@@ -142,14 +143,25 @@ fn handle_sync(state: AppState, params: WhereParams) -> Response {
 /// for all non-directory files. Mirrors the minimal walk semantics of the
 /// Go `where.Search` call — skips hidden dirs, `node_modules`, `dist`,
 /// `coverage`, and reads file content as lines.
-fn collect_files(root: &Path, dir: &Path) -> Result<Vec<FileInput>, String> {
+///
+/// Only regular files, and symlinks that resolve to a regular file inside
+/// `boundary` (the canonical served root), are read — the CLI `ctx where`
+/// walker's rule — so a link to a file outside the repository is not
+/// returned in `matches[].text`, and a FIFO or device cannot block the
+/// request.
+fn collect_files(root: &Path, boundary: &Path) -> Result<Vec<FileInput>, String> {
     let mut out = Vec::new();
-    collect_files_inner(root, dir, &mut out)?;
+    collect_files_inner(root, root, boundary, &mut out)?;
     out.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(out)
 }
 
-fn collect_files_inner(root: &Path, dir: &Path, out: &mut Vec<FileInput>) -> Result<(), String> {
+fn collect_files_inner(
+    root: &Path,
+    dir: &Path,
+    boundary: &Path,
+    out: &mut Vec<FileInput>,
+) -> Result<(), String> {
     let entries = std::fs::read_dir(dir).map_err(|e| format!("walk {}: {e}", dir.display()))?;
     for entry in entries.flatten() {
         let path = entry.path();
@@ -169,8 +181,16 @@ fn collect_files_inner(root: &Path, dir: &Path, out: &mut Vec<FileInput>) -> Res
         // DirEntry::file_type does not follow symlinks, so symlinked dirs are
         // never recursed into (cyclic links would loop; absolute links would
         // leak outside root).
-        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-            collect_files_inner(root, &path, out)?;
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_type.is_dir() {
+            collect_files_inner(root, &path, boundary, out)?;
+            continue;
+        }
+        let readable =
+            file_type.is_file() || (file_type.is_symlink() && resolves_to_file_in(boundary, &path));
+        if !readable {
             continue;
         }
 
@@ -204,4 +224,75 @@ fn collect_files_inner(root: &Path, dir: &Path, out: &mut Vec<FileInput>) -> Res
         });
     }
     Ok(())
+}
+
+/// Whether `path`, after resolving every symlink, is a regular file inside
+/// `canonical_boundary`.
+fn resolves_to_file_in(canonical_boundary: &Path, path: &Path) -> bool {
+    std::fs::canonicalize(path).is_ok_and(|target| {
+        target.starts_with(canonical_boundary)
+            && std::fs::metadata(&target).is_ok_and(|meta| meta.is_file())
+    })
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use std::sync::mpsc;
+
+    struct TempDir(PathBuf);
+    impl TempDir {
+        fn new(name: &str) -> Self {
+            let dir =
+                std::env::temp_dir().join(format!("ctx-web-where-{name}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            TempDir(dir.canonicalize().unwrap())
+        }
+    }
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn collect_paths(root: PathBuf) -> Vec<(String, Vec<String>)> {
+        // A worker thread turns a read that blocks on a FIFO into a test
+        // failure instead of a hung suite.
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(collect_files(&root, &root).unwrap());
+        });
+        rx.recv_timeout(std::time::Duration::from_secs(10))
+            .expect("collect_files blocked (read through a FIFO?)")
+            .into_iter()
+            .map(|f| (f.path, f.lines))
+            .collect()
+    }
+
+    #[test]
+    fn collect_files_skips_fifos_and_links_out_of_root() {
+        let outside = TempDir::new("outside");
+        std::fs::write(outside.0.join("secret.txt"), "TOPSECRET zebra\n").unwrap();
+        let fx = TempDir::new("root");
+        std::fs::write(fx.0.join("a.txt"), "zebra here\n").unwrap();
+        std::os::unix::fs::symlink(outside.0.join("secret.txt"), fx.0.join("leak.txt")).unwrap();
+        std::os::unix::fs::symlink("a.txt", fx.0.join("inside.txt")).unwrap();
+        std::os::unix::fs::symlink(&outside.0, fx.0.join("outdir")).unwrap();
+        let status = std::process::Command::new("mkfifo")
+            .arg(fx.0.join("pipe"))
+            .status()
+            .unwrap();
+        assert!(status.success());
+
+        let got = collect_paths(fx.0.clone());
+        assert_eq!(
+            got,
+            vec![
+                ("a.txt".to_string(), vec!["zebra here".to_string()]),
+                ("inside.txt".to_string(), vec!["zebra here".to_string()]),
+            ]
+        );
+    }
 }
