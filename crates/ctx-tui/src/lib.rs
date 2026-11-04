@@ -551,10 +551,12 @@ impl Model {
     /// the Rust shape of Go's `m.includedFiles()` handed to `pack.Pack`.
     /// Paths are resolved against `root` (the tree's build root, NOT
     /// blindly the cwd). Unreadable files are skipped, and so is a path
-    /// that no longer resolves to a regular file inside `boundary` (it was
-    /// swapped for a symlink out of the repository, or for a FIFO, after
-    /// the walk); token counts are the model's existing per-file counts
-    /// from `build_tree`.
+    /// that no longer resolves to a regular file inside `boundary` when the
+    /// pack runs (e.g. it was replaced by a symlink out of the repository or
+    /// a FIFO since the walk). This narrows, but does not close, the window
+    /// between the check and the read — the same check-then-read pattern as
+    /// the CLI pack walker. Token counts are the model's existing per-file
+    /// counts from `build_tree`.
     fn pack_inputs(&self, root: &Path, boundary: &Path) -> Vec<ctx_pack::FileInput> {
         let mut inputs = Vec::new();
         collect_files(&self.root, &mut |file| {

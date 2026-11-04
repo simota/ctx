@@ -479,7 +479,8 @@ pub fn context_lines(lines: &[String], line_no: i64, n: i64) -> (Vec<String>, Ve
         return (Vec::new(), Vec::new());
     }
     let start = ((line_no - 1) - n).max(0) as usize;
-    let end = (line_no.saturating_add(n) as usize).min(lines.len());
+    // Clamp in i64 before the cast so a 32-bit usize cannot truncate it.
+    let end = line_no.saturating_add(n).min(lines.len() as i64) as usize;
     let before: Vec<String> = lines[start..(line_no - 1) as usize].to_vec();
     let after: Vec<String> = lines[line_no as usize..end].to_vec();
     (before, after)

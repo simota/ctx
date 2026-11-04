@@ -19,7 +19,9 @@ and this project does not yet follow strict semver — see release notes per tag
 - `ctx browse`: `/api/where` no longer reads a symlink whose target is
   outside the served root (its lines were returned in `matches[].text`), and
   a FIFO in the tree no longer hangs the request; only regular files and
-  in-root links to regular files are searched, as in `ctx where`.
+  links resolving to a regular file inside the served root are searched
+  (the bound the other `ctx browse` handlers use; `ctx where` bounds links
+  by the git work tree instead).
 - Replay snapshot store (`ctx pack --snapshot`, `ctx replay`, `ctx browse`
   replay/evidence): saving a snapshot no longer writes through a fixed
   `<id>.tmp` path, so a repository that commits
