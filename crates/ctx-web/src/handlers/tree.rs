@@ -623,19 +623,23 @@ pub(crate) fn cached_file_stats(
     let fingerprint = meta.modified().ok().map(|mtime| (mtime, meta.len()));
 
     if let Some((mtime, len)) = fingerprint {
-        if let Ok(guard) = cache.read() {
-            if let Some(&(cm, cl, lines, tokens)) = guard.get(path) {
-                if cm == mtime && cl == len {
-                    match (with_tokens, tokens) {
-                        (false, _) => return (lines, 0),
-                        (true, Some(tok)) => return (lines, tok),
-                        (true, None) => {
-                            let tok = count_file_tokens(path, size);
-                            if let Ok(mut wguard) = cache.write() {
-                                wguard.insert(path.to_path_buf(), (mtime, len, lines, Some(tok)));
-                            }
-                            return (lines, tok);
+        // Copy the entry out so the read guard is dropped at the end of this
+        // statement: taking `cache.write()` below while still holding a read
+        // guard on the same thread deadlocks std's RwLock, which used to hang
+        // /api/tree and /api/dir for good once a file cached without tokens
+        // (e.g. the finder's tokens=false listing) was later asked for tokens.
+        let cached = cache.read().ok().and_then(|guard| guard.get(path).copied());
+        if let Some((cm, cl, lines, tokens)) = cached {
+            if cm == mtime && cl == len {
+                match (with_tokens, tokens) {
+                    (false, _) => return (lines, 0),
+                    (true, Some(tok)) => return (lines, tok),
+                    (true, None) => {
+                        let tok = count_file_tokens(path, size);
+                        if let Ok(mut guard) = cache.write() {
+                            guard.insert(path.to_path_buf(), (mtime, len, lines, Some(tok)));
                         }
+                        return (lines, tok);
                     }
                 }
             }
@@ -855,6 +859,42 @@ fn count_lines_file(path: &Path) -> i32 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn stats_cached_without_tokens_then_with_tokens_does_not_deadlock() {
+        let dir = std::env::temp_dir().join(format!(
+            "ctx-web-stats-lock-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("a.txt");
+        std::fs::write(&path, "hello world\nsecond line\n").unwrap();
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        let p = path.clone();
+        std::thread::spawn(move || {
+            let meta = std::fs::symlink_metadata(&p).unwrap();
+            let size = meta.len() as i64;
+            // First call caches (lines, tokens=None); the second must upgrade
+            // the entry with a token count instead of blocking on the lock.
+            let first = super::cached_file_stats(&p, &meta, size, false);
+            let second = super::cached_file_stats(&p, &meta, size, true);
+            let third = super::cached_file_stats(&p, &meta, size, true);
+            let _ = tx.send((first, second, third));
+        });
+        let (first, second, third) = rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("cached_file_stats deadlocked upgrading a cached entry");
+        assert_eq!(first, (2, 0));
+        assert_eq!(second.0, 2);
+        assert!(second.1 > 0, "{second:?}");
+        assert_eq!(third, second);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     use super::*;
 
     #[cfg(unix)]
