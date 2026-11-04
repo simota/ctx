@@ -11,4 +11,14 @@ name = "ctx_tokens"
 path = "src/lib.rs"
 
 [dependencies]
+# Only `byte_pair_split` (the upstream BPE merge loop) and `Rank` are used at
+# runtime; the regex pre-tokenizer is replaced by `split.rs`.
 tiktoken-rs = "0.11"
+base64 = "0.22"
+regex-syntax = "0.8"
+rustc-hash = "1"
+
+[dev-dependencies]
+# Oracles for the exactness tests: the upstream encoder and the exact
+# cl100k_base split pattern as tiktoken-rs compiles it.
+fancy-regex = "0.17"
