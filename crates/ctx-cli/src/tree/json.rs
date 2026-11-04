@@ -274,6 +274,11 @@ pub(crate) fn build_json_tree_node(
                 .collect()
         })
         .unwrap_or_default();
+    if let Some(data) = data {
+        let len = data.len() as u64;
+        drop(data);
+        crate::common::release_memory_after_large_file(len);
+    }
 
     Ok(Some(JsonTreeNode {
         path: rel,

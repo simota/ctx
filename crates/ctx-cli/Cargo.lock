@@ -454,6 +454,7 @@ dependencies = [
  "ctx-tui",
  "ctx-web",
  "ctx-where",
+ "libc",
  "ratatui",
  "rayon",
  "regex",
