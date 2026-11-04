@@ -5,6 +5,7 @@ use crate::budget::*;
 use crate::protocol::*;
 use crate::types::*;
 use crate::util::*;
+use rayon::prelude::*;
 use serde_json::{json, Map, Value};
 
 pub(crate) fn collect_pack_files(root: &Path, boundary: &Path) -> Result<Vec<PackFile>, String> {
@@ -23,10 +24,15 @@ pub(crate) fn collect_pack_files(root: &Path, boundary: &Path) -> Result<Vec<Pac
 }
 
 pub(crate) fn build_focus_inputs(files: &[PackFile]) -> Vec<ctx_focus::FileInput> {
+    // Independent per file: parse in parallel (the indexed collect keeps
+    // the input order), reading each file once for symbols and lines.
     files
-        .iter()
+        .par_iter()
         .map(|file| {
-            let symbols = ctx_symbols::extract(&file.abs_path)
+            let content = std::fs::read(&file.abs_path).ok();
+            let symbols = content
+                .as_deref()
+                .map(|bytes| ctx_symbols::extract_source(&file.abs_path, bytes))
                 .unwrap_or_default()
                 .into_iter()
                 .map(|sym| ctx_focus::SymbolInfo {
@@ -35,7 +41,9 @@ pub(crate) fn build_focus_inputs(files: &[PackFile]) -> Vec<ctx_focus::FileInput
                     line: sym.line as i64,
                 })
                 .collect();
-            let lines = std::fs::read_to_string(&file.abs_path)
+            let lines = content
+                .as_deref()
+                .and_then(|bytes| std::str::from_utf8(bytes).ok())
                 .map(|content| content.lines().map(str::to_string).collect())
                 .unwrap_or_default();
             ctx_focus::FileInput {
