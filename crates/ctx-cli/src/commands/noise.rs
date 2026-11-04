@@ -4,6 +4,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use rayon::prelude::*;
+
 use crate::commands::map::estimate_where_tokens;
 use crate::commands::where_cmd::where_files;
 use crate::common::*;
@@ -135,13 +137,19 @@ pub(crate) fn inspect_noise(
     top: usize,
 ) -> Result<NoiseResult, String> {
     let files = where_files(root)?;
+    // Token counting dominates and is independent per file: count in
+    // parallel up front (indexed collect keeps the order), then classify
+    // sequentially exactly as before.
+    let file_tokens: Vec<Option<i64>> = files
+        .par_iter()
+        .map(|fi| (!fi.is_dir).then(|| estimate_where_tokens(root, fi)))
+        .collect();
     let mut candidates = Vec::new();
     let mut total_repo_tokens = 0_i64;
-    for fi in files {
-        if fi.is_dir {
+    for (fi, tokens) in files.into_iter().zip(file_tokens) {
+        let Some(tokens) = tokens else {
             continue;
-        }
-        let tokens = estimate_where_tokens(root, &fi);
+        };
         total_repo_tokens += tokens;
         let size: i64 = fi.lines.iter().map(|line| line.len() as i64 + 1).sum();
         let Some(reason) = classify_noise(&fi.path, size, fi.symbols.len()) else {
