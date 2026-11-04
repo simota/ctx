@@ -335,25 +335,82 @@ pub(crate) fn rank_onboarding(
 pub(crate) fn onboarding_ref_counts(
     files: &[ctx_where::FileInput],
 ) -> std::collections::BTreeMap<String, usize> {
-    let mut out = std::collections::BTreeMap::new();
-    for target in files {
-        let stem = Path::new(&target.path)
-            .file_stem()
-            .and_then(OsStr::to_str)
-            .unwrap_or("");
+    // For every target with a non-empty file stem, count the OTHER files
+    // (by path) that contain the stem on any line. Rather than re-scanning
+    // every file once per target (O(files^2 x lines)), all distinct stems are
+    // matched in a single Aho-Corasick pass per source file; overlapping
+    // matching reports every stem occurring in a line, so the per-source stem
+    // sets are exactly `{stem | any(line.contains(stem))}`.
+    use rayon::prelude::*;
+    use std::collections::{BTreeMap, HashMap};
+
+    let stems: Vec<&str> = files
+        .iter()
+        .map(|file| {
+            Path::new(&file.path)
+                .file_stem()
+                .and_then(OsStr::to_str)
+                .unwrap_or("")
+        })
+        .collect();
+    let mut stem_ids: HashMap<&str, usize> = HashMap::new();
+    let mut patterns: Vec<&str> = Vec::new();
+    for stem in stems.iter().copied().filter(|stem| !stem.is_empty()) {
+        stem_ids.entry(stem).or_insert_with(|| {
+            patterns.push(stem);
+            patterns.len() - 1
+        });
+    }
+    let mut out = BTreeMap::new();
+    if patterns.is_empty() {
+        return out;
+    }
+    let matcher = aho_corasick::AhoCorasick::new(&patterns)
+        .expect("stems are plain literals and always build an automaton");
+    // found[j] = sorted ids of the stems that occur in source j.
+    let found: Vec<Vec<usize>> = files
+        .par_iter()
+        .map(|source| {
+            let mut seen = vec![false; patterns.len()];
+            let mut ids = Vec::new();
+            for line in &source.lines {
+                for m in matcher.find_overlapping_iter(line.as_str()) {
+                    let id = m.pattern().as_usize();
+                    if !seen[id] {
+                        seen[id] = true;
+                        ids.push(id);
+                    }
+                }
+                if ids.len() == patterns.len() {
+                    break;
+                }
+            }
+            ids.sort_unstable();
+            ids
+        })
+        .collect();
+    let mut containing = vec![0usize; patterns.len()];
+    for ids in &found {
+        for &id in ids {
+            containing[id] += 1;
+        }
+    }
+    // A source is skipped when its path equals the target's, so subtract the
+    // same-path sources (normally just the target itself) that contain it.
+    let mut by_path: HashMap<&str, Vec<usize>> = HashMap::new();
+    for (idx, file) in files.iter().enumerate() {
+        by_path.entry(file.path.as_str()).or_default().push(idx);
+    }
+    for (target, stem) in files.iter().zip(&stems) {
         if stem.is_empty() {
             continue;
         }
-        let mut count = 0usize;
-        for source in files {
-            if source.path == target.path {
-                continue;
-            }
-            if source.lines.iter().any(|line| line.contains(stem)) {
-                count += 1;
-            }
-        }
-        out.insert(target.path.clone(), count);
+        let id = stem_ids[stem];
+        let same_path = by_path[target.path.as_str()]
+            .iter()
+            .filter(|&&idx| found[idx].binary_search(&id).is_ok())
+            .count();
+        out.insert(target.path.clone(), containing[id] - same_path);
     }
     out
 }
@@ -426,4 +483,66 @@ pub(crate) fn onboarding_reason(step: &OnboardingStep) -> String {
         parts.truncate(2);
     }
     parts.join(". ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The original quadratic definition, kept as the oracle for the
+    /// single-pass implementation.
+    fn naive_ref_counts(
+        files: &[ctx_where::FileInput],
+    ) -> std::collections::BTreeMap<String, usize> {
+        let mut out = std::collections::BTreeMap::new();
+        for target in files {
+            let stem = Path::new(&target.path)
+                .file_stem()
+                .and_then(OsStr::to_str)
+                .unwrap_or("");
+            if stem.is_empty() {
+                continue;
+            }
+            let count = files
+                .iter()
+                .filter(|source| source.path != target.path)
+                .filter(|source| source.lines.iter().any(|line| line.contains(stem)))
+                .count();
+            out.insert(target.path.clone(), count);
+        }
+        out
+    }
+
+    fn file(path: &str, body: &str) -> ctx_where::FileInput {
+        ctx_where::FileInput {
+            path: path.to_string(),
+            is_dir: false,
+            symbols: Vec::new(),
+            lines: body.lines().map(ToString::to_string).collect(),
+        }
+    }
+
+    #[test]
+    fn ref_counts_match_the_per_target_scan() {
+        let files = vec![
+            file("src/a.rs", "use b;\nmod ab;\n"),
+            file("src/ab.rs", "a\nlib\n"),
+            file("src/b.rs", "nothing to see"),
+            file("lib/b.rs", "b again, ab"),
+            file("lib.rs", "mod a; mod b;\nlibrary"),
+            file(".hidden", ".hidden refers to itself"),
+            file("README", "see a.rs, lib.rs and README"),
+            file("src/日本.rs", "日本 文字"),
+            file("docs/x.md", "日本語 docs\nsplit-st\nem"),
+            file("empty", ""),
+            // A duplicate path: every same-path source is skipped.
+            file("src/b.rs", "b b b"),
+        ];
+        assert_eq!(onboarding_ref_counts(&files), naive_ref_counts(&files));
+    }
+
+    #[test]
+    fn ref_counts_of_no_files_is_empty() {
+        assert!(onboarding_ref_counts(&[]).is_empty());
+    }
 }
