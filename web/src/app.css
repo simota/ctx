@@ -29,7 +29,7 @@
      instead of taupe) to keep separation from caramel git-modified. Any
      other theme breaking this mirror is intentional design, not a
      token-collision bug. */
-  --ctx-git-untracked: #888;
+  --ctx-git-untracked: #8d8d8d;
 
   /* Skeleton gradient stops (overridden per-theme). */
   --ctx-skel-a: #2a2a2a;
@@ -73,9 +73,9 @@
   --ctx-err: #cf222e;
 
   --ctx-git-added: #1a7f37;
-  --ctx-git-modified: #9a6700;
+  --ctx-git-modified: #976500;
   --ctx-git-deleted: #cf222e;
-  --ctx-git-untracked: #6b7280;
+  --ctx-git-untracked: #686f7d;
 
   --ctx-skel-a: #ececec;
   --ctx-skel-b: #dcdcdc;
@@ -125,7 +125,7 @@
 
   --ctx-git-added: #95e1a3; /* mint */
   --ctx-git-modified: #ffd166; /* honey */
-  --ctx-git-deleted: #ff6055; /* red-orange — paired with err */
+  --ctx-git-deleted: #ff7066; /* red-orange — paired with err */
   --ctx-git-untracked: #b8a6cc; /* lavender */
 
   --ctx-skel-a: #3a3250;
@@ -171,7 +171,7 @@
   --ctx-warn: #8a5a18; /* caramel */
   --ctx-err: #b8284f; /* cherry */
 
-  --ctx-git-added: #2d8a3d; /* fresh leaf */
+  --ctx-git-added: #277835; /* fresh leaf */
   --ctx-git-modified: #8a5a18; /* caramel */
   --ctx-git-deleted: #b8284f; /* cherry */
   --ctx-git-untracked: #665e58; /* warm grey: 5.9:1 — AA, hue-separated from caramel modified */
@@ -269,10 +269,10 @@
   --ctx-warn: #885d06; /* amber */
   --ctx-err: #c02647; /* cherry */
 
-  --ctx-git-added: #2d7a4a; /* forest */
-  --ctx-git-modified: #a87208; /* amber */
-  --ctx-git-deleted: #c8284a; /* cherry */
-  --ctx-git-untracked: #5a6c80; /* steel */
+  --ctx-git-added: #2a7245; /* forest */
+  --ctx-git-modified: #885d06; /* amber */
+  --ctx-git-deleted: #c02647; /* cherry */
+  --ctx-git-untracked: #56677a; /* steel */
 
   --ctx-skel-a: #dde6f0;
   --ctx-skel-b: #c5d3e2;
@@ -321,7 +321,7 @@
 
   --ctx-git-added: #9ab86a; /* wakakusa (young grass) */
   --ctx-git-modified: #d9b870; /* kihada — paired with warn */
-  --ctx-git-deleted: #e85555; /* cinnabar — paired with err */
+  --ctx-git-deleted: #ea6060; /* cinnabar — paired with err */
   --ctx-git-untracked: #a89a82; /* mirrors fg-dim */
 
   --ctx-skel-a: #2a2420;
@@ -372,7 +372,7 @@
 
   --ctx-git-added: #c8d860; /* new-bud chartreuse — hue-separated from moss accent */
   --ctx-git-modified: #e8b04a; /* fallen leaf — paired with warn */
-  --ctx-git-deleted: #e8654a; /* ember — paired with err */
+  --ctx-git-deleted: #eb7962; /* ember — paired with err */
   --ctx-git-untracked: #9aae93; /* mirrors fg-dim */
 
   --ctx-skel-a: #293429;
@@ -423,7 +423,7 @@
   --ctx-git-added: #2d6a3a; /* green ink (two-color press): 5.5:1 — AA */
   --ctx-git-modified: #6b5018; /* mustard — paired with warn */
   --ctx-git-deleted: #962424; /* crimson — paired with err */
-  --ctx-git-untracked: #6b5e4a; /* mirrors fg-dim */
+  --ctx-git-untracked: #695c48; /* mirrors fg-dim */
 
   --ctx-skel-a: #ede2cc;
   --ctx-skel-b: #d9c8a8;
@@ -471,7 +471,7 @@
   --ctx-warn: #7a4f1a; /* tobacco ink: 5.9:1 — AA */
   --ctx-err: #8a2418; /* cinnabar seal: 7.5:1 — AAA */
 
-  --ctx-git-added: #1f6a48; /* 緑青 verdigris (aged green ink): 5.5:1 — AA */
+  --ctx-git-added: #1e6746; /* 緑青 verdigris (aged green ink): ≥4.6:1 on all surfaces — AA */
   --ctx-git-modified: #7a4f1a; /* tobacco — paired with warn */
   --ctx-git-deleted: #8a2418; /* cinnabar — paired with err */
   --ctx-git-untracked: #6b5235; /* mirrors fg-dim */
@@ -522,7 +522,7 @@
   --ctx-err: #962820; /* earth red-brown: 7.1:1 — AAA */
 
   --ctx-git-added: #1a6038; /* deep chlorophyll — paired with accent-text */
-  --ctx-git-modified: #a85018; /* persimmon — paired with warn */
+  --ctx-git-modified: #974816; /* persimmon — paired with warn */
   --ctx-git-deleted: #962820; /* earth-red — paired with err */
   --ctx-git-untracked: #506240; /* mirrors fg-dim */
 
