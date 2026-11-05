@@ -45,7 +45,7 @@
   /* hljs palette (atom-one-dark). */
   --hl-fg: #abb2bf;
   --hl-bg: #1e1e1e;
-  --hl-comment: #7f8796;
+  --hl-comment: #868e9c;
   --hl-keyword: #c678dd;
   --hl-name: #e06c75;
   --hl-literal: #56b6c2;
@@ -91,14 +91,14 @@
   /* hljs palette (atom-one-light). */
   --hl-fg: #383a42;
   --hl-bg: #ffffff;
-  --hl-comment: #73747c;
+  --hl-comment: #6d6e76;
   --hl-keyword: #a626a4;
-  --hl-name: #dd3121;
-  --hl-literal: #017cb0;
-  --hl-string: #418340;
-  --hl-attr: #986801;
-  --hl-symbol: #2f6cf1;
-  --hl-built-in: #9c6b01;
+  --hl-name: #d22f1f;
+  --hl-literal: #0176a7;
+  --hl-string: #3e7c3d;
+  --hl-attr: #956601;
+  --hl-symbol: #2464f0;
+  --hl-built-in: #946601;
 }
 
 /* lofi — cozy late-night cafe vibe. Deep indigo-violet background, warm cream
@@ -140,7 +140,7 @@
   /* hljs palette — Catppuccin-Mocha-inspired, tuned to the lofi base. */
   --hl-fg: #f5e6d3;
   --hl-bg: #2a2438;
-  --hl-comment: #948baa;
+  --hl-comment: #a199b4;
   --hl-keyword: #d9a4ff;
   --hl-name: #ff9ec7;
   --hl-literal: #8ec5fc;
@@ -188,14 +188,14 @@
   /* hljs palette — warm light derivative of atom-one-light. */
   --hl-fg: #3d2817;
   --hl-bg: #fff5ec;
-  --hl-comment: #886a55; /* faded mocha */
+  --hl-comment: #806450; /* faded mocha */
   --hl-keyword: #b8367a; /* raspberry */
-  --hl-name: #c84320; /* tomato */
-  --hl-literal: #0d7592; /* deep teal */
-  --hl-string: #4a7a2a; /* olive */
+  --hl-name: #bb3f1e; /* tomato */
+  --hl-literal: #0d728e; /* deep teal */
+  --hl-string: #477528; /* olive */
   --hl-attr: #6b3399; /* royal violet: 7.6:1 — AAA, hue-separated from warn caramel */
   --hl-symbol: #3a4db8; /* cornflower */
-  --hl-built-in: #a45f19; /* amber */
+  --hl-built-in: #9a5917; /* amber */
 }
 
 /* ocean — cool dark counterpart to lofi. Deep abyssal navy background with
@@ -237,7 +237,7 @@
   /* hljs palette — Nord / Catppuccin-Nord-inspired, tuned to abyssal navy. */
   --hl-fg: #d6ebff;
   --hl-bg: #0a1929;
-  --hl-comment: #6585a9; /* deep blue-gray */
+  --hl-comment: #7995b4; /* deep blue-gray */
   --hl-keyword: #c084fc; /* jellyfish purple */
   --hl-name: #5eead4; /* bioluminescent — accent match */
   --hl-literal: #fde68a; /* lemon */
@@ -286,14 +286,14 @@
   /* hljs palette — Nord-light / Solarized-light hybrid for the cool light feel. */
   --hl-fg: #1e2a3a;
   --hl-bg: #f0f4f8;
-  --hl-comment: #5c6f8a; /* steel */
+  --hl-comment: #55667f; /* steel */
   --hl-keyword: #6b3aa8; /* lilac */
-  --hl-name: #c8284a; /* cherry */
+  --hl-name: #c02647; /* cherry */
   --hl-literal: #2c5aa0; /* ice */
-  --hl-string: #2d7a4a; /* forest */
-  --hl-attr: #0d7570; /* teal: 5.0:1 — AA, hue-separated from warn amber */
+  --hl-string: #2a7245; /* forest */
+  --hl-attr: #0c706c; /* teal: ≥4.6:1 on all surfaces — AA, hue-separated from warn amber */
   --hl-symbol: #3b6090; /* dark blue */
-  --hl-built-in: #b54a18; /* rust */
+  --hl-built-in: #aa4517; /* rust */
 }
 
 /* sumi — ink and washi by lamplight. Tea-tinted charcoal background, aged
@@ -336,7 +336,7 @@
   /* hljs palette — traditional Japanese dye names tuned to the sumi base. */
   --hl-fg: #ede2cf;
   --hl-bg: #1c1815;
-  --hl-comment: #8f8167; /* faded ink */
+  --hl-comment: #9a8c72; /* faded ink */
   --hl-keyword: #b894d4; /* murasaki (royal purple) */
   --hl-name: #e07a3a; /* vermillion — accent match */
   --hl-literal: #7fb6d6; /* aizumi (blue ink) */
@@ -387,7 +387,7 @@
   /* hljs palette — forest-floor naturalist tones over damp stone. */
   --hl-fg: #e4ecd9;
   --hl-bg: #1d2820;
-  --hl-comment: #7a947c; /* lichen grey-green */
+  --hl-comment: #89a08b; /* lichen grey-green */
   --hl-keyword: #c8a4e0; /* forest violet (mushroom cap) */
   --hl-name: #8ec97c; /* moss — accent match */
   --hl-literal: #d9a878; /* bark tan */
@@ -438,7 +438,7 @@
      supplemented by navy / violet / sienna pulled from broadsheet styling. */
   --hl-fg: #2a2620;
   --hl-bg: #f4ecdc;
-  --hl-comment: #766854; /* faded ink — body annotations */
+  --hl-comment: #695c4a; /* faded ink — body annotations */
   --hl-keyword: #7d2424; /* newsprint red */
   --hl-name: #5e3a1c; /* brown ink */
   --hl-literal: #1c5a7a; /* navy ink */
@@ -489,11 +489,11 @@
      emphasis, verdigris for strings (古印刷 second-ink), indigo annotations. */
   --hl-fg: #261a0e;
   --hl-bg: #f5ead3;
-  --hl-comment: #79664b; /* lightest geji — faded body */
+  --hl-comment: #685841; /* lightest geji — faded body */
   --hl-keyword: #7a4f24; /* antique brown */
   --hl-name: #8a2818; /* cinnabar */
   --hl-literal: #2d5a7a; /* sea-blue ink */
-  --hl-string: #1f6a48; /* verdigris — aged 古印刷 */
+  --hl-string: #1e6746; /* verdigris — aged 古印刷 */
   --hl-attr: #5a3a8a; /* indigo manuscript — hue-separated from warn tobacco */
   --hl-symbol: #1a4070; /* deep blue — separated from attr violet */
   --hl-built-in: #8c4a1f; /* cinnamon */
@@ -540,14 +540,14 @@
      persimmon warn), indigo symbols, sunflower built-ins. */
   --hl-fg: #1d2418;
   --hl-bg: #f6f1e0;
-  --hl-comment: #6a6f5b; /* stone path */
+  --hl-comment: #5c604f; /* stone path */
   --hl-keyword: #1a6038; /* deep chlorophyll */
-  --hl-name: #a85018; /* copper */
+  --hl-name: #974816; /* copper */
   --hl-literal: #0c6580; /* sky-cyan */
-  --hl-string: #0d7570; /* sap-teal — separated from keyword green */
+  --hl-string: #0c6a65; /* sap-teal — separated from keyword green */
   --hl-attr: #6a3a98; /* lavender — hue-separated from warn persimmon */
   --hl-symbol: #1a5a8a; /* indigo */
-  --hl-built-in: #8f650b; /* sunflower-honey */
+  --hl-built-in: #7d580a; /* sunflower-honey */
 }
 
 /* crt — green phosphor CRT terminal. Near-black background with green-tinted
@@ -591,7 +591,7 @@
      to the green/amber/red trio so highlighted code still feels monochrome. */
   --hl-fg: #b8ffb8;
   --hl-bg: #050a05;
-  --hl-comment: #518651; /* dim phosphor */
+  --hl-comment: #548b54; /* dim phosphor */
   --hl-keyword: #5fff5f; /* bright phosphor */
   --hl-name: #afff5f; /* lime */
   --hl-literal: #ffff66; /* amber */
@@ -642,7 +642,7 @@
      intentionally dim to avoid eye fatigue against the saturated base. */
   --hl-fg: #f5e6ff;
   --hl-bg: #1a0d2e;
-  --hl-comment: #8878a8; /* deep lavender */
+  --hl-comment: #9283af; /* deep lavender */
   --hl-keyword: #ff6ec7; /* hot pink */
   --hl-name: #06d6f0; /* electric cyan */
   --hl-literal: #5fffc7; /* electric mint: 14.6:1 — AAA, separated from warn yellow */
@@ -750,7 +750,7 @@
      warn (yellow) and git-modified (amber) to avoid the trio collision. */
   --hl-fg: #e8d8c0;
   --hl-bg: #14100c;
-  --hl-comment: #947860; /* ash residue: 4.6:1 — AA */
+  --hl-comment: #9b7e65; /* ash residue: ≥4.6:1 on all surfaces — AA */
   --hl-keyword: #ff8c2a; /* molten — accent match */
   --hl-name: #ffd089; /* yellow-hot iron */
   --hl-literal: #6ab4ff; /* blue forge-flame */
@@ -803,7 +803,7 @@
      code still reads as one monochrome phosphor screen. */
   --hl-fg: #ffcc66;
   --hl-bg: #1a1206;
-  --hl-comment: #a07a3a; /* dim amber: 4.7:1 — AA */
+  --hl-comment: #a57e3c; /* dim amber: ≥4.6:1 on all surfaces — AA */
   --hl-keyword: #ffb000; /* bright phosphor — accent match */
   --hl-name: #ffd480; /* pale amber */
   --hl-literal: #ffaa33; /* mid amber */
@@ -860,12 +860,12 @@
      git-modified (#5a5a5a) — the required non-collision trio. */
   --hl-fg: #1a1a1a;
   --hl-bg: #ebebeb;
-  --hl-comment: #696969; /* lightest grey — decorative margin annotation */
+  --hl-comment: #5f5f5f; /* lightest grey — decorative margin annotation */
   --hl-keyword: #000000; /* darkest — keywords read as printed ink */
   --hl-name: #2d2d2d;
   --hl-literal: #505050;
   --hl-string: #404040;
-  --hl-attr: #666666; /* distinct from warn and git-modified */
+  --hl-attr: #575757; /* distinct from warn and git-modified */
   --hl-symbol: #3a3a3a;
   --hl-built-in: #4a4a4a;
 }
