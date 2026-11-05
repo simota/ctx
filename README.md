@@ -105,7 +105,26 @@ ctx cochange src/server.rs --format paths | ctx pack --from-stdin
 `ctx cochange` は git 履歴から、指定ファイル（またはディレクトリ）と同じコミットで変更されてきたファイルを、共変更回数と confidence（そのファイルのコミットのうち相手も変更した割合）付きで並べます。
 変更前に「ついでに直す必要がありそうなファイル」を把握したり、レビューで変更漏れを疑う材料にできます。50 ファイルを超える一括コミットは結合のノイズとして除外します。
 
-### 5. 小さく読む
+### 5. 選んだファイルを保存して再利用する（mix）
+
+```bash
+ctx mix save "auth review" src/auth/ src/session.rs --goal "session expiry" --budget 30000
+ctx where "session login" --json | ctx mix save login --from-where
+ctx mix list
+ctx mix show auth-review              # 現在の root に無いファイルは "(missing here)"
+ctx mix add auth-review tests/session_test.rs
+ctx mix drop auth-review src/auth/legacy.rs
+ctx pack --from-mix auth-review --out context.md   # ID でも名前でも指定可
+```
+
+mix は「LLM に渡すファイルの順序付きリスト + goal + budget」を名前付きで保存したものです。
+一度選んだファイル集合を、後のコミットでもそのまま `ctx pack --from-mix` で再 pack できます。
+ディレクトリを渡すと pack が walk するファイル（ignore 適用後）に展開し、存在しないパスや root 外のパスはエラーにします。
+`ctx browse` の Pins 画面と MCP `ctx_pack` の `mix` 引数も同じ store（`$XDG_STATE_HOME/ctx/mixes/` など）を使います。
+
+`--from-stdin` / `--from-mix` で明示的に選んだファイルは、`--goal` に一致しなくても pack から外れません（goal は並び順にだけ効きます）。
+
+### 6. 小さく読む
 
 ```bash
 ctx focus Pack --hops 1 --budget 8000
@@ -133,6 +152,7 @@ ctx noise --top 20
 | `ctx digest [ROOT]` | 最近の変更を要約（サブディレクトリを渡すとその配下に限定） |
 | `ctx cochange [PATH]` | 一緒に変更されてきたファイルを表示 |
 | `ctx diff [ROOT]` | HEAD からの差分を表示（`--watch` で変更をストリーム） |
+| `ctx mix` | 再利用できるファイル選択（mix）を保存・編集 |
 | `ctx replay` | pack snapshot を管理 |
 | `ctx noise` | context noise 候補を検出 |
 | `ctx echo` | bundle が問いに答えられるか評価 |
@@ -146,7 +166,7 @@ ctx noise --top 20
 | `ctx mcp serve` | MCP server を stdio で起動 |
 | `ctx doctor` | 実行環境を診断 |
 
-詳細は各コマンドの `--help` を確認してください（`pack` / `where` / `cochange` / `digest` は利用可能なオプション一覧を表示します）。
+詳細は各コマンドの `--help` を確認してください（`pack` / `where` / `cochange` / `digest` / `mix` は利用可能なオプション一覧を表示します）。
 
 `ctx diff [ROOT]` は staged / unstaged / untracked（ignore 対象外）の変更を raw patch として出力します。
 `ctx diff [ROOT] --watch [--debounce 200ms] [--path PATH]...` は 100ms 間隔で監視し、変更が静止した時点の完全な patch snapshot（clean 遷移を含む）をイベント境界付きで出力します。
@@ -167,8 +187,9 @@ Claude Code や Cursor などの MCP client から、context 生成や検索を 
 }
 ```
 
-提供する tool: `ctx_pack`（`changed` / `companions` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_roots_list`。
+提供する tool: `ctx_pack`（`changed` / `companions` / `files` / `mix` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_roots_list`。
 編集前に `ctx_cochange {"anchor":"src/server.rs"}` で一緒に直すべきファイルを確認し、`ctx_pack {"changed":true,"companions":5}` で変更とその companion をまとめて渡す、といった使い方ができます。
+`ctx_where` で見つけたファイルだけを渡すには `ctx_pack {"files":["src/a.rs","src/b.rs"]}`（指定順に pack し、budget 超過・root 外・存在しないファイルは skipped として報告）、保存済み mix は `ctx_pack {"mix":"auth-review"}` で pack できます。
 
 既定では server を起動した root 配下だけにファイルアクセスを制限します。
 複数 root を扱う場合は、意図を確認したうえで `--allow-outside-root` を使ってください。
@@ -189,6 +210,11 @@ loopback に bind した server は DNS rebinding 対策として、`Host` が l
 `--allow-nonlocal` で非 loopback に bind した場合、この `Host` 制限は適用されません。
 Codespaces などの port forwarding や reverse proxy が独自の hostname を `Host` に載せる構成では
 `403` になります（SSH の `-L` で `localhost` へ転送する場合は利用できます）。
+
+Pins 画面（`#/pins`）では、ピン留めしたファイルを並び順のまま context pack にできます（goal / budget / Markdown・Plain を指定し、Copy または Download）。
+同じ選択を mix として保存すると `ctx pack --from-mix <id>` や MCP から再利用でき、保存済み mix の Pack / ピンへの読み込み / 削除もここから行えます。
+検索結果の「Pin all N results」で `where` の結果をまとめてピン留めできるので、検索 → ピン → pack をブラウザだけで完結できます。
+状態を変更する API（`POST /api/mix`、`DELETE /api/mix/<id>`、`POST /api/pack`）は `Content-Type: application/json` を必須とし、ブラウザが cross-site と示すリクエスト（別 `Origin` / `Sec-Fetch-Site: cross-site`）を `403 forbidden_origin` で拒否します。
 
 Frontend を変更した場合:
 
@@ -246,6 +272,7 @@ crates/
   ctx-contract/        pack-as-contract verification
   ctx-digest/          repository activity digest (CLI + MCP)
   ctx-git/             git history helpers (log, churn, co-change)
+  ctx-mix/             saved file selections (mixes) shared by CLI, web and MCP
   ctx-*/               supporting libraries
 web/                   Svelte / Vite frontend source
 crates/ctx-web/dist/   embedded frontend assets
