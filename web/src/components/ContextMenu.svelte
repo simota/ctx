@@ -41,7 +41,8 @@
     if (items.length === 0) return;
     const active = document.activeElement as HTMLButtonElement | null;
     const idx = active ? items.indexOf(active) : -1;
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape' || e.key === 'Tab') {
+      // Tab would otherwise move focus away while the menu stays open.
       e.preventDefault();
       closeContextMenu();
       return;

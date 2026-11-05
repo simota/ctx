@@ -302,7 +302,7 @@
   .title {
     margin: 0;
     font-size: 18px;
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
   .title:focus-visible {
     outline: 2px solid var(--ctx-accent);
@@ -345,7 +345,7 @@
     border-color: var(--ctx-accent);
   }
   .preset.active {
-    background: var(--ctx-accent);
+    background: var(--ctx-accent-text);
     color: var(--ctx-bg);
     border-color: var(--ctx-accent);
   }
@@ -429,7 +429,7 @@
   .clear-ext {
     border: 0;
     background: transparent;
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
     font: inherit;
     font-size: 11px;
     cursor: pointer;

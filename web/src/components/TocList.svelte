@@ -57,6 +57,7 @@
   .row {
     display: block;
     width: 100%;
+    min-height: 24px; /* WCAG 2.5.8 target size */
     padding: 3px 4px;
     font-size: 12px;
     line-height: 1.4;

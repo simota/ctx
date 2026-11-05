@@ -352,7 +352,7 @@
     letter-spacing: 0;
   }
   .pill.fresh {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
     border-color: color-mix(in srgb, var(--ctx-accent) 50%, var(--ctx-border));
   }
   .pill.stale,
@@ -459,7 +459,7 @@
     padding: 6px;
     background: var(--ctx-bg);
     color: var(--ctx-fg);
-    font: 11px/1.35 var(--ctx-mono);
+    font: 11px/1.35 var(--ctx-font-mono);
   }
   textarea:focus {
     outline: 2px solid var(--ctx-accent);

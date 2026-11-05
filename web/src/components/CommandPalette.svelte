@@ -208,6 +208,7 @@
         bind:value={palette.query}
         type="text"
         class="input"
+        aria-label="Command"
         role="combobox"
         aria-expanded={selectable.length > 0}
         aria-controls="ctx-palette-list"
@@ -228,7 +229,7 @@
         aria-label="Available commands"
       >
         {#if rows.length === 0}
-          <li class="empty muted">No matching commands.</li>
+          <li class="empty muted" role="option" aria-disabled="true" aria-selected="false">No matching commands.</li>
         {:else}
           {#each rows as row, ri (ri)}
             {#if row.kind === 'header'}
@@ -388,7 +389,7 @@
   }
   .opt mark {
     background: transparent;
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
     font-weight: 600;
     padding: 0;
   }

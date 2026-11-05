@@ -227,7 +227,9 @@
         {/if}
       </h3>
       {#if data.readme}
-        <pre class="readme"><code class="hljs">{@html readmeHtml}</code></pre>
+        <!-- Scrollable region: tabindex lets keyboard users scroll it (WCAG 2.1.1). -->
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+        <pre class="readme" tabindex="0" role="region" aria-label="README source"><code class="hljs">{@html readmeHtml}</code></pre>
       {:else}
         <p class="muted empty">No README found in this directory.</p>
       {/if}
@@ -333,7 +335,7 @@
   .title {
     margin: 0;
     font-size: 18px;
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
   .title:focus-visible {
     outline: 2px solid var(--ctx-accent);

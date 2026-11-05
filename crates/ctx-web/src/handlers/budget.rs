@@ -111,7 +111,7 @@ fn handle_sync(state: AppState, params: BudgetParams) -> Response {
 
     // Count tokens for each file (mirrors countTokens + tokenCount in Go).
     for fi in &mut raw_files {
-        fi.tokens = count_tokens_for_file(&fi.abs_path, fi.size);
+        fi.tokens = count_tokens_for_file(&fi.abs_path, fi.size, fi.is_regular);
     }
 
     // Budget planning (mirrors internal/budget/budget.go:Plan).
@@ -262,6 +262,9 @@ struct FileInfo {
     tokens: i64,
     /// Role string (from inferRole).
     role: String,
+    /// lstat says regular file. Only these are read for an exact count; see
+    /// `count_tokens_for_file`.
+    is_regular: bool,
 }
 
 /// Walk `dir` recursively, collecting non-dir file entries.
@@ -313,6 +316,7 @@ fn collect_files(root: &str, dir: &Path, out: &mut Vec<FileInfo>) {
                 size,
                 tokens: 0,
                 role,
+                is_regular: meta.is_file(),
             });
         }
     }
@@ -320,10 +324,73 @@ fn collect_files(root: &str, dir: &Path, out: &mut Vec<FileInfo>) {
 
 /// Count tokens for a file, falling back to size estimate on error.
 /// Mirrors Go `countTokens` + `tokenCount` logic.
-fn count_tokens_for_file(abs_path: &str, size: i64) -> i64 {
+///
+/// Non-regular entries (symlinks, FIFOs, devices) get the size estimate
+/// without being opened — the same rule as `tree::cached_file_stats`: a
+/// symlink could point out of root and a FIFO or `/dev/zero` would block.
+fn count_tokens_for_file(abs_path: &str, size: i64, is_regular: bool) -> i64 {
+    if !is_regular {
+        return ctx_tokens::estimate_by_size(size);
+    }
     // ctx_tokens::count_file counts tiktoken tokens; returns 0 for binary/error.
     match ctx_tokens::count_file(abs_path) {
         Ok(n) => n as i64,
         Err(_) => ctx_tokens::estimate_by_size(size) as i64,
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn symlinked_and_special_files_are_estimated_not_read() {
+        let dir = std::env::temp_dir().join(format!(
+            "ctx-web-budget-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let outside = dir.join("outside.txt");
+        std::fs::write(&outside, "word ".repeat(4000)).unwrap();
+        let root = dir.join("root");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("a.txt"), "hello\n").unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("link.txt")).unwrap();
+        let fifo = std::ffi::CString::new(root.join("pipe").to_string_lossy().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+
+        let root_s = root.to_string_lossy().to_string();
+        let mut files = Vec::new();
+        collect_files(&root_s, &root, &mut files);
+        files.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let toks: Vec<(String, i64, i64)> = files
+                .iter()
+                .map(|f| {
+                    (
+                        f.rel_path.clone(),
+                        f.size,
+                        count_tokens_for_file(&f.abs_path, f.size, f.is_regular),
+                    )
+                })
+                .collect();
+            let _ = tx.send(toks);
+        });
+        let toks = rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("token counting blocked on a FIFO");
+        let link = toks.iter().find(|t| t.0 == "link.txt").unwrap();
+        assert_eq!(link.2, ctx_tokens::estimate_by_size(link.1) as i64);
+        let a = toks.iter().find(|t| t.0 == "a.txt").unwrap();
+        assert_eq!(
+            a.2,
+            ctx_tokens::count_file(&root.join("a.txt").to_string_lossy()).unwrap() as i64
+        );
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

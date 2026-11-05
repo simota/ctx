@@ -11,10 +11,11 @@
   --ctx-border: #333; /* decorative dividers (panes/panels) — 1.4.11 exempt */
   --ctx-border-strong: #6a6a6a; /* affordance borders (button/input): 3.08:1 — AA UI */
   --ctx-fg: #d4d4d4;
-  --ctx-fg-dim: #888;
+  --ctx-fg-dim: #8d8d8d;
   --ctx-fg-strong: #fff;
   --ctx-accent: #4ec9b0;
   --ctx-accent-dim: #2a7d6e;
+  --ctx-accent-text: #4ec9b0; /* text-safe accent (>= 4.5:1 on bg/elev/panel) */
   --ctx-link: #569cd6;
   --ctx-warn: #d7ba7d;
   --ctx-err: #f48771;
@@ -28,7 +29,7 @@
      instead of taupe) to keep separation from caramel git-modified. Any
      other theme breaking this mirror is intentional design, not a
      token-collision bug. */
-  --ctx-git-untracked: #888;
+  --ctx-git-untracked: #8d8d8d;
 
   /* Skeleton gradient stops (overridden per-theme). */
   --ctx-skel-a: #2a2a2a;
@@ -44,7 +45,7 @@
   /* hljs palette (atom-one-dark). */
   --hl-fg: #abb2bf;
   --hl-bg: #1e1e1e;
-  --hl-comment: #5c6370;
+  --hl-comment: #868e9c;
   --hl-keyword: #c678dd;
   --hl-name: #e06c75;
   --hl-literal: #56b6c2;
@@ -63,18 +64,18 @@
   --ctx-border: #d8d8d8; /* decorative dividers — 1.4.11 exempt */
   --ctx-border-strong: #8c8c8c; /* affordance borders: 3.36:1 — AA UI */
   --ctx-fg: #1f2328;
-  --ctx-fg-dim: #6b7280;
+  --ctx-fg-dim: #686f7d;
   --ctx-fg-strong: #000;
   --ctx-accent: #0d8a72;
   --ctx-accent-dim: #4ec9b0;
   --ctx-link: #0969da;
-  --ctx-warn: #9a6700;
+  --ctx-warn: #976500;
   --ctx-err: #cf222e;
 
   --ctx-git-added: #1a7f37;
-  --ctx-git-modified: #9a6700;
+  --ctx-git-modified: #976500;
   --ctx-git-deleted: #cf222e;
-  --ctx-git-untracked: #6b7280;
+  --ctx-git-untracked: #686f7d;
 
   --ctx-skel-a: #ececec;
   --ctx-skel-b: #dcdcdc;
@@ -90,14 +91,14 @@
   /* hljs palette (atom-one-light). */
   --hl-fg: #383a42;
   --hl-bg: #ffffff;
-  --hl-comment: #a0a1a7;
+  --hl-comment: #6d6e76;
   --hl-keyword: #a626a4;
-  --hl-name: #e45649;
-  --hl-literal: #0184bb;
-  --hl-string: #50a14f;
-  --hl-attr: #986801;
-  --hl-symbol: #4078f2;
-  --hl-built-in: #c18401;
+  --hl-name: #d22f1f;
+  --hl-literal: #0176a7;
+  --hl-string: #3e7c3d;
+  --hl-attr: #956601;
+  --hl-symbol: #2464f0;
+  --hl-built-in: #946601;
 }
 
 /* lofi — cozy late-night cafe vibe. Deep indigo-violet background, warm cream
@@ -117,13 +118,14 @@
   --ctx-fg-strong: #ffffff;
   --ctx-accent: #ff9ec7; /* sakura pink — the signature: 7.1:1 on bg — AAA */
   --ctx-accent-dim: #c87095;
+  --ctx-accent-text: #ff9ec7; /* text-safe accent (>= 4.5:1 on bg/elev/panel) */
   --ctx-link: #8ec5fc; /* cornflower: 7.5:1 — AAA */
   --ctx-warn: #ffd166; /* honey */
-  --ctx-err: #ff6055; /* red-orange: 5.0:1 — AA, hue-separated from sakura accent */
+  --ctx-err: #ff7066; /* red-orange: ≥4.6:1 on bg/elev/panel — AA, hue-separated from sakura accent */
 
   --ctx-git-added: #95e1a3; /* mint */
   --ctx-git-modified: #ffd166; /* honey */
-  --ctx-git-deleted: #ff6055; /* red-orange — paired with err */
+  --ctx-git-deleted: #ff7066; /* red-orange — paired with err */
   --ctx-git-untracked: #b8a6cc; /* lavender */
 
   --ctx-skel-a: #3a3250;
@@ -138,7 +140,7 @@
   /* hljs palette — Catppuccin-Mocha-inspired, tuned to the lofi base. */
   --hl-fg: #f5e6d3;
   --hl-bg: #2a2438;
-  --hl-comment: #7a6e95;
+  --hl-comment: #a199b4;
   --hl-keyword: #d9a4ff;
   --hl-name: #ff9ec7;
   --hl-literal: #8ec5fc;
@@ -165,11 +167,11 @@
   --ctx-accent: #e85d75; /* vibrant coral — signature, decorative use */
   --ctx-accent-dim: #c8455e;
   --ctx-accent-text: #b53a52; /* deeper coral for text: 5.3:1 — AA */
-  --ctx-link: #0d7592; /* deep teal: 4.9:1 — AA */
+  --ctx-link: #0d728e; /* deep teal: ≥4.6:1 on bg/elev/panel — AA */
   --ctx-warn: #8a5a18; /* caramel */
   --ctx-err: #b8284f; /* cherry */
 
-  --ctx-git-added: #2d8a3d; /* fresh leaf */
+  --ctx-git-added: #277835; /* fresh leaf */
   --ctx-git-modified: #8a5a18; /* caramel */
   --ctx-git-deleted: #b8284f; /* cherry */
   --ctx-git-untracked: #665e58; /* warm grey: 5.9:1 — AA, hue-separated from caramel modified */
@@ -186,14 +188,14 @@
   /* hljs palette — warm light derivative of atom-one-light. */
   --hl-fg: #3d2817;
   --hl-bg: #fff5ec;
-  --hl-comment: #b09480; /* faded mocha */
+  --hl-comment: #806450; /* faded mocha */
   --hl-keyword: #b8367a; /* raspberry */
-  --hl-name: #c84320; /* tomato */
-  --hl-literal: #0d7592; /* deep teal */
-  --hl-string: #4a7a2a; /* olive */
+  --hl-name: #bb3f1e; /* tomato */
+  --hl-literal: #0d728e; /* deep teal */
+  --hl-string: #477528; /* olive */
   --hl-attr: #6b3399; /* royal violet: 7.6:1 — AAA, hue-separated from warn caramel */
   --hl-symbol: #3a4db8; /* cornflower */
-  --hl-built-in: #a8621a; /* amber */
+  --hl-built-in: #9a5917; /* amber */
 }
 
 /* ocean — cool dark counterpart to lofi. Deep abyssal navy background with
@@ -213,6 +215,7 @@
   --ctx-fg-strong: #ffffff;
   --ctx-accent: #5eead4; /* bioluminescent teal: 9.5:1 — AAA */
   --ctx-accent-dim: #2dd4bf;
+  --ctx-accent-text: #5eead4; /* text-safe accent (>= 4.5:1 on bg/elev/panel) */
   --ctx-link: #93c5fd; /* clear-water blue: 9.2:1 — AAA */
   --ctx-warn: #fbbf24; /* amber — sunset on water */
   --ctx-err: #fb7185; /* coral */
@@ -234,7 +237,7 @@
   /* hljs palette — Nord / Catppuccin-Nord-inspired, tuned to abyssal navy. */
   --hl-fg: #d6ebff;
   --hl-bg: #0a1929;
-  --hl-comment: #4a6584; /* deep blue-gray */
+  --hl-comment: #7995b4; /* deep blue-gray */
   --hl-keyword: #c084fc; /* jellyfish purple */
   --hl-name: #5eead4; /* bioluminescent — accent match */
   --hl-literal: #fde68a; /* lemon */
@@ -257,19 +260,19 @@
   --ctx-border: #c5d3e2; /* decorative dividers — 1.4.11 exempt */
   --ctx-border-strong: #6e88a5; /* affordance borders: 3.32:1 — AA UI */
   --ctx-fg: #1e2a3a; /* deep navy: 13.5:1 on bg — AAA */
-  --ctx-fg-dim: #5a6c80; /* steel: 4.9:1 — AA */
+  --ctx-fg-dim: #56677a; /* steel: ≥4.6:1 on bg/elev/panel — AA */
   --ctx-fg-strong: #0a1525;
   --ctx-accent: #4a78c8; /* ice blue: 4.6:1 on bg — AA for decorative use */
   --ctx-accent-dim: #355896;
   --ctx-accent-text: #2c4a7a; /* 7.5:1 — AAA, text uses (kind labels, links) */
   --ctx-link: #6b3aa8; /* lilac purple: 6.8:1 — AA */
-  --ctx-warn: #a87208; /* amber */
-  --ctx-err: #c8284a; /* cherry */
+  --ctx-warn: #885d06; /* amber */
+  --ctx-err: #c02647; /* cherry */
 
-  --ctx-git-added: #2d7a4a; /* forest */
-  --ctx-git-modified: #a87208; /* amber */
-  --ctx-git-deleted: #c8284a; /* cherry */
-  --ctx-git-untracked: #5a6c80; /* steel */
+  --ctx-git-added: #2a7245; /* forest */
+  --ctx-git-modified: #885d06; /* amber */
+  --ctx-git-deleted: #c02647; /* cherry */
+  --ctx-git-untracked: #56677a; /* steel */
 
   --ctx-skel-a: #dde6f0;
   --ctx-skel-b: #c5d3e2;
@@ -283,14 +286,14 @@
   /* hljs palette — Nord-light / Solarized-light hybrid for the cool light feel. */
   --hl-fg: #1e2a3a;
   --hl-bg: #f0f4f8;
-  --hl-comment: #94a3b8; /* steel */
+  --hl-comment: #55667f; /* steel */
   --hl-keyword: #6b3aa8; /* lilac */
-  --hl-name: #c8284a; /* cherry */
+  --hl-name: #c02647; /* cherry */
   --hl-literal: #2c5aa0; /* ice */
-  --hl-string: #2d7a4a; /* forest */
-  --hl-attr: #0d7570; /* teal: 5.0:1 — AA, hue-separated from warn amber */
+  --hl-string: #2a7245; /* forest */
+  --hl-attr: #0c706c; /* teal: ≥4.6:1 on all surfaces — AA, hue-separated from warn amber */
   --hl-symbol: #3b6090; /* dark blue */
-  --hl-built-in: #b54a18; /* rust */
+  --hl-built-in: #aa4517; /* rust */
 }
 
 /* sumi — ink and washi by lamplight. Tea-tinted charcoal background, aged
@@ -311,13 +314,14 @@
   --ctx-fg-strong: #ffffff;
   --ctx-accent: #e07a3a; /* hanko vermillion — the signature: 5.9:1 — AA */
   --ctx-accent-dim: #a85820;
+  --ctx-accent-text: #e07a3a; /* text-safe accent (>= 4.5:1 on bg/elev/panel) */
   --ctx-link: #7fb6d6; /* aizumi (blue ink): 8.0:1 — AAA, opposite hemisphere to vermillion */
   --ctx-warn: #d9b870; /* kihada (amber-gold): 9.3:1 — AAA */
-  --ctx-err: #e85555; /* cinnabar: 4.9:1 — AA, separated from vermillion by saturation */
+  --ctx-err: #ea6060; /* cinnabar: ≥4.6:1 on bg/elev/panel — AA, separated from vermillion by saturation */
 
   --ctx-git-added: #9ab86a; /* wakakusa (young grass) */
   --ctx-git-modified: #d9b870; /* kihada — paired with warn */
-  --ctx-git-deleted: #e85555; /* cinnabar — paired with err */
+  --ctx-git-deleted: #ea6060; /* cinnabar — paired with err */
   --ctx-git-untracked: #a89a82; /* mirrors fg-dim */
 
   --ctx-skel-a: #2a2420;
@@ -332,7 +336,7 @@
   /* hljs palette — traditional Japanese dye names tuned to the sumi base. */
   --hl-fg: #ede2cf;
   --hl-bg: #1c1815;
-  --hl-comment: #7a6e58; /* faded ink */
+  --hl-comment: #9a8c72; /* faded ink */
   --hl-keyword: #b894d4; /* murasaki (royal purple) */
   --hl-name: #e07a3a; /* vermillion — accent match */
   --hl-literal: #7fb6d6; /* aizumi (blue ink) */
@@ -361,13 +365,14 @@
   --ctx-fg-strong: #ffffff;
   --ctx-accent: #8ec97c; /* moss green — the signature: 7.8:1 — AAA */
   --ctx-accent-dim: #5e9450;
+  --ctx-accent-text: #8ec97c; /* text-safe accent (>= 4.5:1 on bg/elev/panel) */
   --ctx-link: #d9a878; /* tree bark tan: 7.1:1 — AAA, ~75° from moss accent */
   --ctx-warn: #e8b04a; /* fallen-leaf amber: 7.8:1 — AAA */
-  --ctx-err: #e8654a; /* autumn ember: 4.6:1 — AA */
+  --ctx-err: #eb7962; /* autumn ember: ≥4.6:1 on bg/elev/panel — AA */
 
   --ctx-git-added: #c8d860; /* new-bud chartreuse — hue-separated from moss accent */
   --ctx-git-modified: #e8b04a; /* fallen leaf — paired with warn */
-  --ctx-git-deleted: #e8654a; /* ember — paired with err */
+  --ctx-git-deleted: #eb7962; /* ember — paired with err */
   --ctx-git-untracked: #9aae93; /* mirrors fg-dim */
 
   --ctx-skel-a: #293429;
@@ -382,7 +387,7 @@
   /* hljs palette — forest-floor naturalist tones over damp stone. */
   --hl-fg: #e4ecd9;
   --hl-bg: #1d2820;
-  --hl-comment: #6e8870; /* lichen grey-green */
+  --hl-comment: #89a08b; /* lichen grey-green */
   --hl-keyword: #c8a4e0; /* forest violet (mushroom cap) */
   --hl-name: #8ec97c; /* moss — accent match */
   --hl-literal: #d9a878; /* bark tan */
@@ -406,7 +411,7 @@
   --ctx-border: #d9c8a8; /* decorative dividers — 1.4.11 exempt */
   --ctx-border-strong: #8a7c66; /* affordance borders: 3.47:1 — AA UI */
   --ctx-fg: #2a2620; /* brown-black ink: 12.8:1 — AAA */
-  --ctx-fg-dim: #6b5e4a; /* faded ink: 5.4:1 — AA */
+  --ctx-fg-dim: #695c48; /* faded ink: ≥4.6:1 on bg/elev/panel — AA */
   --ctx-fg-strong: #1a1612;
   --ctx-accent: #a83232; /* newsprint red — the signature: 5.6:1 — AA decorative */
   --ctx-accent-dim: #8a2828;
@@ -418,7 +423,7 @@
   --ctx-git-added: #2d6a3a; /* green ink (two-color press): 5.5:1 — AA */
   --ctx-git-modified: #6b5018; /* mustard — paired with warn */
   --ctx-git-deleted: #962424; /* crimson — paired with err */
-  --ctx-git-untracked: #6b5e4a; /* mirrors fg-dim */
+  --ctx-git-untracked: #695c48; /* mirrors fg-dim */
 
   --ctx-skel-a: #ede2cc;
   --ctx-skel-b: #d9c8a8;
@@ -433,7 +438,7 @@
      supplemented by navy / violet / sienna pulled from broadsheet styling. */
   --hl-fg: #2a2620;
   --hl-bg: #f4ecdc;
-  --hl-comment: #9a8a72; /* faded ink — body annotations */
+  --hl-comment: #695c4a; /* faded ink — body annotations */
   --hl-keyword: #7d2424; /* newsprint red */
   --hl-name: #5e3a1c; /* brown ink */
   --hl-literal: #1c5a7a; /* navy ink */
@@ -461,11 +466,12 @@
   --ctx-fg-strong: #170f06;
   --ctx-accent: #7a4f24; /* antique brown — the signature: 5.9:1 — AA */
   --ctx-accent-dim: #5e3c1a;
+  --ctx-accent-text: #7a4f24; /* text-safe accent (>= 4.5:1 on bg/elev/panel) */
   --ctx-link: #5a3a8a; /* manuscript indigo: 7.3:1 — AAA */
   --ctx-warn: #7a4f1a; /* tobacco ink: 5.9:1 — AA */
   --ctx-err: #8a2418; /* cinnabar seal: 7.5:1 — AAA */
 
-  --ctx-git-added: #1f6a48; /* 緑青 verdigris (aged green ink): 5.5:1 — AA */
+  --ctx-git-added: #1e6746; /* 緑青 verdigris (aged green ink): ≥4.6:1 on all surfaces — AA */
   --ctx-git-modified: #7a4f1a; /* tobacco — paired with warn */
   --ctx-git-deleted: #8a2418; /* cinnabar — paired with err */
   --ctx-git-untracked: #6b5235; /* mirrors fg-dim */
@@ -483,11 +489,11 @@
      emphasis, verdigris for strings (古印刷 second-ink), indigo annotations. */
   --hl-fg: #261a0e;
   --hl-bg: #f5ead3;
-  --hl-comment: #a89272; /* lightest geji — faded body */
+  --hl-comment: #685841; /* lightest geji — faded body */
   --hl-keyword: #7a4f24; /* antique brown */
   --hl-name: #8a2818; /* cinnabar */
   --hl-literal: #2d5a7a; /* sea-blue ink */
-  --hl-string: #1f6a48; /* verdigris — aged 古印刷 */
+  --hl-string: #1e6746; /* verdigris — aged 古印刷 */
   --hl-attr: #5a3a8a; /* indigo manuscript — hue-separated from warn tobacco */
   --hl-symbol: #1a4070; /* deep blue — separated from attr violet */
   --hl-built-in: #8c4a1f; /* cinnamon */
@@ -512,11 +518,11 @@
   --ctx-accent-dim: #2d8a52;
   --ctx-accent-text: #1a6038; /* deep chlorophyll for text: 6.7:1 — AA */
   --ctx-link: #0c6580; /* sky-cyan: 5.8:1 — AA */
-  --ctx-warn: #a85018; /* persimmon (熟柿): 4.9:1 — AA */
+  --ctx-warn: #974816; /* persimmon (熟柿): ≥4.6:1 on bg/elev/panel — AA */
   --ctx-err: #962820; /* earth red-brown: 7.1:1 — AAA */
 
   --ctx-git-added: #1a6038; /* deep chlorophyll — paired with accent-text */
-  --ctx-git-modified: #a85018; /* persimmon — paired with warn */
+  --ctx-git-modified: #974816; /* persimmon — paired with warn */
   --ctx-git-deleted: #962820; /* earth-red — paired with err */
   --ctx-git-untracked: #506240; /* mirrors fg-dim */
 
@@ -534,14 +540,14 @@
      persimmon warn), indigo symbols, sunflower built-ins. */
   --hl-fg: #1d2418;
   --hl-bg: #f6f1e0;
-  --hl-comment: #8a9078; /* stone path */
+  --hl-comment: #5c604f; /* stone path */
   --hl-keyword: #1a6038; /* deep chlorophyll */
-  --hl-name: #a85018; /* copper */
+  --hl-name: #974816; /* copper */
   --hl-literal: #0c6580; /* sky-cyan */
-  --hl-string: #0d7570; /* sap-teal — separated from keyword green */
+  --hl-string: #0c6a65; /* sap-teal — separated from keyword green */
   --hl-attr: #6a3a98; /* lavender — hue-separated from warn persimmon */
   --hl-symbol: #1a5a8a; /* indigo */
-  --hl-built-in: #9a6c0c; /* sunflower-honey */
+  --hl-built-in: #7d580a; /* sunflower-honey */
 }
 
 /* crt — green phosphor CRT terminal. Near-black background with green-tinted
@@ -562,6 +568,7 @@
   --ctx-fg-strong: #d4ffd4;
   --ctx-accent: #5fff5f; /* bright phosphor — signature: 18:1 — AAA */
   --ctx-accent-dim: #3ed03e;
+  --ctx-accent-text: #5fff5f; /* text-safe accent (>= 4.5:1 on bg/elev/panel) */
   --ctx-link: #afff5f; /* lime — "active" terminal hue: 17:1 — AAA */
   --ctx-warn: #ffff66; /* amber — classic terminal warn */
   --ctx-err: #ff5555; /* red — classic terminal err */
@@ -584,7 +591,7 @@
      to the green/amber/red trio so highlighted code still feels monochrome. */
   --hl-fg: #b8ffb8;
   --hl-bg: #050a05;
-  --hl-comment: #4a7a4a; /* dim phosphor */
+  --hl-comment: #548b54; /* dim phosphor */
   --hl-keyword: #5fff5f; /* bright phosphor */
   --hl-name: #afff5f; /* lime */
   --hl-literal: #ffff66; /* amber */
@@ -612,6 +619,7 @@
   --ctx-fg-strong: #ffffff;
   --ctx-accent: #ff6ec7; /* hot pink — the signature: 7.4:1 — AAA */
   --ctx-accent-dim: #d44ba8;
+  --ctx-accent-text: #ff6ec7; /* text-safe accent (>= 4.5:1 on bg/elev/panel) */
   --ctx-link: #06d6f0; /* electric cyan: 9.1:1 — AAA */
   --ctx-warn: #ffeb3b; /* electric yellow */
   --ctx-err: #ff4040; /* pure red: 5.3:1 — AA, hue-separated from hot-pink accent */
@@ -634,7 +642,7 @@
      intentionally dim to avoid eye fatigue against the saturated base. */
   --hl-fg: #f5e6ff;
   --hl-bg: #1a0d2e;
-  --hl-comment: #6a5a8c; /* deep lavender */
+  --hl-comment: #9283af; /* deep lavender */
   --hl-keyword: #ff6ec7; /* hot pink */
   --hl-name: #06d6f0; /* electric cyan */
   --hl-literal: #5fffc7; /* electric mint: 14.6:1 — AAA, separated from warn yellow */
@@ -662,8 +670,9 @@
   --ctx-fg-strong: #f5fbff;
   --ctx-accent: #7fd4ff; /* signature cyanotype cyan: 9.2:1 — AAA */
   --ctx-accent-dim: #4ba3ce;
+  --ctx-accent-text: #7fd4ff; /* text-safe accent (>= 4.5:1 on bg/elev/panel) */
   --ctx-link: #5dc4f5; /* annotation blue: 7.7:1 — AAA */
-  --ctx-warn: #ff6b47; /* architect's red pencil: 5.3:1 — AA */
+  --ctx-warn: #ff7250; /* architect's red pencil: ≥4.6:1 on bg/elev/panel — AA */
   --ctx-err: #ff9c80; /* faded vermilion: 7.4:1 — AAA */
 
   --ctx-git-added: #6fc9a8; /* drafting green */
@@ -716,6 +725,7 @@
   --ctx-fg-strong: #fff5e6;
   --ctx-accent: #ff8c2a; /* molten iron — the signature: 8.2:1 — AAA */
   --ctx-accent-dim: #c8651a;
+  --ctx-accent-text: #ff8c2a; /* text-safe accent (>= 4.5:1 on bg/elev/panel) */
   --ctx-link: #6ab4ff; /* blue forge-flame: 8.6:1 — AAA */
   --ctx-warn: #ffcc4a; /* boiling yellow: 12.6:1 — AAA */
   --ctx-err: #8aa5c0; /* cooling-steel blue-grey: 7.4:1 — AAA, metaphor: "this metal has lost its heat" */
@@ -740,7 +750,7 @@
      warn (yellow) and git-modified (amber) to avoid the trio collision. */
   --hl-fg: #e8d8c0;
   --hl-bg: #14100c;
-  --hl-comment: #947860; /* ash residue: 4.6:1 — AA */
+  --hl-comment: #9b7e65; /* ash residue: ≥4.6:1 on all surfaces — AA */
   --hl-keyword: #ff8c2a; /* molten — accent match */
   --hl-name: #ffd089; /* yellow-hot iron */
   --hl-literal: #6ab4ff; /* blue forge-flame */
@@ -769,6 +779,7 @@
   --ctx-fg-strong: #ffe0a0;
   --ctx-accent: #ffb000; /* bright P3 amber — signature: 10.1:1 — AAA */
   --ctx-accent-dim: #cc8a00;
+  --ctx-accent-text: #ffb000; /* text-safe accent (>= 4.5:1 on bg/elev/panel) */
   --ctx-link: #ffd480; /* pale amber — brightest rung of the ladder: 13.2:1 — AAA */
   --ctx-warn: #ffaa33; /* bright amber — classic terminal warn: 9.8:1 — AAA */
   --ctx-err: #ff6644; /* phosphor red glow: 6.4:1 — AA */
@@ -792,7 +803,7 @@
      code still reads as one monochrome phosphor screen. */
   --hl-fg: #ffcc66;
   --hl-bg: #1a1206;
-  --hl-comment: #a07a3a; /* dim amber: 4.7:1 — AA */
+  --hl-comment: #a57e3c; /* dim amber: ≥4.6:1 on all surfaces — AA */
   --hl-keyword: #ffb000; /* bright phosphor — accent match */
   --hl-name: #ffd480; /* pale amber */
   --hl-literal: #ffaa33; /* mid amber */
@@ -822,6 +833,7 @@
   --ctx-fg-strong: #000000;
   --ctx-accent: #2d2d2d; /* dark ink — kind labels read as bold ink: 11.6:1 — AAA */
   --ctx-accent-dim: #4a4a4a;
+  --ctx-accent-text: #2d2d2d; /* text-safe accent (>= 4.5:1 on bg/elev/panel) */
   --ctx-link: #404040; /* mid ink — distinct from fg/accent: 8.7:1 — AAA */
   --ctx-warn: #555555; /* medium ink: 6.3:1 — AA */
   --ctx-err: #0a0a0a; /* deepest ink — errors stand out by being blackest: 16.6:1 — AAA */
@@ -848,12 +860,12 @@
      git-modified (#5a5a5a) — the required non-collision trio. */
   --hl-fg: #1a1a1a;
   --hl-bg: #ebebeb;
-  --hl-comment: #8a8a8a; /* lightest grey — decorative margin annotation */
+  --hl-comment: #5f5f5f; /* lightest grey — decorative margin annotation */
   --hl-keyword: #000000; /* darkest — keywords read as printed ink */
   --hl-name: #2d2d2d;
   --hl-literal: #505050;
   --hl-string: #404040;
-  --hl-attr: #666666; /* distinct from warn and git-modified */
+  --hl-attr: #575757; /* distinct from warn and git-modified */
   --hl-symbol: #3a3a3a;
   --hl-built-in: #4a4a4a;
 }
@@ -906,6 +918,13 @@ a:hover,
 a:focus-visible {
   text-decoration: underline;
 }
+/* An underline alone is too faint a focus indicator (WCAG 2.4.7); links get
+   the same ring as buttons and inputs. */
+a:focus-visible {
+  outline: 2px solid var(--ctx-accent);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
 
 button {
   font: inherit;
@@ -917,8 +936,18 @@ button {
   cursor: pointer;
   transition: background-color var(--motion-quick) ease-out;
 }
-button:hover {
+button:hover:not(:disabled) {
   background: var(--ctx-bg-elev);
+}
+/* Keyboard-scrollable regions (code / README <pre>) show focus like controls. */
+[role='region'][tabindex='0']:focus-visible {
+  outline: 2px solid var(--ctx-accent);
+  outline-offset: -2px;
+}
+/* Disabled controls must not look (or hover) like live ones. */
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 button:focus-visible {
   outline: 2px solid var(--ctx-accent);

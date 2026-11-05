@@ -666,7 +666,7 @@
     font-family: var(--ctx-font-mono);
   }
   .opt.current .dot {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
   .opt .name {
     word-break: break-all;
@@ -685,7 +685,7 @@
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
     border: 1px solid var(--ctx-accent);
     border-radius: 3px;
     padding: 0 4px;
@@ -748,7 +748,7 @@
   }
   .register:hover:not(:disabled) {
     border-color: var(--ctx-accent);
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
   .register:focus-visible {
     outline: 2px solid var(--ctx-accent);
@@ -800,6 +800,6 @@
     font-size: 10px;
   }
   .spawning {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
 </style>

@@ -206,19 +206,23 @@
     font-size: 12px;
     line-height: 1.6;
   }
+  /* Washes derive from theme tokens so every theme (not only dark/light)
+     gets a visible hover and its own accent for the selection. */
   .row:hover {
-    background: rgba(255, 255, 255, 0.04);
-  }
-  :global(:root[data-theme='light']) .row:hover {
-    background: rgba(0, 0, 0, 0.04);
+    background: color-mix(in srgb, var(--ctx-fg) 6%, transparent);
   }
   .row:focus-visible {
     outline: 2px solid var(--ctx-accent);
     outline-offset: -2px;
   }
   .row.selected {
-    background: rgba(78, 201, 176, 0.15);
+    background: color-mix(in srgb, var(--ctx-accent) 18%, transparent);
     color: var(--ctx-fg-strong);
+  }
+  /* fg-dim is tuned for the plain surfaces; on the accent wash it drops
+     below 4.5:1 in light themes, so secondary text uses fg here. */
+  .row.selected .updated {
+    color: var(--ctx-fg);
   }
   .indent {
     grid-column: 1;
@@ -268,7 +272,7 @@
   .updated {
     grid-column: 6;
     font-size: 11px;
-    color: var(--ctx-muted-fg, var(--ctx-fg-dim));
+    color: var(--ctx-fg-dim);
     padding-right: 4px;
   }
   .tokens {

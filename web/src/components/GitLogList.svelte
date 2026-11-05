@@ -171,7 +171,7 @@
   {#if loading}
     <p class="muted note" aria-busy="true">Loading…</p>
   {:else if error}
-    <p class="note err"><code class="mono">{error}</code></p>
+    <p class="note err" role="alert">Couldn’t load commit history: <code class="mono">{error}</code></p>
   {:else if commits.length === 0}
     <p class="muted note">No commit history.</p>
   {:else}
@@ -274,7 +274,7 @@
   }
   .seg.active {
     color: var(--ctx-fg);
-    background: var(--ctx-accent-soft, var(--ctx-bg-panel, var(--ctx-bg)));
+    background: var(--ctx-bg-panel);
     box-shadow: inset 0 -2px 0 var(--ctx-accent);
   }
   .ref-select {
@@ -296,7 +296,7 @@
     color: var(--ctx-err);
   }
   .mono {
-    font-family: var(--ctx-font-mono, var(--ctx-mono, ui-monospace, monospace));
+    font-family: var(--ctx-font-mono);
   }
   ul {
     list-style: none;
@@ -357,6 +357,6 @@
   }
   .hash {
     margin-left: auto;
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
 </style>

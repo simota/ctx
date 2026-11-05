@@ -275,7 +275,7 @@
   }
   .score {
     font-size: 10px;
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
     text-align: end;
   }
   .name,

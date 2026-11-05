@@ -293,7 +293,7 @@
     margin-top: 1px;
   }
   .check {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
     width: 1ch;
     text-align: right;
   }

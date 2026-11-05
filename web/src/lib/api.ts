@@ -154,6 +154,15 @@ async function parseResponse<T>(res: Response, path: string): Promise<T> {
     try {
       body = JSON.parse(text);
     } catch {
+      // A non-JSON error page (proxy, crash) must still report its HTTP
+      // status rather than masquerade as a parse problem.
+      if (!res.ok) {
+        throw new ApiCallError(
+          res.status,
+          'http_error',
+          `HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''} from ${path}`,
+        );
+      }
       throw new ApiCallError(res.status, 'parse_error', `Invalid JSON from ${path}`);
     }
   }
@@ -164,8 +173,25 @@ async function parseResponse<T>(res: Response, path: string): Promise<T> {
   return body as T;
 }
 
+// send: `fetch` whose transport failures (server stopped, connection
+// refused) surface as ApiCallError(0, 'network_error') with an actionable
+// message instead of the browser's bare "Failed to fetch" TypeError.
+// Aborts are rethrown unchanged so callers can still recognise them.
+async function send(path: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(path, init);
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e;
+    throw new ApiCallError(
+      0,
+      'network_error',
+      'Cannot reach the ctx server. Is `ctx browse` still running?',
+    );
+  }
+}
+
 async function getJSON<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(path, { headers: { Accept: 'application/json' }, signal });
+  const res = await send(path, { headers: { Accept: 'application/json' }, signal });
   return parseResponse<T>(res, path);
 }
 
@@ -720,7 +746,7 @@ export async function createRoot(req: RootsCreateRequest): Promise<RootsCreateRe
 // no body, so we resolve void on the happy path.
 export async function deleteRoot(name: string): Promise<void> {
   const url = `/api/roots${qs({ name })}`;
-  const res = await fetch(url, {
+  const res = await send(url, {
     method: 'DELETE',
     headers: { Accept: 'application/json' },
   });
@@ -729,7 +755,7 @@ export async function deleteRoot(name: string): Promise<void> {
 }
 
 async function postJSON<T>(path: string, req: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const res = await send(path, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -117,6 +117,22 @@
   // the Nth tab. Both are suppressed while typing in a text input so the
   // browser-default (close window / switch browser tab) only triggers when
   // we're sure the user isn't relying on it in a focused field.
+  // Overlay mutex — one predicate for every shortcut that opens a modal, so
+  // no shortcut can stack a second overlay on top of an open one. `except`
+  // lets a shortcut re-target the overlay it owns (e.g. Cmd+P while the
+  // finder is already open).
+  type Overlay = 'finder' | 'palette' | 'cheatsheet' | 'definitionPicker' | 'rootsPicker';
+  function overlayOpen(except?: Overlay): boolean {
+    const open: Record<Overlay, boolean> = {
+      finder: finder.open,
+      palette: palette.open,
+      cheatsheet: cheatsheet.open,
+      definitionPicker: definitionPicker.open,
+      rootsPicker: rootsPicker.open,
+    };
+    return (Object.keys(open) as Overlay[]).some((k) => k !== except && open[k]);
+  }
+
   function onGlobalKey(e: KeyboardEvent) {
     const mod = e.metaKey || e.ctrlKey;
 
@@ -150,26 +166,19 @@
      // before the bare Cmd+P arm because both branches match `key === 'p'`.
     if (mod && e.shiftKey && !e.altKey && (e.key === 'p' || e.key === 'P')) {
       e.preventDefault();
-      // Mutex with the other overlays — close them first so we don't stack.
-      if (finder.open) return;
-      if (cheatsheet.open) return;
+      if (overlayOpen('palette')) return;
       if (!palette.open) openPalette(COMMANDS.length);
       return;
     }
     if (mod && !e.shiftKey && !e.altKey && (e.key === 'p' || e.key === 'P')) {
       e.preventDefault();
-      // Mutex with the other overlays — never stack on top of an existing modal.
-      if (palette.open) return;
-      if (cheatsheet.open) return;
+      if (overlayOpen('finder')) return;
       openFinder();
       return;
     }
     if (e.key === '?' && !e.isComposing && !e.metaKey && !e.ctrlKey && !e.altKey) {
       if (isTextInputFocused()) return;
-      if (finder.open) return;
-      if (palette.open) return;
-      if (definitionPicker.open) return;
-      if (rootsPicker.open) return;
+      if (overlayOpen('cheatsheet')) return;
       e.preventDefault();
       toggleCheatsheet();
       return;
@@ -217,14 +226,7 @@
     // branches see `key === 'b' || 'B'`).
     if (mod && e.shiftKey && !e.altKey && (e.key === 'b' || e.key === 'B')) {
       if (isTextInputFocused()) return;
-      // Overlay mutex — never stack on top of an existing modal.
-      if (
-        finder.open ||
-        palette.open ||
-        cheatsheet.open ||
-        definitionPicker.open ||
-        rootsPicker.open
-      ) return;
+      if (overlayOpen()) return;
       e.preventDefault();
       openRootsPicker();
       return;
@@ -262,7 +264,7 @@
     // Shift+R — refresh the file tree (mirrors the TreeView ↻ button).
     if (!mod && !e.altKey && e.shiftKey && e.key === 'R') {
       if (isTextInputFocused()) return;
-      if (finder.open || palette.open || cheatsheet.open) return;
+      if (overlayOpen()) return;
       e.preventDefault();
       reloadTree();
       announce('Reloading file tree');
@@ -644,8 +646,12 @@
   .layout {
     display: grid;
     grid-template-rows: 40px 1fr 22px;
+    /* minmax(0, 1fr): the column never grows to the header's min-content
+       width, so a narrow viewport cannot get a page-level horizontal scroll. */
+    grid-template-columns: minmax(0, 1fr);
     height: 100vh;
-    width: 100vw;
+    height: 100dvh;
+    width: 100%;
   }
   .topbar {
     display: grid;
@@ -668,7 +674,7 @@
     flex: 0 0 auto;
   }
   .brand-mark {
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
   .brand-sep {
     color: var(--ctx-fg-dim);
@@ -712,6 +718,11 @@
     color: var(--ctx-fg);
     background: var(--ctx-bg-panel);
   }
+  /* Current location must differ from mere hover: an accent underline marks
+     the active route (and an aria-pressed toggle that is on). */
+  .topnav a.active {
+    box-shadow: inset 0 -2px 0 var(--ctx-accent);
+  }
   .topnav-action {
     color: var(--ctx-fg-dim);
     padding: 4px 8px;
@@ -738,6 +749,8 @@
   }
   .view-toggle.active {
     color: var(--ctx-fg);
+    background: var(--ctx-bg-panel);
+    box-shadow: inset 0 -2px 0 var(--ctx-accent);
   }
   .content {
     display: grid;
@@ -838,7 +851,7 @@
   }
   .placeholder h2 {
     margin: 0 0 8px;
-    color: var(--ctx-accent);
+    color: var(--ctx-accent-text);
   }
   .hints {
     list-style: none;
@@ -855,5 +868,36 @@
     border-radius: 3px;
     padding: 1px 6px;
     font-size: 11px;
+  }
+  /* Narrow viewports (same 799px breakpoint as `isMobile`, which already
+     disables the two-pane split): the nav wraps under the brand + search row
+     instead of forcing ~900px of page width, and the tree stacks above the
+     content rather than leaving the main pane ~115px wide. */
+  @media (max-width: 799px) {
+    .layout {
+      grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+    .topbar {
+      grid-template-columns: auto minmax(0, 1fr);
+      row-gap: 4px;
+      padding: 4px 8px;
+    }
+    .topnav {
+      grid-column: 1 / -1;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+    }
+    .content {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 40%) minmax(0, 1fr);
+    }
+    .content.tree-collapsed {
+      grid-template-columns: 36px minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+    }
+    .pane.left {
+      border-right: 0;
+      border-bottom: 1px solid var(--ctx-border);
+    }
   }
 </style>
