@@ -23,6 +23,7 @@ use crate::commands::echo::run_echo_command;
 use crate::commands::focus::run_focus_command;
 use crate::commands::log::run_log_command;
 use crate::commands::map::run_map_command;
+use crate::commands::mix::run_mix_command;
 use crate::commands::noise::run_noise_command;
 use crate::commands::onboarding::run_onboarding_command;
 use crate::commands::pack::run_pack_command;
@@ -64,6 +65,10 @@ const COMMANDS: &[(&str, &str)] = &[
     ("echo", "Evaluate pack answerability"),
     ("contract", "Verify pack-as-contract evidence"),
     ("braid", "Compose a pack from braid.toml strands"),
+    (
+        "mix",
+        "Save and manage reusable file selections for ctx pack",
+    ),
 ];
 
 fn main() -> ExitCode {
@@ -199,6 +204,9 @@ fn try_run_native(args: &[OsString]) -> Option<ExitCode> {
         || flag_then_command(args, "braid")
     {
         return run_braid_command(args);
+    }
+    if args.first().is_some_and(|arg| arg == OsStr::new("mix")) || flag_then_command(args, "mix") {
+        return run_mix_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("tui")) {
         return run_tui_command(args);

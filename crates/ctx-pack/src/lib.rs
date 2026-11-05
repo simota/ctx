@@ -56,6 +56,7 @@ pub mod from_where;
 pub mod preset;
 pub mod redact;
 pub mod relevance;
+pub mod selection;
 pub mod types;
 
 #[cfg(any(test, feature = "testing"))]

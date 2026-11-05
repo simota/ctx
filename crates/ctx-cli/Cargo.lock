@@ -446,6 +446,7 @@ dependencies = [
  "ctx-gitignore",
  "ctx-heatmap",
  "ctx-mcp",
+ "ctx-mix",
  "ctx-pack",
  "ctx-relations",
  "ctx-replay",
@@ -548,6 +549,7 @@ dependencies = [
  "ctx-digest",
  "ctx-focus",
  "ctx-git",
+ "ctx-mix",
  "ctx-pack",
  "ctx-symbols",
  "ctx-tokens",
@@ -556,6 +558,15 @@ dependencies = [
  "serde",
  "serde_json",
  "toml",
+]
+
+[[package]]
+name = "ctx-mix"
+version = "0.1.0"
+dependencies = [
+ "ctx-pack",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -666,6 +677,8 @@ dependencies = [
  "ctx-contract",
  "ctx-git",
  "ctx-gitignore",
+ "ctx-mix",
+ "ctx-pack",
  "ctx-relations",
  "ctx-replay",
  "ctx-symbols",

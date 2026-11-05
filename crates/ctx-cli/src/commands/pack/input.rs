@@ -113,7 +113,14 @@ pub(crate) fn read_pack_root(
     let mut scored = Vec::new();
     let mut skipped = Vec::new();
     for input in inputs {
-        let result = ctx_pack::relevance::score_relevance_with_ctx(&input, &ctx, input.tokens);
+        let mut result = ctx_pack::relevance::score_relevance_with_ctx(&input, &ctx, input.tokens);
+        if result.tier.is_empty() && only_paths.is_some() {
+            // An explicit selection (--from-stdin / --from-mix) is what the
+            // user asked for: the goal ranks it, it must not empty it.
+            // Weak matches go after the goal-relevant files.
+            result.tier = "Medium".to_string();
+            result.reason = "selected explicitly".to_string();
+        }
         if result.tier.is_empty() {
             skipped.push((input.path, result.reason));
         } else {
