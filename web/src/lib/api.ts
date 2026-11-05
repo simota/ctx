@@ -765,3 +765,77 @@ async function postJSON<T>(path: string, req: unknown): Promise<T> {
   });
   return parseResponse<T>(res, path);
 }
+
+// ---------------------------------------------------------------------------
+// pack + mixes — build a context bundle from an explicit file selection (the
+// pinned board) and save / reuse selections as mixes. Mixes live in the same
+// store as `ctx mix` and `ctx pack --from-mix`.
+// ---------------------------------------------------------------------------
+
+export type PackFormat = 'markdown' | 'plain';
+
+export interface PackRequest {
+  files?: string[];
+  mix?: string;
+  goal?: string;
+  budget?: number;
+  format?: PackFormat;
+  contract?: boolean;
+}
+
+export interface PackResponse {
+  content: string;
+  format: PackFormat;
+  goal: string;
+  used: number;
+  budget: number;
+  included: { path: string; tokens: number }[];
+  skipped: { path: string; reason: string }[];
+}
+
+export function packSelection(req: PackRequest): Promise<PackResponse> {
+  return postJSON<PackResponse>('/api/pack', req);
+}
+
+export interface MixSummary {
+  id: string;
+  name: string;
+  goal?: string;
+  created: string;
+  file_count: number;
+}
+
+export interface Mix {
+  schema_version: number;
+  id: string;
+  name: string;
+  goal?: string;
+  created: string;
+  updated?: string;
+  files: string[];
+  budget: { plan?: string; limit?: number };
+}
+
+export function fetchMixes(): Promise<{ mixes: MixSummary[] }> {
+  return getJSON<{ mixes: MixSummary[] }>('/api/mix');
+}
+
+export function fetchMix(id: string): Promise<Mix> {
+  return getJSON<Mix>(`/api/mix/${encodeURIComponent(id)}`);
+}
+
+export function createMix(req: {
+  name: string;
+  goal?: string;
+  files: string[];
+  budget?: number;
+  skip_missing?: boolean;
+}): Promise<Mix & { skipped?: string[] }> {
+  return postJSON<Mix & { skipped?: string[] }>('/api/mix', req);
+}
+
+export async function deleteMix(id: string): Promise<void> {
+  const path = `/api/mix/${encodeURIComponent(id)}`;
+  const res = await send(path, { method: 'DELETE', headers: { Accept: 'application/json' } });
+  if (!res.ok) await parseResponse<unknown>(res, path);
+}

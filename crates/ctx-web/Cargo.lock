@@ -375,6 +375,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctx-mix"
+version = "0.1.0"
+dependencies = [
+ "ctx-pack",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ctx-pack"
+version = "0.1.0"
+dependencies = [
+ "cbindgen",
+ "ctx-contract",
+ "ctx-scan",
+ "ctx-tokens",
+ "libc",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ctx-relations"
 version = "0.1.0"
 dependencies = [
@@ -396,6 +420,18 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+]
+
+[[package]]
+name = "ctx-scan"
+version = "0.1.0"
+dependencies = [
+ "cbindgen",
+ "libc",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -445,6 +481,8 @@ dependencies = [
  "ctx-contract",
  "ctx-git",
  "ctx-gitignore",
+ "ctx-mix",
+ "ctx-pack",
  "ctx-relations",
  "ctx-replay",
  "ctx-symbols",

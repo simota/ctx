@@ -28,6 +28,8 @@ ctx-relations = { path = "../ctx-relations" }
 ctx-replay = { path = "../ctx-replay" }
 ctx-contract = { path = "../ctx-contract" }
 ctx-git = { path = "../ctx-git" }
+ctx-mix = { path = "../ctx-mix" }
+ctx-pack = { path = "../ctx-pack" }
 sha2 = "0.10"
 hex = "0.4"
 toml = "0.8"

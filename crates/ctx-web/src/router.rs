@@ -66,7 +66,8 @@ pub fn build(state: AppState) -> Router {
             "/api/replay/verify",
             get(handlers::replay::handle_verify).post(handlers::replay::handle_verify),
         )
-        // --- /api/mix/* (GET list + GET by id; POST/DELETE deferred — see DEFERRED_ROUTES.md) ---
+        .route("/api/pack", post(handlers::pack::handle))
+        // --- /api/mix/* (GET list / POST create, GET by id / DELETE) ---
         .route("/api/mix", any(handlers::mix::handle_collection))
         .route("/api/mix/:id", any(handlers::mix::handle_route))
         // --- /raw/* static byte serving ---

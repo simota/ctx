@@ -16,6 +16,14 @@ depends on a Go module that has no Rust crate equivalent yet.
 _No `/api/*` route currently meets the "unregistered + blocked" bar; the git
 rows that formerly filled this table are ported (see below)._
 
+> **Resolved 2026-11-05:** `/api/mix` mutations are implemented. `POST /api/mix`
+> creates a recipe (201) and `DELETE /api/mix/<id>` deletes one (204), backed by
+> the shared `ctx-mix` crate that `ctx mix` / `ctx pack --from-mix` / MCP use.
+> They are covered by functional tests (`tests/pack_mix_api.rs`), not byte
+> parity: ids are derived from the name (not `crypto/rand`) and the response
+> may carry a `skipped` list. The historical analysis below is kept for
+> reference. `PUT` still returns the Go 405 envelopes (parity-tested).
+
 > **Note:** `/api/mix` is a DIFFERENT shape of deferral. Its GET routes (list +
 > get-by-id) ARE ported and byte-parity. Its **mutations** (`POST` create,
 > `DELETE` delete) are deferred but the route IS registered — Rust returns a
@@ -333,7 +341,7 @@ POST-create / DELETE-delete operations are deliberately NOT tested for parity.
 4. Optionally, the Rust mix store (currently inlined in `ctx-web`) is promoted
    to a standalone `ctx-mix` crate if CLI commands need it.
 
-#TODO(agent): port POST /api/mix (create) + DELETE /api/mix/<id> (delete) — Go performs them (201/204); Rust currently 405-diverges. Needs isolated write fixtures + deterministic id/clock injection before cutover.
+Done (2026-11-05): POST /api/mix + DELETE /api/mix/<id> are implemented on the shared `ctx-mix` store; see the note at the top.
 
 ---
 

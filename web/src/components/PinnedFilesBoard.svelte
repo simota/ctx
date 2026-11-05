@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fetchTree, ApiCallError } from '../lib/api';
+  import PackComposer from './PackComposer.svelte';
   import { basename } from '../lib/format';
   import { announce } from '../lib/announce.svelte';
   import { navigate, route, toFileHash } from '../lib/router.svelte';
@@ -61,6 +62,9 @@
     }
     if (!rootLoadStarted) loadRoot();
   });
+
+  /** Pinned paths in board order, minus ones known to be gone. */
+  let packPaths = $derived(pins.entries.filter((entry) => !entry.stale).map((entry) => entry.path));
 
   let filtered = $derived.by<PinEntry[]>(() => {
     const q = query.trim().toLowerCase();
@@ -162,7 +166,7 @@
   <header class="head">
     <div>
       <h2 bind:this={headingEl} tabindex="-1" class="title">Pinned files</h2>
-      <p class="muted sub">Files intentionally kept for this repository.</p>
+      <p class="muted sub">Files intentionally kept for this repository — pack them for an LLM or save them as a reusable mix.</p>
     </div>
     {#if pins.entries.length > 0}
       <div class="clear-group">
@@ -195,6 +199,8 @@
     {#if pins.persistenceWarning}
       <div class="warning" role="status">{pins.persistenceWarning}</div>
     {/if}
+
+    <PackComposer paths={packPaths} />
 
     <div class="filter" role="group" aria-label="Filter pinned files">
       <label class="path-field">
