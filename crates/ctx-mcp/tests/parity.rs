@@ -85,7 +85,8 @@ enum Norm {
     /// `protocolVersion` is left untouched.
     Version,
     /// Drop the Rust-only additions (the `ctx_cochange` tool and the
-    /// `ctx_pack` `companions` property), then compare bytes exactly. The
+    /// `ctx_pack` `companions` / `files` / `mix` properties), then compare
+    /// bytes exactly. The
     /// frozen Go oracle predates them; everything else stays byte-exact.
     RustOnlyTools,
 }
@@ -644,9 +645,10 @@ fn remove_object_at(body: &str, member_start: usize, open: usize) -> String {
 
 fn strip_rust_only_tools(body: &str) -> String {
     let mut out = body.to_string();
-    let member = r#""companions":{"#;
-    if let Some(at) = out.find(member) {
-        out = remove_object_at(&out, at, at + member.len() - 1);
+    for member in [r#""companions":{"#, r#""files":{"#, r#""mix":{"#] {
+        if let Some(at) = out.find(member) {
+            out = remove_object_at(&out, at, at + member.len() - 1);
+        }
     }
     let tool = r#"{"description":"Rank the files that historically change"#;
     if let Some(at) = out.find(tool) {

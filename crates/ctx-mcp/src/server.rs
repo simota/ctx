@@ -133,6 +133,29 @@ impl Server {
                 "suggested: 5",
             );
         }
+        if args.files.len() > MAX_PACK_FILES {
+            return invalid_params_with_hint(
+                &format!("files holds at most {MAX_PACK_FILES} paths"),
+                "pack the most relevant files first",
+            );
+        }
+        for file in &args.files {
+            validate_len("files[]", file, MAX_PATH_LEN)?;
+        }
+        validate_len("mix", &args.mix, MAX_MIX_REF_LEN)?;
+        let selection = !args.files.is_empty() || !args.mix.trim().is_empty();
+        if !args.files.is_empty() && !args.mix.trim().is_empty() {
+            return invalid_params_with_hint(
+                "files and mix are mutually exclusive",
+                "pass either {\"files\":[...]} or {\"mix\":\"<id>\"}",
+            );
+        }
+        if selection && (args.changed || args.companions > 0) {
+            return invalid_params_with_hint(
+                "files / mix cannot be combined with changed or companions",
+                "call ctx_pack with {\"changed\":true} separately",
+            );
+        }
         if args.companions > 0 && !args.changed {
             return invalid_params_with_hint(
                 "companions needs changed=true",
@@ -143,8 +166,16 @@ impl Server {
     }
 
     pub(crate) fn run_pack(&self, raw: Option<&RawValue>) -> Result<String, RpcError> {
+        // A budget of 0 means "default" for the walk, so remember whether the
+        // caller set one before parse_pack_args fills it in.
+        let explicit_budget = raw
+            .and_then(|raw| serde_json::from_str::<Value>(raw.get()).ok())
+            .is_some_and(|v| v.get("budget").is_some_and(|b| b.as_i64().unwrap_or(0) > 0));
         let args = self.parse_pack_args(raw)?;
         let root = self.resolve_path(&args.path)?;
+        if !args.files.is_empty() || !args.mix.trim().is_empty() {
+            return run_pack_selection(&root, &args, explicit_budget);
+        }
         let mut files =
             collect_pack_files(&root, &self.walk_boundary(&root)).map_err(tool_error)?;
         let mut companions = Vec::new();

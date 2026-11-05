@@ -14,6 +14,7 @@ path = "src/lib.rs"
 base64 = "0.22"
 ctx-digest = { path = "../ctx-digest" }
 ctx-git = { path = "../ctx-git" }
+ctx-mix = { path = "../ctx-mix" }
 ctx-symbols = { path = "../ctx-symbols" }
 ctx-focus = { path = "../ctx-focus" }
 ctx-pack = { path = "../ctx-pack" }
