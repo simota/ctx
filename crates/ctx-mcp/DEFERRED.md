@@ -96,6 +96,11 @@ expected response. This is fully parity-able and is compared byte-exact.
   **deferred** until a deterministic git fixture exists.
   **TODO(agent):** add a committed bare-repo fixture with frozen author/date
   env (`GIT_AUTHOR_DATE`/`GIT_COMMITTER_DATE`) to cover a green digest body.
+  Until then the successful digest (and `ctx_pack changed`/`companions`,
+  `ctx_cochange`) is covered by `tests/git_tools.rs` against throwaway repos.
+- `tools_list` uses `Norm::RustOnlyTools`: the Rust-only `ctx_cochange` tool
+  and the `ctx_pack` `companions` property are stripped before the byte
+  comparison, so every tool the Go oracle knows stays byte-exact.
 
 ### 6. Audit / transcript side channels
 - `--log-file`, `AuditLogPath`, and the stderr `mcp ts=… call=…` debug line are

@@ -10,6 +10,7 @@ pub(crate) fn tools() -> Vec<Value> {
                 vec![
                     ("budget", describe(int_schema(0, MAX_BUDGET), "Target token budget (0..1000000). Defaults to 50000. Recommended: 20000–80000.")),
                     ("changed", describe(bool_schema(), "When true, restrict to files changed in the working tree.")),
+                    ("companions", describe(int_schema(0, MAX_COMPANIONS), "With changed=true, also pack up to this many files that historically change together with the changed files (git co-change), e.g. the tests or schemas a change usually needs (0..50). Defaults to 0.")),
                     ("explain", describe(bool_schema(), "When true, include selection-reason annotations in the pack.")),
                     ("format", describe(enum_schema(&["markdown", "xml", "json", "plain"]), "Output format. Defaults to 'markdown'.")),
                     ("goal", describe(str_schema(MAX_GOAL_LEN, None, &["implement rate limiter", "audit log writer", "config loader"]), "Goal annotation embedded in the pack header (free-form text).")),
@@ -95,6 +96,22 @@ pub(crate) fn tools() -> Vec<Value> {
                     ("path", describe(str_schema(MAX_PATH_LEN, Some("."), &[]), "Repository root. Defaults to '.'")),
                 ],
                 &["anchor"],
+            ),
+        ),
+        tool(
+            "ctx_cochange",
+            "Rank the files that historically change in the same commits as an anchor file or directory (git co-change), with how often and how reliably they move together. Use this BEFORE editing a file to find the tests, schemas, configs and call sites that usually have to change with it, or when reviewing a change to spot files it probably forgot. Omit 'anchor' to list the most strongly coupled file pairs in the repository. Requires a Git repository. Typical chain: ctx_cochange → ctx_skim / ctx_focus (partners) → edit.",
+            object_schema(
+                vec![
+                    ("anchor", describe(str_schema(MAX_ANCHOR_LEN, None, &["src/server.rs", "internal/auth/", "api/schema.sql"]), "File or directory (relative to 'path') whose co-change partners to rank. Omit to list the strongest coupled pairs.")),
+                    ("commits", describe(int_schema(0, MAX_COMMITS), "Newest commits to scan (0..10000). Defaults to 500.")),
+                    ("format", describe(enum_schema(&["markdown", "json"]), "Output format. Defaults to 'markdown'.")),
+                    ("min_weight", describe(int_schema(0, MAX_MIN_WEIGHT), "Ignore pairs that changed together fewer than this many times. Defaults to 2.")),
+                    ("path", describe(str_schema(MAX_PATH_LEN, Some("."), &[]), "Repository directory. Defaults to '.'")),
+                    ("since", describe(str_schema(MAX_SINCE_LEN, None, &["90d", "6mo", "1y"]), "Only scan commits newer than this (e.g. '90d', '6mo'). Omit to scan the newest 'commits' commits.")),
+                    ("top", describe(int_schema(0, MAX_TOP), "Max results (0..200). Defaults to 20.")),
+                ],
+                &[],
             ),
         ),
         tool(

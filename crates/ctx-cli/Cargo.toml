@@ -23,6 +23,7 @@ crossterm = "0.28"
 ratatui = "0.29"
 ctx-contract = { path = "../ctx-contract" }
 ctx-braid = { path = "../ctx-braid" }
+ctx-digest = { path = "../ctx-digest" }
 ctx-echo = { path = "../ctx-echo" }
 ctx-focus = { path = "../ctx-focus" }
 ctx-git = { path = "../ctx-git" }

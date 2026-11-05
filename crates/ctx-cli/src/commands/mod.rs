@@ -1,6 +1,7 @@
 pub(crate) mod audit;
 pub(crate) mod braid;
 pub(crate) mod browse;
+pub(crate) mod cochange;
 pub(crate) mod contract;
 pub(crate) mod diff;
 pub(crate) mod digest;

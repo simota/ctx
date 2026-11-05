@@ -56,7 +56,13 @@ pub(crate) fn build_focus_inputs(files: &[PackFile]) -> Vec<ctx_focus::FileInput
         .collect()
 }
 
-pub(crate) fn build_pack_plan(files: Vec<PackFile>, args: &PackArgs) -> PackPlan {
+/// Plans a pack of `files`, then of `companions` (co-change partners with
+/// their selection reason), which are budgeted after every selected file.
+pub(crate) fn build_pack_plan(
+    files: Vec<PackFile>,
+    companions: Vec<(PackFile, String)>,
+    args: &PackArgs,
+) -> PackPlan {
     let ctx = ctx_pack::RelevanceContext::new(&args.goal, args.budget);
     let mut high = Vec::new();
     let mut medium = Vec::new();
@@ -92,6 +98,22 @@ pub(crate) fn build_pack_plan(files: Vec<PackFile>, args: &PackArgs) -> PackPlan
     sort_pack_candidates(&mut high);
     sort_pack_candidates(&mut medium);
 
+    let mut extra = Vec::new();
+    for (file, reason) in companions {
+        let input = pack_file_input(&file);
+        let rel = ctx_pack::relevance::score_relevance_with_ctx(&input, &ctx, file.tokens);
+        if rel.tier.is_empty() {
+            continue;
+        }
+        extra.push(PackCandidate {
+            file,
+            tokens: input.tokens,
+            score: rel.score,
+            relevance: rel.tier,
+            reason,
+        });
+    }
+
     let mut plan = PackPlan {
         high: Vec::new(),
         medium: Vec::new(),
@@ -99,7 +121,7 @@ pub(crate) fn build_pack_plan(files: Vec<PackFile>, args: &PackArgs) -> PackPlan
         used: 0,
         budget: args.budget,
     };
-    for candidate in high.into_iter().chain(medium) {
+    for candidate in high.into_iter().chain(medium).chain(extra) {
         if plan.used + candidate.tokens > plan.budget {
             plan.skipped
                 .push((candidate.file.path.clone(), "budget exceeded".to_string()));

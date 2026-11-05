@@ -864,7 +864,17 @@ pub fn co_change_graph(
     since: Option<&str>,
     min_weight: u32,
 ) -> Result<CoChangeGraph> {
-    let git_dir = git_dir(repo_root.as_ref());
+    co_change_graph_impl(repo_root.as_ref(), limit, since, min_weight, true)
+}
+
+fn co_change_graph_impl(
+    repo_root: &Path,
+    limit: usize,
+    since: Option<&str>,
+    min_weight: u32,
+    count_lines: bool,
+) -> Result<CoChangeGraph> {
+    let git_dir = git_dir(repo_root);
     if read_head_oid(&git_dir)?.is_none() {
         return Ok(CoChangeGraph::default());
     }
@@ -956,7 +966,8 @@ pub fn co_change_graph(
             continue;
         }
         let source = intern_node(
-            repo_root.as_ref(),
+            repo_root,
+            count_lines,
             a,
             &paths,
             &churn,
@@ -964,7 +975,8 @@ pub fn co_change_graph(
             &mut nodes,
         );
         let target = intern_node(
-            repo_root.as_ref(),
+            repo_root,
+            count_lines,
             b,
             &paths,
             &churn,
@@ -1019,6 +1031,7 @@ fn fold_commit(
 /// sight so the node vector only carries paths incident to a surviving edge.
 fn intern_node(
     repo_root: &Path,
+    count_lines: bool,
     id: usize,
     paths: &[String],
     churn: &[ChurnStat],
@@ -1031,9 +1044,13 @@ fn intern_node(
     let idx = nodes.len();
     let path = &paths[id];
     // Count newlines in the worktree file; absent/unreadable files report 0.
-    let lines = fs::read(repo_root.join(path))
-        .map(|bytes| bytes.iter().filter(|&&b| b == b'\n').count() as u32)
-        .unwrap_or(0);
+    let lines = if count_lines {
+        fs::read(repo_root.join(path))
+            .map(|bytes| bytes.iter().filter(|&&b| b == b'\n').count() as u32)
+            .unwrap_or(0)
+    } else {
+        0
+    };
     nodes.push(CoChangeNode {
         path: path.clone(),
         commits: churn[id].commits,
@@ -1042,6 +1059,242 @@ fn intern_node(
     });
     compact.insert(id, idx);
     idx
+}
+
+/// A file that historically changes together with a set of anchor files.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CoChangePartner {
+    /// Repo-relative, '/'-separated path.
+    pub path: String,
+    /// Commits that touched this file together with at least one anchor
+    /// (summed over anchors).
+    pub weight: u32,
+    /// Commits that touched this file within the scanned window.
+    pub commits: u32,
+    /// Highest share of an anchor's commits that also touched this file
+    /// (`weight(anchor, partner) / commits(anchor)`, 0..=1). "When the
+    /// anchor changes, this file changes too N% of the time."
+    pub confidence: f64,
+    /// Anchor paths this file co-changed with, strongest first.
+    pub anchors: Vec<String>,
+    /// Unix committer time of the newest commit touching this file.
+    pub last_commit_time: i64,
+}
+
+/// Co-change partners of `anchors` with the history totals they came from.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct CoChangePartners {
+    pub partners: Vec<CoChangePartner>,
+    /// Anchor paths found in the scanned history (directory anchors expand
+    /// to the files under them), with their commit counts.
+    pub matched_anchors: Vec<(String, u32)>,
+    pub commits_scanned: u32,
+    pub truncated: bool,
+}
+
+/// True when `path` is `anchor` itself or lies under the directory `anchor`.
+fn anchor_matches(anchor: &str, path: &str) -> bool {
+    let anchor = anchor.trim_end_matches('/');
+    if anchor.is_empty() {
+        return true;
+    }
+    path == anchor
+        || path
+            .strip_prefix(anchor)
+            .is_some_and(|rest| rest.starts_with('/'))
+}
+
+/// Ranks the files that changed in the same commits as `anchors`
+/// (repo-relative paths; a directory anchor matches every file under it).
+/// Edges come from [`co_change_graph`] over the newest `limit` commits
+/// (optionally windowed by `since`), dropping pairs seen fewer than
+/// `min_weight` times. Files that are themselves anchors are not reported.
+///
+/// Partners are ordered by weight, then confidence, then path.
+pub fn co_change_partners(
+    repo_root: impl AsRef<Path>,
+    anchors: &[String],
+    limit: usize,
+    since: Option<&str>,
+    min_weight: u32,
+) -> Result<CoChangePartners> {
+    let graph = co_change_graph_impl(repo_root.as_ref(), limit, since, min_weight, false)?;
+    let is_anchor = |path: &str| anchors.iter().any(|anchor| anchor_matches(anchor, path));
+    let anchor_ids: std::collections::BTreeSet<usize> = graph
+        .nodes
+        .iter()
+        .enumerate()
+        .filter(|(_, node)| is_anchor(&node.path))
+        .map(|(idx, _)| idx)
+        .collect();
+
+    /// Per partner: summed weight, best confidence, (anchor id, weight).
+    type Acc = (u32, f64, Vec<(usize, u32)>);
+    let mut acc: HashMap<usize, Acc> = HashMap::new();
+    for edge in &graph.edges {
+        let (anchor, partner) = match (
+            anchor_ids.contains(&edge.source),
+            anchor_ids.contains(&edge.target),
+        ) {
+            (true, false) => (edge.source, edge.target),
+            (false, true) => (edge.target, edge.source),
+            _ => continue,
+        };
+        let anchor_commits = graph.nodes[anchor].commits.max(1);
+        let confidence = (f64::from(edge.weight) / f64::from(anchor_commits)).min(1.0);
+        let entry = acc.entry(partner).or_insert((0, 0.0, Vec::new()));
+        entry.0 = entry.0.saturating_add(edge.weight);
+        if confidence > entry.1 {
+            entry.1 = confidence;
+        }
+        entry.2.push((anchor, edge.weight));
+    }
+
+    let mut partners: Vec<CoChangePartner> = acc
+        .into_iter()
+        .map(|(id, (weight, confidence, mut with))| {
+            with.sort_by(|a, b| {
+                b.1.cmp(&a.1)
+                    .then_with(|| graph.nodes[a.0].path.cmp(&graph.nodes[b.0].path))
+            });
+            let node = &graph.nodes[id];
+            CoChangePartner {
+                path: node.path.clone(),
+                weight,
+                commits: node.commits,
+                confidence,
+                anchors: with
+                    .into_iter()
+                    .map(|(anchor, _)| graph.nodes[anchor].path.clone())
+                    .collect(),
+                last_commit_time: node.last_commit_time,
+            }
+        })
+        .collect();
+    partners.sort_by(|a, b| {
+        b.weight
+            .cmp(&a.weight)
+            .then_with(|| b.confidence.total_cmp(&a.confidence))
+            .then_with(|| a.path.cmp(&b.path))
+    });
+
+    let mut matched_anchors: Vec<(String, u32)> = anchor_ids
+        .iter()
+        .map(|&id| (graph.nodes[id].path.clone(), graph.nodes[id].commits))
+        .collect();
+    matched_anchors.sort();
+
+    Ok(CoChangePartners {
+        partners,
+        matched_anchors,
+        commits_scanned: graph.commits_scanned,
+        truncated: graph.truncated,
+    })
+}
+
+/// Two files that changed together `weight` times (`a` < `b`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CoChangePair {
+    pub a: String,
+    pub b: String,
+    pub weight: u32,
+}
+
+/// The strongest co-change pairs of a history window.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CoChangePairs {
+    pub pairs: Vec<CoChangePair>,
+    pub commits_scanned: u32,
+    pub truncated: bool,
+}
+
+/// The strongest co-change pairs in the scanned history (no anchors),
+/// ordered by weight then paths, at most `top` (0 = all). Useful to spot
+/// hidden coupling across a repository.
+pub fn co_change_top_pairs(
+    repo_root: impl AsRef<Path>,
+    limit: usize,
+    since: Option<&str>,
+    min_weight: u32,
+    top: usize,
+) -> Result<CoChangePairs> {
+    let graph = co_change_graph_impl(repo_root.as_ref(), limit, since, min_weight, false)?;
+    let mut pairs: Vec<CoChangePair> = graph
+        .edges
+        .iter()
+        .map(|edge| {
+            let (a, b) = (
+                &graph.nodes[edge.source].path,
+                &graph.nodes[edge.target].path,
+            );
+            let (a, b) = if a <= b { (a, b) } else { (b, a) };
+            CoChangePair {
+                a: a.clone(),
+                b: b.clone(),
+                weight: edge.weight,
+            }
+        })
+        .collect();
+    pairs.sort_by(|x, y| {
+        y.weight
+            .cmp(&x.weight)
+            .then_with(|| x.a.cmp(&y.a))
+            .then_with(|| x.b.cmp(&y.b))
+    });
+    if top > 0 {
+        pairs.truncate(top);
+    }
+    Ok(CoChangePairs {
+        pairs,
+        commits_scanned: graph.commits_scanned,
+        truncated: graph.truncated,
+    })
+}
+
+/// `dir`'s path inside its Git work tree with a trailing `/` (`""` at the
+/// top level), as `git rev-parse --show-prefix` prints it.
+pub fn show_prefix(dir: impl AsRef<Path>) -> Result<String> {
+    let out = git_worktree_output(dir.as_ref(), &["rev-parse", "--show-prefix"])?;
+    Ok(String::from_utf8_lossy(&out).trim().to_string())
+}
+
+/// Top-level directory of the Git work tree holding `dir`.
+pub fn show_toplevel(dir: impl AsRef<Path>) -> Result<PathBuf> {
+    let out = git_worktree_output(dir.as_ref(), &["rev-parse", "--show-toplevel"])?;
+    Ok(PathBuf::from(String::from_utf8_lossy(&out).trim()))
+}
+
+/// Work-tree-relative paths that `git status` reports as staged, unstaged or
+/// untracked (`--untracked-files=all`; ignored files excluded). A rename or
+/// copy reports its destination path.
+pub fn changed_paths(dir: impl AsRef<Path>) -> Result<std::collections::BTreeSet<String>> {
+    let out = git_worktree_output(
+        dir.as_ref(),
+        &[
+            "-c",
+            "core.quotepath=false",
+            "status",
+            "--porcelain=v1",
+            "-z",
+            "--untracked-files=all",
+        ],
+    )?;
+    let mut changed = std::collections::BTreeSet::new();
+    let mut records = out.split(|b| *b == 0);
+    while let Some(record) = records.next() {
+        if record.len() < 4 || record[2] != b' ' {
+            continue;
+        }
+        let (index, worktree) = (record[0], record[1]);
+        if matches!(index, b'R' | b'C') {
+            let _ = records.next();
+        }
+        if index == b'!' && worktree == b'!' {
+            continue;
+        }
+        changed.insert(String::from_utf8_lossy(&record[3..]).into_owned());
+    }
+    Ok(changed)
 }
 
 pub fn file_log(
@@ -2301,6 +2554,91 @@ mod tests {
         let strict = co_change_graph(&root, 100, None, 4).expect("strict graph");
         assert!(strict.edges.is_empty());
         assert!(strict.nodes.is_empty());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn co_change_partners_rank_files_that_change_with_anchors() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(root.join("src")).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+
+        // api.rs changes 4 times: 3 with its test, 2 with the schema.
+        for i in 0..4 {
+            fs::write(root.join("src/api.rs"), format!("v{i}\n")).expect("write api");
+            if i < 3 {
+                fs::write(root.join("src/api_test.rs"), format!("t{i}\n")).expect("write test");
+            }
+            if i % 2 == 0 {
+                fs::write(root.join("schema.sql"), format!("s{i}\n")).expect("write schema");
+            }
+            commit_all(&root, "touch api", "2020-01-02T03:04:05+00:00");
+        }
+        // Unrelated pair: never a partner of api.rs.
+        for i in 0..2 {
+            fs::write(root.join("x.rs"), format!("{i}\n")).expect("write x");
+            fs::write(root.join("y.rs"), format!("{i}\n")).expect("write y");
+            commit_all(&root, "touch xy", "2020-01-03T03:04:05+00:00");
+        }
+
+        let got =
+            co_change_partners(&root, &["src/api.rs".to_string()], 100, None, 2).expect("partners");
+        let paths: Vec<&str> = got.partners.iter().map(|p| p.path.as_str()).collect();
+        assert_eq!(paths, vec!["src/api_test.rs", "schema.sql"]);
+        assert_eq!(got.partners[0].weight, 3);
+        assert!((got.partners[0].confidence - 0.75).abs() < 1e-9);
+        assert_eq!(got.partners[0].anchors, vec!["src/api.rs".to_string()]);
+        assert_eq!(got.matched_anchors, vec![("src/api.rs".to_string(), 4)]);
+        assert_eq!(got.commits_scanned, 6);
+
+        // A directory anchor covers both files under it; neither is reported.
+        let dir = co_change_partners(&root, &["src".to_string()], 100, None, 2).expect("dir");
+        let dir_paths: Vec<&str> = dir.partners.iter().map(|p| p.path.as_str()).collect();
+        assert_eq!(dir_paths, vec!["schema.sql"]);
+        // schema.sql co-changed twice with each of api.rs and api_test.rs.
+        assert_eq!(dir.partners[0].weight, 4);
+
+        let top = co_change_top_pairs(&root, 100, None, 2, 2).expect("pairs");
+        assert_eq!(top.commits_scanned, 6);
+        assert!(!top.truncated);
+        assert_eq!(
+            top.pairs[0],
+            CoChangePair {
+                a: "src/api.rs".to_string(),
+                b: "src/api_test.rs".to_string(),
+                weight: 3,
+            }
+        );
+        assert_eq!(top.pairs.len(), 2);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn changed_paths_lists_staged_unstaged_and_untracked_files() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(root.join("sub")).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("a.rs"), "a\n").expect("write a");
+        fs::write(root.join("sub/b.rs"), "b\n").expect("write b");
+        fs::write(root.join(".gitignore"), "ignored.log\n").expect("write ignore");
+        commit_all(&root, "init", "2020-01-02T03:04:05+00:00");
+        fs::write(root.join("a.rs"), "a2\n").expect("modify a");
+        fs::write(root.join("sub/new.rs"), "n\n").expect("untracked");
+        fs::write(root.join("ignored.log"), "x\n").expect("ignored");
+
+        let changed = changed_paths(&root).expect("changed");
+        let changed: Vec<&str> = changed.iter().map(String::as_str).collect();
+        assert_eq!(changed, vec!["a.rs", "sub/new.rs"]);
+        assert_eq!(show_prefix(root.join("sub")).expect("prefix"), "sub/");
+        assert_eq!(show_prefix(&root).expect("prefix"), "");
 
         let _ = fs::remove_dir_all(root);
     }
