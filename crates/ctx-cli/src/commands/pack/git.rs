@@ -79,6 +79,60 @@ fn parse_git_changed_paths(output: &[u8], prefix: &str) -> std::collections::BTr
     changed
 }
 
+/// Files under `root` that historically change in the same commits as
+/// `seeds` (paths relative to `root`), strongest first, with a
+/// human-readable selection reason. Callers keep the first N they can use. Seeds themselves, files outside `root`
+/// and files no longer on disk are left out. Without Git history the result
+/// is empty (with a warning unless `quiet`).
+pub(crate) fn pack_companions(root: &Path, seeds: &[String], quiet: bool) -> Vec<(String, String)> {
+    if seeds.is_empty() {
+        return Vec::new();
+    }
+    let lookup = ctx_git::show_toplevel(root).and_then(|top| {
+        let prefix = ctx_git::show_prefix(root)?;
+        let anchors: Vec<String> = seeds.iter().map(|seed| format!("{prefix}{seed}")).collect();
+        let found = ctx_git::co_change_partners(
+            &top,
+            &anchors,
+            crate::commands::cochange::DEFAULT_COMMITS,
+            None,
+            crate::commands::cochange::DEFAULT_MIN_WEIGHT,
+        )?;
+        Ok((prefix, found))
+    });
+    let (prefix, found) = match lookup {
+        Ok(found) => found,
+        Err(err) => {
+            if !quiet {
+                eprintln!("warning: --companions: git history unavailable: {err}");
+            }
+            return Vec::new();
+        }
+    };
+    let seeds: std::collections::BTreeSet<&str> = seeds.iter().map(String::as_str).collect();
+    found
+        .partners
+        .into_iter()
+        .filter_map(|partner| {
+            let rel = strip_git_root_prefix(&partner.path, &prefix)?;
+            if seeds.contains(rel.as_str()) || !root.join(&rel).is_file() {
+                return None;
+            }
+            let with = partner
+                .anchors
+                .first()
+                .and_then(|anchor| strip_git_root_prefix(anchor, &prefix))
+                .unwrap_or_default();
+            let reason = format!(
+                "companion: changed together with {with} in {} commit(s) ({:.0}% confidence)",
+                partner.weight,
+                partner.confidence * 100.0
+            );
+            Some((rel, reason))
+        })
+        .collect()
+}
+
 pub(crate) fn git_diff_entries(
     root: &Path,
     revspec: &str,

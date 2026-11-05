@@ -31,6 +31,86 @@ pub(crate) fn digest_since_days(since: &str) -> Result<i64, RpcError> {
     Ok(0)
 }
 
+/// True when `root` is inside a Git work tree (a subdirectory counts).
+pub(crate) fn is_git_work_tree(root: &Path) -> bool {
+    std::process::Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .output()
+        .is_ok_and(|out| out.status.success() && out.stdout.starts_with(b"true"))
+}
+
+/// `walk_root` relative to the server root, with a trailing `/` (empty when
+/// they are the same or `walk_root` lies outside the server root).
+pub(crate) fn server_relative_prefix(server_root: &Path, walk_root: &Path) -> String {
+    match walk_root.strip_prefix(server_root) {
+        Ok(rel) if !rel.as_os_str().is_empty() => {
+            let mut prefix = rel.to_string_lossy().replace('\\', "/");
+            prefix.push('/');
+            prefix
+        }
+        _ => String::new(),
+    }
+}
+
+/// Symbol counter for `ctx_digest`: the tree-sitter extractor MCP uses for
+/// `ctx_symbols` / `ctx_focus`.
+pub(crate) fn count_source_symbols(path: &str, content: &str) -> i64 {
+    ctx_symbols::extract_source(path, content.as_bytes()).len() as i64
+}
+
+/// Paths (relative to `root`, `/`-separated) that `git status` reports as
+/// staged, unstaged or untracked (ignored files excluded) under `root`.
+pub(crate) fn changed_paths_under(
+    root: &Path,
+) -> Result<std::collections::BTreeSet<String>, String> {
+    let prefix = ctx_git::show_prefix(root).map_err(|err| err.to_string())?;
+    let paths = ctx_git::changed_paths(root).map_err(|err| err.to_string())?;
+    Ok(paths
+        .into_iter()
+        .filter_map(|path| {
+            path.strip_prefix(prefix.as_str())
+                .filter(|rel| !rel.is_empty())
+                .map(str::to_string)
+        })
+        .collect())
+}
+
+/// Co-change partners of `seeds` (paths relative to `root`) that lie under
+/// `root`, strongest first, with a selection reason. Empty without history.
+pub(crate) fn co_change_companions(root: &Path, seeds: &[String]) -> Vec<(String, String)> {
+    let Ok(top) = ctx_git::show_toplevel(root) else {
+        return Vec::new();
+    };
+    let Ok(prefix) = ctx_git::show_prefix(root) else {
+        return Vec::new();
+    };
+    let anchors: Vec<String> = seeds.iter().map(|seed| format!("{prefix}{seed}")).collect();
+    let Ok(found) = ctx_git::co_change_partners(&top, &anchors, 500, None, 2) else {
+        return Vec::new();
+    };
+    found
+        .partners
+        .into_iter()
+        .filter_map(|partner| {
+            let rel = partner.path.strip_prefix(prefix.as_str())?.to_string();
+            let with = partner
+                .anchors
+                .first()
+                .and_then(|anchor| anchor.strip_prefix(prefix.as_str()))
+                .unwrap_or_default()
+                .to_string();
+            let reason = format!(
+                "companion: changed together with {with} in {} commit(s) ({:.0}% confidence)",
+                partner.weight,
+                partner.confidence * 100.0
+            );
+            Some((rel, reason))
+        })
+        .collect()
+}
+
 pub(crate) fn value_or_dash(input: &str) -> &str {
     if input.is_empty() {
         "-"

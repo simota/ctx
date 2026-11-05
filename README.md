@@ -84,9 +84,28 @@ ctx where "session login" --format json | ctx pack --from-where --budget 30000 -
 ```
 
 `ctx pack` は既定で末尾に `ctx:contract` manifest を埋め込みます。
+
+`--companions[=N]` を付けると、選んだファイル（`--changed` / `--from-where` / `--from-stdin` / `--from-mix`）と**過去のコミットで一緒に変更されてきたファイル**（テスト、スキーマ、設定など）を最大 N 件（既定 5）追加します。
+companion は選んだファイルの後ろに置かれ、予算はまず選んだファイルに使われます。
+
+```bash
+ctx pack --changed --companions --budget 30000
+```
 不要な場合は `--no-contract` を指定します。
 
-### 4. 小さく読む
+### 4. 一緒に変わるファイルを知る
+
+```bash
+ctx cochange src/server.rs
+ctx cochange src/auth/ --since 6mo --json
+ctx cochange                      # 最も強く結合したファイルのペア
+ctx cochange src/server.rs --format paths | ctx pack --from-stdin
+```
+
+`ctx cochange` は git 履歴から、指定ファイル（またはディレクトリ）と同じコミットで変更されてきたファイルを、共変更回数と confidence（そのファイルのコミットのうち相手も変更した割合）付きで並べます。
+変更前に「ついでに直す必要がありそうなファイル」を把握したり、レビューで変更漏れを疑う材料にできます。50 ファイルを超える一括コミットは結合のノイズとして除外します。
+
+### 5. 小さく読む
 
 ```bash
 ctx focus Pack --hops 1 --budget 8000
@@ -111,7 +130,8 @@ ctx noise --top 20
 | `ctx focus` | シンボル起点の mini-pack を生成 |
 | `ctx skim` | 単一ファイルを予算内に縮約 |
 | `ctx map` | token / file / symbol / churn の heatmap を表示 |
-| `ctx digest` | 最近の変更を要約 |
+| `ctx digest [ROOT]` | 最近の変更を要約（サブディレクトリを渡すとその配下に限定） |
+| `ctx cochange [PATH]` | 一緒に変更されてきたファイルを表示 |
 | `ctx diff [ROOT]` | HEAD からの差分を表示（`--watch` で変更をストリーム） |
 | `ctx replay` | pack snapshot を管理 |
 | `ctx noise` | context noise 候補を検出 |
@@ -126,7 +146,7 @@ ctx noise --top 20
 | `ctx mcp serve` | MCP server を stdio で起動 |
 | `ctx doctor` | 実行環境を診断 |
 
-詳細は各コマンドの `--help` を確認してください。
+詳細は各コマンドの `--help` を確認してください（`pack` / `where` / `cochange` / `digest` は利用可能なオプション一覧を表示します）。
 
 `ctx diff [ROOT]` は staged / unstaged / untracked（ignore 対象外）の変更を raw patch として出力します。
 `ctx diff [ROOT] --watch [--debounce 200ms] [--path PATH]...` は 100ms 間隔で監視し、変更が静止した時点の完全な patch snapshot（clean 遷移を含む）をイベント境界付きで出力します。
@@ -146,6 +166,9 @@ Claude Code や Cursor などの MCP client から、context 生成や検索を 
   }
 }
 ```
+
+提供する tool: `ctx_pack`（`changed` / `companions` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_roots_list`。
+編集前に `ctx_cochange {"anchor":"src/server.rs"}` で一緒に直すべきファイルを確認し、`ctx_pack {"changed":true,"companions":5}` で変更とその companion をまとめて渡す、といった使い方ができます。
 
 既定では server を起動した root 配下だけにファイルアクセスを制限します。
 複数 root を扱う場合は、意図を確認したうえで `--allow-outside-root` を使ってください。
@@ -221,6 +244,8 @@ crates/
   ctx-tui/             terminal UI
   ctx-replay/          pack snapshot support
   ctx-contract/        pack-as-contract verification
+  ctx-digest/          repository activity digest (CLI + MCP)
+  ctx-git/             git history helpers (log, churn, co-change)
   ctx-*/               supporting libraries
 web/                   Svelte / Vite frontend source
 crates/ctx-web/dist/   embedded frontend assets

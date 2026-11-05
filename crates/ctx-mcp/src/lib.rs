@@ -2,6 +2,7 @@ use std::io::{BufRead, Write};
 use std::path::PathBuf;
 
 mod budget;
+mod cochange;
 mod pack;
 mod prompts;
 mod protocol;
@@ -38,6 +39,12 @@ const MAX_SINCE_LEN: usize = 32;
 const MAX_TOP: i64 = 200;
 
 const MAX_ANCHOR_LEN: usize = 256;
+
+const MAX_COMMITS: i64 = 10_000;
+
+const MAX_COMPANIONS: i64 = 50;
+
+const MAX_MIN_WEIGHT: i64 = 1_000;
 
 const MAX_HOPS: i64 = 2;
 

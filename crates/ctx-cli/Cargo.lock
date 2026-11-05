@@ -439,6 +439,7 @@ dependencies = [
  "crossterm",
  "ctx-braid",
  "ctx-contract",
+ "ctx-digest",
  "ctx-echo",
  "ctx-focus",
  "ctx-git",
@@ -478,6 +479,16 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+]
+
+[[package]]
+name = "ctx-digest"
+version = "0.1.0"
+dependencies = [
+ "ctx-pack",
+ "ctx-tokens",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -534,7 +545,9 @@ name = "ctx-mcp"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "ctx-digest",
  "ctx-focus",
+ "ctx-git",
  "ctx-pack",
  "ctx-symbols",
  "ctx-tokens",

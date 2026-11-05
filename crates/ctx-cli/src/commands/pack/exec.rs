@@ -37,6 +37,17 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
     if !args.snapshot_id.is_empty() && !args.since_snapshot.is_empty() {
         return Err("--snapshot and --since-snapshot are mutually exclusive".to_string());
     }
+    if args.companions > 0 {
+        if !args.diff_spec.is_empty() {
+            return Err("pack: --companions does not apply to --diff".to_string());
+        }
+        if !(args.changed || args.from_where || args.from_stdin || !args.from_mix.is_empty()) {
+            return Err(
+                "pack: --companions needs a file selection to start from (--changed, --from-where, --from-stdin or --from-mix)"
+                    .to_string(),
+            );
+        }
+    }
     if !matches!(
         args.layout.as_str(),
         "" | "sequential" | "side-by-side" | "unified"
@@ -99,8 +110,30 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
         io::stdin()
             .read_to_end(&mut stdin)
             .map_err(|err| format!("pack: read stdin: {err}"))?;
-        let paths = ctx_pack::from_where::parse(&stdin).map_err(|err| err.to_string())?;
-        read_pack_paths_ordered(&root, &paths, args.budget, args.no_warnings, &cfg.security)?
+        let mut paths = ctx_pack::from_where::parse(&stdin).map_err(|err| err.to_string())?;
+        let mut reasons = std::collections::HashMap::new();
+        if args.companions > 0 {
+            let seeds: Vec<String> = paths
+                .iter()
+                .map(|path| ctx_pack::from_where::clean_input_path(path))
+                .filter(|path| !path.is_empty())
+                .collect();
+            for (path, reason) in pack_companions(&root, &seeds, args.no_warnings)
+                .into_iter()
+                .take(args.companions)
+            {
+                paths.push(path.clone());
+                reasons.insert(path, reason);
+            }
+        }
+        read_pack_paths_ordered(
+            &root,
+            &paths,
+            &reasons,
+            args.budget,
+            args.no_warnings,
+            &cfg.security,
+        )?
     } else if args.from_stdin {
         let mut stdin = String::new();
         io::stdin()

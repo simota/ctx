@@ -10,6 +10,7 @@ use crate::common::SecurityToml;
 pub(crate) fn read_pack_paths_ordered(
     root: &Path,
     paths: &[String],
+    reasons: &std::collections::HashMap<String, String>,
     budget: i64,
     quiet: bool,
     security: &SecurityToml,
@@ -60,7 +61,10 @@ pub(crate) fn read_pack_paths_ordered(
             tokens,
             score: 0,
             relevance: "selected".to_string(),
-            reason: "from-where".to_string(),
+            reason: reasons
+                .get(&clean)
+                .cloned()
+                .unwrap_or_else(|| "from-where".to_string()),
             symbols,
         });
     }
@@ -82,6 +86,9 @@ pub(crate) fn read_pack_root(
     };
     let ignore = PackIgnore::load(base, &cfg.ignore.patterns, respect_ctxignore);
     collect_pack_inputs(base, root, &ignore, &mut inputs)?;
+    // Companions are drawn from every walked (non-ignored) file, before the
+    // seed filters below narrow `inputs` down.
+    let all_inputs = (args.companions > 0).then(|| inputs.clone());
     apply_pack_time_filters(base, &mut inputs, args)?;
     if args.changed {
         let changed = git_changed_paths(base)?;
@@ -98,6 +105,11 @@ pub(crate) fn read_pack_root(
         inputs.retain(|input| wanted.contains(&input.path));
     }
     let ctx = ctx_pack::RelevanceContext::new(&args.goal, args.budget);
+    let seeds: Vec<String> = if all_inputs.is_some() {
+        inputs.iter().map(|input| input.path.clone()).collect()
+    } else {
+        Vec::new()
+    };
     let mut scored = Vec::new();
     let mut skipped = Vec::new();
     for input in inputs {
@@ -115,6 +127,34 @@ pub(crate) fn read_pack_root(
             a.0.path.cmp(&b.0.path)
         }
     });
+    // Co-change companions follow every selected file, strongest first, so
+    // the budget favours the files the user actually picked.
+    if let Some(all_inputs) = all_inputs {
+        let by_path: std::collections::HashMap<&str, &ctx_pack::FileInput> = all_inputs
+            .iter()
+            .map(|input| (input.path.as_str(), input))
+            .collect();
+        let mut added = 0;
+        for (path, reason) in pack_companions(base, &seeds, args.no_warnings) {
+            if added >= args.companions {
+                break;
+            }
+            let Some(input) = by_path.get(path.as_str()) else {
+                continue;
+            };
+            if args.api_only && !supports_api_only_light(&input.path) {
+                continue;
+            }
+            let mut result =
+                ctx_pack::relevance::score_relevance_with_ctx(input, &ctx, input.tokens);
+            if result.tier.is_empty() {
+                continue;
+            }
+            result.reason = reason;
+            scored.push(((*input).clone(), result));
+            added += 1;
+        }
+    }
     skipped.sort_by(|a, b| a.0.cmp(&b.0));
 
     let mut files = Vec::new();
@@ -478,11 +518,18 @@ mod tests {
         let root = root.to_path_buf();
         let paths = paths.to_vec();
         finishes_within(30, move || {
-            read_pack_paths_ordered(&root, &paths, 10_000, true, &SecurityToml::default())
-                .unwrap()
-                .into_iter()
-                .map(|file| file.path)
-                .collect()
+            read_pack_paths_ordered(
+                &root,
+                &paths,
+                &Default::default(),
+                10_000,
+                true,
+                &SecurityToml::default(),
+            )
+            .unwrap()
+            .into_iter()
+            .map(|file| file.path)
+            .collect()
         })
     }
 

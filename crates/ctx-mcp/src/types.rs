@@ -49,6 +49,8 @@ pub(crate) struct PackArgs {
     #[serde(default)]
     pub(crate) changed: bool,
     #[serde(default)]
+    pub(crate) companions: i64,
+    #[serde(default)]
     pub(crate) explain: bool,
 }
 
@@ -100,6 +102,25 @@ pub(crate) struct TreeArgs {
     pub(crate) since: Option<String>,
     pub(crate) until: Option<String>,
     pub(crate) use_mtime: Option<bool>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct CoChangeArgs {
+    #[serde(default)]
+    pub(crate) path: String,
+    #[serde(default)]
+    pub(crate) anchor: String,
+    #[serde(default)]
+    pub(crate) since: String,
+    #[serde(default)]
+    pub(crate) commits: i64,
+    #[serde(default)]
+    pub(crate) min_weight: i64,
+    #[serde(default)]
+    pub(crate) top: i64,
+    #[serde(default)]
+    pub(crate) format: String,
 }
 
 #[derive(Deserialize)]

@@ -85,6 +85,14 @@ and this project does not yet follow strict semver — see release notes per tag
   drop such links the same way.
 
 ### Fixed
+- MCP `ctx_digest` returned "native repository digest is not implemented"
+  for every repository; it now reports commits, authors, file churn, token /
+  symbol deltas and hot files (markdown, JSON or plain, with `page_size` /
+  `cursor` paging of hot files). The digest logic moved to the new
+  `ctx-digest` crate shared with `ctx digest`; MCP counts symbols with the
+  tree-sitter extractor, so its symbol delta can differ from the CLI's.
+- MCP `ctx_pack` with `changed: true` always returned an empty pack; it now
+  packs the files `git status` reports as staged, unstaged or untracked.
 - `ctx digest`: a renamed file is listed under its new path (as an add,
   with the old path as a delete) instead of only under the old path with
   its whole size as a negative token delta, and non-ASCII or
@@ -206,6 +214,26 @@ and this project does not yet follow strict semver — see release notes per tag
   character boundary instead of panicking.
 
 ### Added
+- `ctx cochange [PATH]...` lists the files that historically change in the
+  same commits as PATH (a file or directory), with how many times they moved
+  together, a confidence (share of PATH's commits that also touched the
+  file) and the last change date. Without PATH it ranks the most coupled
+  file pairs. `--since`, `--commits` (default 500), `--min-weight`
+  (default 2), `--top`, and `--format text|plain|json|paths`; `paths` feeds
+  `ctx pack --from-stdin`. Commits touching more than 50 files are left out
+  of the pairing as bulk edits.
+- `ctx pack --companions[=N]` adds up to N (default 5) co-change partners of
+  the selected files (`--changed`, `--from-where`, `--from-stdin`,
+  `--from-mix`) after them, each with a `companion: changed together with …`
+  reason, so a pack of a change also carries the tests, schemas and configs
+  that usually change with it. Without a selection it is an error.
+- MCP: new `ctx_cochange` tool (anchor partners or coupled pairs, markdown or
+  JSON) and a `companions` argument for `ctx_pack` (with `changed: true`).
+- `ctx digest [ROOT]` digests a repository other than the current directory;
+  a subdirectory scopes the digest to the changes under it, with paths
+  relative to it.
+- `ctx pack|where|cochange|digest --help` list the command's options instead
+  of a bare `[args]...`.
 - `ctx where --repos-only` (aliases `--only-repos`, `--repos`) prints the
   repositories that hold the ranked matches instead of the matches: a nested
   repository by its root-relative path and the repository enclosing the root

@@ -6,6 +6,9 @@ use std::path::{Path, PathBuf};
 use crate::common::*;
 use serde::Deserialize;
 
+/// Companions packed by a bare `--companions`.
+pub(crate) const DEFAULT_PACK_COMPANIONS: usize = 5;
+
 #[derive(Debug)]
 pub(crate) struct PackArgs {
     pub(crate) root: PathBuf,
@@ -28,6 +31,9 @@ pub(crate) struct PackArgs {
     pub(crate) explain: bool,
     pub(crate) preset: String,
     pub(crate) changed: bool,
+    /// Also pack up to this many co-change companions of the selected files
+    /// (`--companions[=N]`); 0 = off.
+    pub(crate) companions: usize,
     pub(crate) api_only: bool,
     pub(crate) layout: String,
     pub(crate) from_mix: String,
@@ -117,6 +123,7 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
     let mut explain = false;
     let mut preset = String::new();
     let mut changed = false;
+    let mut companions = 0usize;
     let mut api_only = false;
     let mut layout = "sequential".to_string();
     let mut from_mix = String::new();
@@ -232,6 +239,10 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
             preset_changed = true;
         } else if arg == OsStr::new("--changed") {
             changed = true;
+        } else if arg == OsStr::new("--companions") {
+            companions = DEFAULT_PACK_COMPANIONS;
+        } else if let Some(value) = flag_value(arg, "--companions") {
+            companions = value.to_string_lossy().parse().ok()?;
         } else if arg == OsStr::new("--api-only") {
             api_only = true;
         } else if let Some(value) = flag_value(arg, "--layout") {
@@ -311,6 +322,7 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
         explain,
         preset,
         changed,
+        companions,
         api_only,
         layout,
         from_mix,

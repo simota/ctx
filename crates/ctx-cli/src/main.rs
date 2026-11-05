@@ -6,6 +6,7 @@ use clap::{Arg, ArgAction, Command as ClapCommand};
 
 mod commands;
 mod common;
+mod help;
 mod tree;
 
 use crate::commands::audit::run_audit_verify;
@@ -13,6 +14,7 @@ use crate::commands::braid::run_braid_command;
 use crate::commands::browse::run_browse_command;
 use crate::commands::browse::run_mcp_command;
 use crate::commands::browse::run_tui_command;
+use crate::commands::cochange::run_cochange_command;
 use crate::commands::contract::run_contract_verify;
 use crate::commands::diff::run_diff_command;
 use crate::commands::digest::run_digest_command;
@@ -43,6 +45,10 @@ const COMMANDS: &[(&str, &str)] = &[
     ("mcp", "Run MCP server operations"),
     ("deps", "Show dependencies for a file"),
     ("impact", "Show import impact for a file"),
+    (
+        "cochange",
+        "Show files that historically change together with a file",
+    ),
     ("map", "Render repository heatmap"),
     ("tui", "Open interactive TUI"),
     ("replay", "Manage pack replay snapshots"),
@@ -152,6 +158,13 @@ fn try_run_native(args: &[OsString]) -> Option<ExitCode> {
         || flag_then_command(args, "replay")
     {
         return run_replay_command(args);
+    }
+    if args
+        .first()
+        .is_some_and(|arg| arg == OsStr::new("cochange"))
+        || flag_then_command(args, "cochange")
+    {
+        return run_cochange_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("noise"))
         || flag_then_command(args, "noise")
@@ -330,8 +343,13 @@ fn cli() -> ClapCommand {
                 Arg::new("args")
                     .num_args(0..)
                     .trailing_var_arg(true)
-                    .allow_hyphen_values(true),
+                    .allow_hyphen_values(true)
+                    // Documented commands list their real options below.
+                    .hide(help::command_help(name).is_some()),
             );
+        if let Some((usage, options)) = help::command_help(name) {
+            subcommand = subcommand.override_usage(usage).after_help(options);
+        }
         if *name == "diff" {
             // `diff` validates its own arguments and renders option-specific
             // help rather than the generic passthrough-subcommand help.

@@ -100,6 +100,7 @@ impl Server {
             "ctx_focus" => return Ok(self.run_focus(params.arguments.as_deref())?),
             "ctx_digest" => return Ok(self.run_digest(params.arguments.as_deref())?),
             "ctx_roots_list" => self.run_roots_list(params.arguments.as_deref())?,
+            "ctx_cochange" => return self.run_cochange(params.arguments.as_deref()),
             _ => {
                 return Ok(tool_error_result(&format!("unknown tool: {}", params.name)));
             }
@@ -126,6 +127,18 @@ impl Server {
         if args.format.is_empty() {
             args.format = "markdown".to_string();
         }
+        if args.companions < 0 || args.companions > MAX_COMPANIONS {
+            return invalid_params_with_hint(
+                &format!("companions must be between 0 and {MAX_COMPANIONS}"),
+                "suggested: 5",
+            );
+        }
+        if args.companions > 0 && !args.changed {
+            return invalid_params_with_hint(
+                "companions needs changed=true",
+                "call ctx_pack with {\"changed\":true,\"companions\":5}",
+            );
+        }
         Ok(args)
     }
 
@@ -134,15 +147,41 @@ impl Server {
         let root = self.resolve_path(&args.path)?;
         let mut files =
             collect_pack_files(&root, &self.walk_boundary(&root)).map_err(tool_error)?;
+        let mut companions = Vec::new();
         if args.changed {
-            files.clear();
+            let changed = changed_paths_under(&root).map_err(|err| {
+                tool_error(format!(
+                    "ctx_pack: changed=true needs a Git work tree: {err}"
+                ))
+            })?;
+            let (selected, rest): (Vec<PackFile>, Vec<PackFile>) = std::mem::take(&mut files)
+                .into_iter()
+                .partition(|file| changed.contains(&file.path));
+            files = selected;
+            if args.companions > 0 {
+                let seeds: Vec<String> = files.iter().map(|file| file.path.clone()).collect();
+                let mut by_path: BTreeMap<String, PackFile> = rest
+                    .into_iter()
+                    .map(|file| (file.path.clone(), file))
+                    .collect();
+                for (path, reason) in co_change_companions(&root, &seeds) {
+                    if companions.len() as i64 >= args.companions {
+                        break;
+                    }
+                    if let Some(file) = by_path.remove(&path) {
+                        companions.push((file, reason));
+                    }
+                }
+            }
         }
         // Per-file token counting + symbol extraction are independent.
-        files.par_iter_mut().for_each(|file| {
+        let count = |file: &mut PackFile| {
             file.tokens = count_file_tokens(&file.abs_path, file.size);
             file.symbols = ctx_symbols::extract(&file.abs_path).unwrap_or_default();
-        });
-        let plan = build_pack_plan(files, &args);
+        };
+        files.par_iter_mut().for_each(count);
+        companions.par_iter_mut().for_each(|(file, _)| count(file));
+        let plan = build_pack_plan(files, companions, &args);
         match args.format.as_str() {
             "json" => render_pack_json(&plan, &args).map_err(tool_error),
             "plain" => render_pack_plain(&plan, &args),
@@ -308,14 +347,48 @@ impl Server {
                 "suggested: '7d', '2w', or '1mo'",
             );
         }
+        if !matches!(args.format.as_str(), "" | "markdown" | "json" | "plain") {
+            return invalid_params_with_hint(
+                &format!("unknown format {:?}", args.format),
+                "allowed: markdown, json, plain",
+            );
+        }
         let root = self.resolve_path(&args.path)?;
-        let _ = &args.format;
-        if !root.join(".git").exists() {
+        // Like the Go server (go-git PlainOpen), `path` must be a repository
+        // root, not a directory somewhere inside one.
+        if !root.join(".git").exists() || !is_git_work_tree(&root) {
             return Ok(tool_error_result("repository does not exist"));
         }
-        Ok(tool_error_result(
-            "ctx_digest: native repository digest is not implemented",
-        ))
+        // The digest is scoped to `root` (paths relative to it); re-anchor
+        // them on the server root so the suggested `ctx_skim` / `ctx_focus`
+        // calls resolve to the same files.
+        let mut brief = match ctx_digest::generate(ctx_digest::DigestOptions {
+            root: Some(&root),
+            since: &args.since,
+            top: args.top as usize,
+            count_symbols: count_source_symbols,
+        }) {
+            Ok(brief) => brief,
+            Err(err) => return Ok(tool_error_result(&format!("ctx_digest: {err}"))),
+        };
+        let prefix = server_relative_prefix(&self.root, &root);
+        for hot in &mut brief.hot_files {
+            hot.path = format!("{prefix}{}", hot.path);
+        }
+        let total = brief.hot_files.len();
+        let (offset, size) = resolve_pagination(args.page_size, &args.cursor)?;
+        let (page, next_offset) = apply_page_window(&brief.hot_files, offset, size);
+        let returned = page.len();
+        brief.hot_files = page.to_vec();
+        let mut text = match args.format.as_str() {
+            "json" => ctx_digest::render_json(&brief).map_err(tool_error)?,
+            "plain" => ctx_digest::render_plain(&brief),
+            _ => ctx_digest::render_markdown(&brief),
+        };
+        if let Some(footer) = pagination_footer(returned, total, next_offset) {
+            text.push_str(&footer);
+        }
+        Ok(json!({"content": [{"type": "text", "text": text}]}))
     }
 
     pub(crate) fn run_roots_list(&self, raw: Option<&RawValue>) -> Result<String, RpcError> {

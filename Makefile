@@ -77,6 +77,8 @@ test:  ## Run the Rust test suites incl. the parity gate vs the go-oracle/v1 tag
 	cargo test --manifest-path crates/ctx-scan/Cargo.toml --features testing
 	cargo test --manifest-path crates/ctx-pack/Cargo.toml
 	cargo test --manifest-path crates/ctx-testinsights/Cargo.toml
+	cargo test --manifest-path crates/ctx-git/Cargo.toml
+	cargo test --manifest-path crates/ctx-digest/Cargo.toml
 
 lint:  ## Run clippy across the CLI and its workspace crates
 	cargo clippy --manifest-path $(CLI_MANIFEST) --all-targets

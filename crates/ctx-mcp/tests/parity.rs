@@ -84,6 +84,10 @@ enum Norm {
     /// Go emits the build's VCS commit hash here (changes every commit);
     /// `protocolVersion` is left untouched.
     Version,
+    /// Drop the Rust-only additions (the `ctx_cochange` tool and the
+    /// `ctx_pack` `companions` property), then compare bytes exactly. The
+    /// frozen Go oracle predates them; everything else stays byte-exact.
+    RustOnlyTools,
 }
 
 struct Case {
@@ -132,7 +136,7 @@ fn cases() -> Vec<Case> {
         single(
             "tools_list",
             &[r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#],
-            Norm::Exact,
+            Norm::RustOnlyTools,
         ),
         // prompts/list: not implemented in Rust → method_not_found.
         single(
@@ -596,7 +600,69 @@ fn normalize(body: &str, norm: Norm, abs_root: &str) -> String {
             strip_generated(body)
         }
         Norm::Version => strip_version(body),
+        Norm::RustOnlyTools => strip_rust_only_tools(body),
     }
+}
+
+/// Removes the JSON value that opens with `{` at byte `open`, plus one
+/// adjacent `,` so the surrounding array/object stays well-formed. Brace
+/// matching skips string literals (with escapes).
+fn remove_object_at(body: &str, member_start: usize, open: usize) -> String {
+    let bytes = body.as_bytes();
+    let (mut depth, mut in_str, mut escaped, mut end) = (0usize, false, false, open);
+    for (idx, &b) in bytes.iter().enumerate().skip(open) {
+        if in_str {
+            match (escaped, b) {
+                (true, _) => escaped = false,
+                (false, b'\\') => escaped = true,
+                (false, b'"') => in_str = false,
+                _ => {}
+            }
+            continue;
+        }
+        match b {
+            b'"' => in_str = true,
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    end = idx + 1;
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let (mut start, mut stop) = (member_start, end);
+    if bytes.get(stop) == Some(&b',') {
+        stop += 1;
+    } else if start > 0 && bytes[start - 1] == b',' {
+        start -= 1;
+    }
+    format!("{}{}", &body[..start], &body[stop..])
+}
+
+fn strip_rust_only_tools(body: &str) -> String {
+    let mut out = body.to_string();
+    let member = r#""companions":{"#;
+    if let Some(at) = out.find(member) {
+        out = remove_object_at(&out, at, at + member.len() - 1);
+    }
+    let tool = r#"{"description":"Rank the files that historically change"#;
+    if let Some(at) = out.find(tool) {
+        out = remove_object_at(&out, at, at);
+    }
+    out
+}
+
+#[test]
+fn strip_rust_only_tools_removes_additions_and_keeps_json_valid() {
+    let body = r#"{"tools":[{"description":"a {x}","inputSchema":{"properties":{"budget":{"type":"integer"},"companions":{"description":"b \"}\" c","type":"integer"},"explain":{"type":"boolean"}}},"name":"ctx_pack"},{"description":"Rank the files that historically change {}","name":"ctx_cochange"},{"name":"ctx_roots_list"}]}"#;
+    let got = strip_rust_only_tools(body);
+    assert_eq!(
+        got,
+        r#"{"tools":[{"description":"a {x}","inputSchema":{"properties":{"budget":{"type":"integer"},"explain":{"type":"boolean"}}},"name":"ctx_pack"},{"name":"ctx_roots_list"}]}"#
+    );
 }
 
 /// Replace the `serverInfo.version` string VALUE with `<VERSION>`. Anchors on
