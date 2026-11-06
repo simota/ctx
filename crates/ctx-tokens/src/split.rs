@@ -115,7 +115,9 @@ impl<'a> Pieces<'a> {
         }
     }
 
-    #[inline]
+    // `inline(always)`: left to `#[inline]`, the compiler kept this an
+    // out-of-line call per char, ~18% of counting's instructions.
+    #[inline(always)]
     fn char_at(&self, at: usize) -> Option<(char, u8)> {
         // ASCII fast path: no UTF-8 decoding for the common case.
         let &byte = self.text.as_bytes().get(at)?;
@@ -127,7 +129,7 @@ impl<'a> Pieces<'a> {
     }
 
     /// End of the maximal run starting at `at` of chars satisfying `keep`.
-    #[inline]
+    #[inline(always)]
     fn run_end(&self, mut at: usize, keep: impl Fn(char, u8) -> bool) -> usize {
         while let Some((ch, flags)) = self.char_at(at) {
             if !keep(ch, flags) {
