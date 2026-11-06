@@ -489,6 +489,33 @@ pub(crate) fn pack_input_effective_time(
     meta.modified().ok()
 }
 
+/// Repository-relative paths of every file an explicit selection could
+/// pack (the walk `read_pack_root` does for `--from-stdin`, without reading
+/// any file) — what `--from-refs` resolves mentions against.
+pub(crate) fn list_pack_paths(root: &Path, cfg: &PackCtxToml) -> Result<Vec<String>, String> {
+    let base = if root.is_file() {
+        root.parent().unwrap_or_else(|| Path::new("."))
+    } else {
+        root
+    };
+    let ignore = PackIgnore::load(base, &cfg.ignore.patterns, false);
+    let canonical_root = crate::common::canonical_walk_root(base);
+    let mut candidates = Vec::new();
+    collect_pack_input_paths(base, &canonical_root, root, &ignore, &mut candidates)?;
+    let mut paths: Vec<String> = candidates
+        .iter()
+        .map(|path| {
+            path.strip_prefix(base)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .replace('\\', "/")
+        })
+        .filter(|rel| !ignore.is_ignored_rel(rel, false))
+        .collect();
+    paths.sort();
+    Ok(paths)
+}
+
 pub(crate) fn collect_pack_inputs(
     root: &Path,
     path: &Path,

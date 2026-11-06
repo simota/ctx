@@ -17,7 +17,7 @@ Selection:
                               implies --changed. REV: main, origin/main, HEAD~3, ...
       --companions[=<N>]      Also pack up to N (default 5) files that usually change
                               together with the selected ones (git co-change); needs
-                              --changed, --from-where, --from-stdin or --from-mix
+                              --changed, --from-where, --from-stdin, --from-refs or --from-mix
       --since <WHEN>          Only files changed after a date or duration (7d, 2w, 2026-01-01)
       --until <WHEN>          Only files changed before a date or duration
       --use-mtime             Use file mtime instead of git commit time for --since/--until
@@ -30,9 +30,14 @@ Selection:
       --api-only              Keep public API signatures only
       --from-where            Read `ctx where --format json` results from stdin
       --around <N>            With --from-where: pack N lines either side of each
-                              matched line instead of whole files
+                              matched line instead of whole files. With --from-refs:
+                              lines either side of each referenced line (default 10)
       --from-stdin            Read paths (one per line) from stdin; `path:START-END`,
                               `path:N` or `path#LSTART-LEND` packs only those lines
+      --from-refs             Read free text from stdin (a model reply, stack trace,
+                              review comment, permalink) and pack the files and lines
+                              it mentions: `src/a.rs:40`, `a.ts:12:5`, `#L10-L20`,
+                              `File \"x.py\", line 8`, unique bare names (`store.rs`)
       --from-mix <ID|NAME>    Use a saved mix recipe (see `ctx mix`; may hold line ranges)
       --diff <BASE..HEAD>     Pack a git diff instead of files
       --layout <LAYOUT>       --diff layout: sequential, side-by-side, unified
@@ -60,6 +65,7 @@ Examples:
   ctx pack --include 'crates/ctx-web/**' --exclude tests --goal \"routing\" --overflow signatures
   echo 'src/store.rs:120-180' | ctx pack --from-stdin
   ctx where \"session expiry\" --json | ctx pack --from-where --around 15
+  pbpaste | ctx pack --from-refs --budget 20000      # files a reply or stack trace names
   ctx where \"session login\" --format json | ctx pack --from-where --companions=3",
         ),
         "where" => (
@@ -141,6 +147,8 @@ Command options:
       --id <ID>               Explicit id for save (default: derived from NAME)
       --from-where            Also read `ctx where --format json` results from stdin (save, add)
       --from-stdin            Also read paths, one per line, from stdin (save, add)
+      --from-refs             Also read free text from stdin and add the files and lines
+                              it mentions, as `ctx pack --from-refs` would (save, add)
       --root <DIR>            Repository root paths are stored relative to (default .)
       --json                  JSON output (save, list, show)
       --paths                 Print only the file list (show)

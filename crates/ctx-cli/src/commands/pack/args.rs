@@ -7,11 +7,18 @@ use serde::Deserialize;
 /// Companions packed by a bare `--companions`.
 pub(crate) const DEFAULT_PACK_COMPANIONS: usize = 5;
 
+/// Lines of context `--from-refs` packs either side of a referenced line
+/// when `--around` is not given: a stack-trace line alone says little.
+pub(crate) const DEFAULT_REFS_AROUND: usize = 10;
+
 #[derive(Debug)]
 pub(crate) struct PackArgs {
     pub(crate) root: PathBuf,
     pub(crate) from_where: bool,
     pub(crate) from_stdin: bool,
+    /// `--from-refs`: read free text (a model reply, a stack trace, a review
+    /// comment) from stdin and pack the files and lines it refers to.
+    pub(crate) from_refs: bool,
     pub(crate) diff_spec: String,
     pub(crate) since: String,
     pub(crate) until: String,
@@ -48,6 +55,9 @@ pub(crate) struct PackArgs {
     /// `--around <N>` (with `--from-where`): pack N lines either side of
     /// each matched line instead of whole files; 0 = off.
     pub(crate) around: usize,
+    /// Whether `--around` was given (`--from-refs` defaults to
+    /// [`DEFAULT_REFS_AROUND`] otherwise).
+    pub(crate) around_set: bool,
     pub(crate) why_paths: Vec<String>,
     pub(crate) snapshot_id: String,
     pub(crate) since_snapshot: String,
@@ -101,6 +111,7 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
     let mut plain = false;
     let mut from_where = false;
     let mut from_stdin = false;
+    let mut from_refs = false;
     let mut diff_spec = String::new();
     let mut since = String::new();
     let mut until = String::new();
@@ -127,6 +138,7 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
     let mut exclude = Vec::new();
     let mut overflow = "drop".to_string();
     let mut around = 0usize;
+    let mut around_set = false;
     let mut why_paths = Vec::new();
     let mut snapshot_id = String::new();
     let mut since_snapshot = String::new();
@@ -159,6 +171,8 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
             from_where = true;
         } else if arg == OsStr::new("--from-stdin") {
             from_stdin = true;
+        } else if arg == OsStr::new("--from-refs") {
+            from_refs = true;
         } else if let Some(value) = flag_value(arg, "--diff") {
             diff_spec = value.to_string_lossy().into_owned();
         } else if arg == OsStr::new("--diff") {
@@ -279,9 +293,11 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
             overflow = args.get(i)?.to_string_lossy().into_owned();
         } else if let Some(value) = flag_value(arg, "--around") {
             around = value.to_string_lossy().parse().ok()?;
+            around_set = true;
         } else if arg == OsStr::new("--around") {
             i += 1;
             around = args.get(i)?.to_string_lossy().parse().ok()?;
+            around_set = true;
         } else if let Some(value) = flag_value(arg, "--why") {
             why_paths.push(value.to_string_lossy().into_owned());
         } else if arg == OsStr::new("--why") {
@@ -332,6 +348,7 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
         },
         from_where,
         from_stdin,
+        from_refs,
         diff_spec,
         since,
         until,
@@ -358,6 +375,7 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
         exclude,
         overflow,
         around,
+        around_set,
         why_paths,
         snapshot_id,
         since_snapshot,
