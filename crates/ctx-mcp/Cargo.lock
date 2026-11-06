@@ -288,7 +288,6 @@ version = "0.1.0"
 dependencies = [
  "ctx-pack",
  "ctx-tokens",
- "rayon",
  "serde",
  "serde_json",
 ]
