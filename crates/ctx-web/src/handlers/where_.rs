@@ -13,12 +13,13 @@
 //! used in parity tests, no symbols are extracted, so scores are based on
 //! path/basename/content — identical to Go.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use axum::extract::rejection::QueryRejection;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use ctx_where::{FileInput, Options, SearchResult, SymbolInput};
@@ -77,7 +78,7 @@ pub async fn handle(
         Ok(q) => q,
         Err(e) => return response::bad_query(e),
     };
-    crate::blocking::run(move || handle_sync(state, params)).await
+    crate::blocking::run_parallel(move || handle_sync(state, params)).await
 }
 
 fn handle_sync(state: AppState, params: WhereParams) -> Response {
@@ -142,14 +143,27 @@ fn handle_sync(state: AppState, params: WhereParams) -> Response {
 /// for all non-directory files. Mirrors the minimal walk semantics of the
 /// Go `where.Search` call — skips hidden dirs, `node_modules`, `dist`,
 /// `coverage`, and reads file content as lines.
+///
+/// Two phases: a sequential walk lists the regular files (readdir only — it
+/// is also the only phase that can fail), then each file is read and parsed
+/// in parallel. Every file maps to a self-contained `FileInput` and the
+/// result is sorted by path, so the parallel phase cannot change it.
 fn collect_files(root: &Path, dir: &Path) -> Result<Vec<FileInput>, String> {
-    let mut out = Vec::new();
-    collect_files_inner(root, dir, &mut out)?;
+    let mut candidates = Vec::new();
+    collect_files_inner(root, dir, &mut candidates)?;
+    let mut out: Vec<FileInput> = candidates
+        .into_par_iter()
+        .filter_map(|(path, rel)| build_file_input(&path, rel))
+        .collect();
     out.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(out)
 }
 
-fn collect_files_inner(root: &Path, dir: &Path, out: &mut Vec<FileInput>) -> Result<(), String> {
+fn collect_files_inner(
+    root: &Path,
+    dir: &Path,
+    out: &mut Vec<(PathBuf, String)>,
+) -> Result<(), String> {
     let entries = std::fs::read_dir(dir).map_err(|e| format!("walk {}: {e}", dir.display()))?;
     for entry in entries.flatten() {
         let path = entry.path();
@@ -188,30 +202,34 @@ fn collect_files_inner(root: &Path, dir: &Path, out: &mut Vec<FileInput>) -> Res
             continue;
         }
 
-        // Skip binary-like files (non-UTF-8).
-        let Ok(body) = std::fs::read_to_string(&path) else {
-            continue;
-        };
-
-        let lines: Vec<String> = body.lines().map(|l| l.to_string()).collect();
-        let symbols = ctx_symbols::extract(&path)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|sym| SymbolInput {
-                name: sym.name,
-                kind: sym.kind,
-                line: i64::from(sym.line),
-            })
-            .collect();
-
-        out.push(FileInput {
-            path: rel,
-            is_dir: false,
-            symbols,
-            lines,
-        });
+        out.push((path, rel));
     }
     Ok(())
+}
+
+/// Read and parse one listed file, or `None` when it is not UTF-8 text.
+fn build_file_input(path: &Path, rel: String) -> Option<FileInput> {
+    // Skip binary-like files (non-UTF-8).
+    let body = std::fs::read_to_string(path).ok()?;
+
+    // Parse the body just read: `extract` would stat and read the file again.
+    let symbols = ctx_symbols::extract_source(path, body.as_bytes())
+        .into_iter()
+        .map(|sym| SymbolInput {
+            name: sym.name,
+            kind: sym.kind,
+            line: i64::from(sym.line),
+        })
+        .collect();
+    // Split after the parse, so its tree is freed before the lines exist.
+    let lines = ctx_where::split_lines(&body);
+
+    Some(FileInput {
+        path: rel,
+        is_dir: false,
+        symbols,
+        lines,
+    })
 }
 
 #[cfg(all(test, unix))]
