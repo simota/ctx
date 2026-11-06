@@ -49,6 +49,7 @@ sha2 = "0.10"
 tokio = { version = "1", features = ["rt-multi-thread", "signal", "macros", "time", "process"] }
 toml = "0.8"
 
-# malloc_trim (glibc only): see common::release_memory_after_large_file.
-[target.'cfg(all(target_os = "linux", target_env = "gnu"))'.dependencies]
+# malloc_trim (glibc only): see common::release_memory_after_large_file;
+# SIGPIPE reset for one-shot commands: see main::exit_quietly_on_broken_pipe.
+[target.'cfg(unix)'.dependencies]
 libc = "0.2"

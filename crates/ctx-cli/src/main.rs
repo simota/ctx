@@ -73,6 +73,7 @@ const COMMANDS: &[(&str, &str)] = &[
 
 fn main() -> ExitCode {
     let args: Vec<OsString> = env::args_os().collect();
+    exit_quietly_on_broken_pipe(&args[1..]);
 
     match cli().try_get_matches_from(args.clone()) {
         Ok(matches) => {
@@ -101,6 +102,28 @@ fn main() -> ExitCode {
             ExitCode::from(err.exit_code() as u8)
         }
     }
+}
+
+/// Rust ignores SIGPIPE, so `ctx pack | head` used to panic with
+/// "failed printing to stdout: Broken pipe" and a backtrace once the reader
+/// went away. One-shot commands restore the default disposition and simply
+/// end, like other Unix filters. The long-running servers (`browse`, `mcp`,
+/// `tui`) keep ignoring it so a client that hangs up cannot kill them.
+fn exit_quietly_on_broken_pipe(args: &[OsString]) {
+    #[cfg(unix)]
+    {
+        let server = args.iter().take(2).any(|arg| {
+            arg == OsStr::new("browse") || arg == OsStr::new("mcp") || arg == OsStr::new("tui")
+        });
+        if !server {
+            // SAFETY: called once at start-up, before any thread exists.
+            unsafe {
+                libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = args;
 }
 
 /// Flag-first form (`ctx --json pack`): the SECOND arg names the command only
