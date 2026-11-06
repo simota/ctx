@@ -45,6 +45,8 @@ const MAX_COMMITS: i64 = 10_000;
 const MAX_COMPANIONS: i64 = 50;
 /// Upper bound on `ctx_pack` `files` entries.
 const MAX_PACK_FILES: usize = 1_000;
+/// Upper bound on `ctx_pack` `include` / `exclude` patterns (each).
+const MAX_PACK_PATTERNS: usize = 64;
 /// Upper bound on a `ctx_pack` `mix` reference (id or name).
 const MAX_MIX_REF_LEN: usize = 200;
 

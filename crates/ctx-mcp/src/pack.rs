@@ -80,6 +80,7 @@ pub(crate) fn build_pack_plan(
             score: rel.score,
             relevance: rel.tier.clone(),
             reason: rel.reason.clone(),
+            digest: None,
         };
         match rel.tier.as_str() {
             "High" => high.push(candidate),
@@ -111,6 +112,7 @@ pub(crate) fn build_pack_plan(
             score: rel.score,
             relevance: rel.tier,
             reason,
+            digest: None,
         });
     }
 
@@ -121,11 +123,19 @@ pub(crate) fn build_pack_plan(
         used: 0,
         budget: args.budget,
     };
-    for candidate in high.into_iter().chain(medium).chain(extra) {
+    for mut candidate in high.into_iter().chain(medium).chain(extra) {
         if plan.used + candidate.tokens > plan.budget {
-            plan.skipped
-                .push((candidate.file.path.clone(), "budget exceeded".to_string()));
-            continue;
+            let digest = (args.overflow == "signatures")
+                .then(|| overflow_digest(&candidate))
+                .flatten()
+                .filter(|(_, tokens)| plan.used + tokens <= plan.budget);
+            let Some((digest, tokens)) = digest else {
+                plan.skipped
+                    .push((candidate.file.path.clone(), "budget exceeded".to_string()));
+                continue;
+            };
+            candidate.tokens = tokens;
+            candidate.digest = Some(digest);
         }
         plan.used += candidate.tokens;
         if candidate.relevance == "High" {
@@ -136,6 +146,31 @@ pub(crate) fn build_pack_plan(
     }
     plan.skipped.extend(skipped);
     plan
+}
+
+/// The signature digest (and its token count) of a candidate whose full
+/// text does not fit, read and redacted like a packed file.
+fn overflow_digest(candidate: &PackCandidate) -> Option<(String, i64)> {
+    let data = std::fs::read(&candidate.file.abs_path).ok()?;
+    let body = ctx_pack::redact::redact_secrets(
+        &candidate.file.abs_path.to_string_lossy(),
+        std::str::from_utf8(&data).ok()?,
+        &Default::default(),
+    );
+    let lines: Vec<i64> = candidate
+        .file
+        .symbols
+        .iter()
+        .map(|sym| sym.line as i64)
+        .collect();
+    let digest = ctx_pack::signatures::signature_digest(
+        &candidate.file.path,
+        &body,
+        &lines,
+        candidate.tokens,
+    )?;
+    let tokens = ctx_tokens::count_str(&digest).max(1);
+    Some((digest, tokens))
 }
 
 pub(crate) fn pack_file_input(file: &PackFile) -> ctx_pack::FileInput {
@@ -210,7 +245,10 @@ pub(crate) fn render_pack_markdown(plan: &PackPlan, args: &PackArgs) -> Result<S
     out.push_str("---\n\n");
     out.push_str("## File contents\n\n");
     for candidate in plan.high.iter().chain(&plan.medium) {
-        write_pack_file_content(&mut out, &candidate.file)?;
+        match &candidate.digest {
+            Some(digest) => write_pack_digest(&mut out, &candidate.file, digest),
+            None => write_pack_file_content(&mut out, &candidate.file)?,
+        }
     }
     Ok(out)
 }
@@ -227,13 +265,21 @@ pub(crate) fn write_pack_relevance_list(
     } else {
         for candidate in files {
             let tokens = format_count(candidate.tokens);
+            let note = if candidate.digest.is_some() {
+                ", signatures only"
+            } else {
+                ""
+            };
             if explain && !candidate.reason.is_empty() {
                 out.push_str(&format!(
-                    "- {} ({} tokens) - {}\n",
+                    "- {} ({} tokens{note}) - {}\n",
                     candidate.file.path, tokens, candidate.reason
                 ));
             } else {
-                out.push_str(&format!("- {} ({} tokens)\n", candidate.file.path, tokens));
+                out.push_str(&format!(
+                    "- {} ({} tokens{note})\n",
+                    candidate.file.path, tokens
+                ));
             }
         }
     }
@@ -268,6 +314,16 @@ pub(crate) fn pack_next_hint(plan: &PackPlan) -> Option<String> {
     } else {
         Some(out)
     }
+}
+
+fn write_pack_digest(out: &mut String, file: &PackFile, digest: &str) {
+    out.push_str(&format!("### {}\n\n", file.path));
+    out.push_str(&format!(
+        "```{}\n",
+        ctx_pack::diff::lang_from_path(&file.path)
+    ));
+    out.push_str(digest);
+    out.push_str("```\n\n");
 }
 
 pub(crate) fn write_pack_file_content(out: &mut String, file: &PackFile) -> Result<(), RpcError> {
@@ -308,6 +364,9 @@ pub(crate) fn render_pack_json(
                 m.insert("reason".to_string(), json!(candidate.reason));
             }
             m.insert("relevance".to_string(), json!(candidate.relevance));
+            if candidate.digest.is_some() {
+                m.insert("signatures_only".to_string(), json!(true));
+            }
             m.insert("tokens".to_string(), json!(candidate.tokens));
             Value::Object(m)
         })
@@ -339,8 +398,13 @@ pub(crate) fn render_pack_plain(plan: &PackPlan, args: &PackArgs) -> Result<Stri
         plan.high.len() + plan.medium.len()
     ));
     for candidate in plan.high.iter().chain(&plan.medium) {
+        let note = if candidate.digest.is_some() {
+            ", signatures only"
+        } else {
+            ""
+        };
         out.push_str(&format!(
-            "+ {}  ({} tokens)\n",
+            "+ {}  ({} tokens{note})\n",
             candidate.file.path, candidate.tokens
         ));
     }

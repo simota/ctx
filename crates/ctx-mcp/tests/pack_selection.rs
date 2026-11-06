@@ -145,3 +145,56 @@ fn mix_packs_a_saved_recipe_with_its_goal_and_budget() {
     let err = reply.to_string();
     assert!(err.contains("recipe not found"), "{err}");
 }
+
+#[test]
+fn include_and_exclude_scope_a_directory_walk() {
+    let root = repo("filters");
+    std::fs::create_dir_all(root.join("src/tests")).unwrap();
+    std::fs::write(root.join("src/tests/t.rs"), "fn t() {}\n").unwrap();
+    let body = text(&call(
+        &root,
+        json!({"path": ".", "include": ["*.rs"], "exclude": ["tests", "b.rs"], "format": "json"}),
+    ));
+    let pack: Value = serde_json::from_str(&body).unwrap();
+    let included: Vec<&str> = pack["included"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["path"].as_str().unwrap())
+        .collect();
+    assert_eq!(included, vec!["src/a.rs"], "{body}");
+
+    let reply = call(&root, json!({"path": ".", "include": ["*.{rs"]}));
+    assert!(reply["error"].is_object(), "{reply}");
+    let reply = call(
+        &root,
+        json!({"path": ".", "files": ["src/a.rs"], "include": ["*.rs"]}),
+    );
+    assert!(reply["error"].is_object(), "{reply}");
+}
+
+#[test]
+fn overflow_signatures_packs_declarations_of_a_file_over_budget() {
+    let root = repo("overflow");
+    let big: String = (0..200)
+        .map(|i| format!("pub fn handler_{i}() -> u32 {{\n    let v = {i};\n    v * 2 + 1\n}}\n\n"))
+        .collect();
+    std::fs::write(root.join("src/handlers.rs"), big).unwrap();
+    let args = |overflow: &str| json!({"path": ".", "goal": "handlers", "budget": 2500, "overflow": overflow, "format": "markdown"});
+    let dropped = text(&call(&root, args("drop")));
+    assert!(
+        dropped.contains("- src/handlers.rs (budget exceeded)"),
+        "{dropped}"
+    );
+    let kept = text(&call(&root, args("signatures")));
+    assert!(
+        kept.contains("- src/handlers.rs (2.4k tokens, signatures only)"),
+        "{kept}"
+    );
+    assert!(kept.contains("1: pub fn handler_0() -> u32 {\n"), "{kept}");
+    assert!(!kept.contains("let v = 0;"), "{kept}");
+    assert!(!kept.contains("(budget exceeded)"), "{kept}");
+
+    let reply = call(&root, args("trim"));
+    assert!(reply["error"].is_object(), "{reply}");
+}

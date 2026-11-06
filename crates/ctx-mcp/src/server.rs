@@ -143,11 +143,41 @@ impl Server {
             validate_len("files[]", file, MAX_PATH_LEN)?;
         }
         validate_len("mix", &args.mix, MAX_MIX_REF_LEN)?;
+        if args.include.len() > MAX_PACK_PATTERNS || args.exclude.len() > MAX_PACK_PATTERNS {
+            return invalid_params_with_hint(
+                &format!("include / exclude hold at most {MAX_PACK_PATTERNS} patterns each"),
+                "use ** or {a,b} to cover several paths with one pattern",
+            );
+        }
+        for pattern in args.include.iter().chain(&args.exclude) {
+            validate_len("include/exclude[]", pattern, MAX_PATH_LEN)?;
+        }
+        if let Err(err) = ctx_pack::pathfilter::PathFilter::new(&args.include, &args.exclude) {
+            return invalid_params_with_hint(
+                &format!("include / exclude: {err}"),
+                "e.g. {\"include\":[\"src/**/*.rs\"],\"exclude\":[\"tests\"]}",
+            );
+        }
+        if args.overflow.is_empty() {
+            args.overflow = "drop".to_string();
+        }
+        if !matches!(args.overflow.as_str(), "drop" | "signatures") {
+            return invalid_params_with_hint(
+                &format!("unknown overflow {:?}", args.overflow),
+                "use \"drop\" or \"signatures\"",
+            );
+        }
         let selection = !args.files.is_empty() || !args.mix.trim().is_empty();
         if !args.files.is_empty() && !args.mix.trim().is_empty() {
             return invalid_params_with_hint(
                 "files and mix are mutually exclusive",
                 "pass either {\"files\":[...]} or {\"mix\":\"<id>\"}",
+            );
+        }
+        if selection && (!args.include.is_empty() || !args.exclude.is_empty()) {
+            return invalid_params_with_hint(
+                "files / mix cannot be combined with include or exclude",
+                "list only the files you want in 'files'",
             );
         }
         if selection && (args.changed || args.companions > 0) {
@@ -178,6 +208,11 @@ impl Server {
         }
         let mut files =
             collect_pack_files(&root, &self.walk_boundary(&root)).map_err(tool_error)?;
+        let filter = ctx_pack::pathfilter::PathFilter::new(&args.include, &args.exclude)
+            .map_err(tool_error)?;
+        if !filter.is_empty() {
+            files.retain(|file| filter.allows(&file.path));
+        }
         let mut companions = Vec::new();
         if args.changed {
             let changed = changed_paths_under(&root).map_err(|err| {
