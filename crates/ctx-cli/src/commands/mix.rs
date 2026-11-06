@@ -22,7 +22,8 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use crate::commands::pack::{
-    collect_pack_inputs, load_pack_ctx_toml, parse_pack_stdin_paths, PackIgnore,
+    collect_pack_inputs, list_pack_paths, load_pack_ctx_toml, parse_pack_stdin_paths, PackIgnore,
+    DEFAULT_REFS_AROUND,
 };
 use crate::common::*;
 
@@ -37,12 +38,13 @@ struct MixArgs {
     budget: Option<i64>,
     from_stdin: bool,
     from_where: bool,
+    from_refs: bool,
     json: bool,
     paths_only: bool,
 }
 
 const USAGE: &str = "usage: ctx mix <save|list|show|add|drop|set|rm> ...\n\
-  ctx mix save NAME [PATH...] [--goal G] [--budget N] [--id ID] [--from-where|--from-stdin]\n\
+  ctx mix save NAME [PATH...] [--goal G] [--budget N] [--id ID] [--from-where|--from-stdin|--from-refs]\n\
   ctx mix list [--json]\n\
   ctx mix show ID|NAME [--json|--paths]\n\
   ctx mix add ID|NAME PATH...      (PATH may be a file:START-END line range)\n\
@@ -91,6 +93,8 @@ fn parse_mix_args(args: &[OsString]) -> Result<MixArgs, String> {
             out.from_stdin = true;
         } else if arg == OsStr::new("--from-where") {
             out.from_where = true;
+        } else if arg == OsStr::new("--from-refs") {
+            out.from_refs = true;
         } else if let Some(value) = flag_value(arg, "--goal") {
             out.goal = Some(value.to_string_lossy().into_owned());
         } else if arg == OsStr::new("--goal") {
@@ -225,13 +229,55 @@ fn resolve_cli_paths(root: &Path, raw: &[String]) -> Result<Vec<String>, String>
 
 /// Paths from `ctx where --json` / a newline list on stdin, kept only when
 /// they name a file under `root`.
-fn read_stdin_paths(root: &Path, from_where: bool) -> Result<Vec<String>, String> {
+/// Whether `save` / `add` read stdin, and as what.
+fn stdin_mode(args: &MixArgs, action: &str) -> Result<Option<StdinMode>, String> {
+    let modes = [
+        (args.from_where, StdinMode::Where),
+        (args.from_stdin, StdinMode::Paths),
+        (args.from_refs, StdinMode::Refs),
+    ];
+    let mut set = modes.iter().filter(|(on, _)| *on).map(|(_, mode)| *mode);
+    let first = set.next();
+    if set.next().is_some() {
+        return Err(format!(
+            "mix {action}: --from-where, --from-stdin and --from-refs are mutually exclusive"
+        ));
+    }
+    Ok(first)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StdinMode {
+    /// `ctx where --format json` output.
+    Where,
+    /// One path (or `path:START-END`) per line.
+    Paths,
+    /// Free text whose file references are resolved (`ctx pack --from-refs`).
+    Refs,
+}
+
+fn read_stdin_paths(root: &Path, mode: StdinMode) -> Result<Vec<String>, String> {
     let mut stdin = Vec::new();
     std::io::stdin()
         .read_to_end(&mut stdin)
         .map_err(|err| format!("mix: read stdin: {err}"))?;
-    let paths = if from_where {
+    let paths = if mode == StdinMode::Where {
         ctx_pack::from_where::parse(&stdin).map_err(|err| format!("mix: --from-where: {err}"))?
+    } else if mode == StdinMode::Refs {
+        let cfg = load_pack_ctx_toml(root)?;
+        let files = list_pack_paths(root, &cfg)?;
+        let scan = ctx_pack::refs::scan(
+            &String::from_utf8_lossy(&stdin),
+            &files,
+            DEFAULT_REFS_AROUND,
+        );
+        for miss in &scan.unresolved {
+            eprintln!(
+                "warning: mix: --from-refs: {} (input line {}): {}",
+                miss.mention, miss.input_line, miss.reason
+            );
+        }
+        scan.specs()
     } else {
         parse_pack_stdin_paths(&String::from_utf8_lossy(&stdin))
     };
@@ -271,16 +317,14 @@ fn save(store: &ctx_mix::Store, args: MixArgs) -> Result<(), String> {
     let Some((name, paths)) = args.positionals.split_first() else {
         return Err("mix save: a NAME is required\nusage: ctx mix save NAME [PATH...]".to_string());
     };
-    if args.from_where && args.from_stdin {
-        return Err("mix save: --from-where and --from-stdin are mutually exclusive".to_string());
-    }
+    let mode = stdin_mode(&args, "save")?;
     let mut files = resolve_cli_paths(&root, paths)?;
-    if args.from_where || args.from_stdin {
-        files.extend(read_stdin_paths(&root, args.from_where)?);
+    if let Some(mode) = mode {
+        files.extend(read_stdin_paths(&root, mode)?);
     }
     if files.is_empty() {
         return Err(
-            "mix save: no files selected (pass PATH..., or pipe paths with --from-stdin / --from-where)"
+            "mix save: no files selected (pass PATH..., or pipe paths with --from-stdin / --from-where / --from-refs)"
                 .to_string(),
         );
     }
@@ -415,9 +459,10 @@ fn show(store: &ctx_mix::Store, args: &MixArgs) -> Result<(), String> {
 fn add(store: &ctx_mix::Store, args: MixArgs) -> Result<(), String> {
     let mut mix = find_one(store, &args, "add")?;
     let root = root_of(&args)?;
+    let mode = stdin_mode(&args, "add")?;
     let mut added = resolve_cli_paths(&root, &args.positionals[1..])?;
-    if args.from_where || args.from_stdin {
-        added.extend(read_stdin_paths(&root, args.from_where)?);
+    if let Some(mode) = mode {
+        added.extend(read_stdin_paths(&root, mode)?);
     }
     if added.is_empty() {
         return Err("mix add: no files given".to_string());

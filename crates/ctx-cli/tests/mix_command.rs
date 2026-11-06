@@ -235,3 +235,34 @@ fn pack_from_mix_warns_about_files_missing_from_the_tree() {
     assert_eq!(packed_paths(&ok(out)), vec!["src/main.rs"]);
     assert!(stderr.contains("lists README.md"), "{stderr}");
 }
+
+#[test]
+fn save_from_refs_records_the_files_and_lines_a_reply_mentions() {
+    let (root, state) = fixture("refs");
+    let reply =
+        "The refresh lives in `token.rs`; the entry point is src/main.rs:1.\nlogin.rs is fine.";
+    let stdout = ok(ctx(
+        &root,
+        &state,
+        &["mix", "save", "reply", "--from-refs", "--json"],
+        Some(reply),
+    ));
+    let mix: Value = serde_json::from_str(&stdout).unwrap();
+    let files: Vec<&str> = mix["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f.as_str().unwrap())
+        .collect();
+    assert_eq!(
+        files,
+        vec!["src/auth/token.rs", "src/main.rs:1-11", "src/auth/login.rs"]
+    );
+    let out = ctx(
+        &root,
+        &state,
+        &["mix", "add", "reply", "--from-refs", "--from-stdin"],
+        Some("x"),
+    );
+    assert!(!out.status.success());
+}
