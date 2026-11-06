@@ -359,7 +359,8 @@ pub(crate) fn focus_files(root: &Path) -> Result<Vec<ctx_focus::FileInput>, Stri
 }
 
 pub(crate) fn estimate_focus_tokens(root: &Path, input: &ctx_focus::FileInput) -> i64 {
-    // Mirror Go's tokens.CountFile on the raw file (see estimate_where_tokens).
+    // Mirror Go's tokens.CountFile on the raw file (see
+    // where_cmd::build_where_file_stat).
     let abs = root.join(&input.path);
     let abs_str = abs.to_string_lossy();
     match ctx_tokens::count_file(&abs_str) {
