@@ -8,6 +8,18 @@ and this project does not yet follow strict semver — see release notes per tag
 ## [Unreleased]
 
 ### Added
+- `ctx pack --base <REV>` (MCP `ctx_pack` `base`): a branch-review pack of
+  every file the current branch changes relative to REV — changed since the
+  merge base in commits, staged, unstaged or untracked — where `--changed`
+  only saw uncommitted work. Implies `--changed`; combines with `--goal`,
+  `--companions`, `--include`/`--exclude` and `--overflow`. Each file's
+  reason carries its `+/-` line counts and whether the change is committed
+  or not; files deleted on the branch are listed as omitted
+  (`deleted vs <REV>`). REV is any revision git resolves (`origin/main`,
+  `HEAD~3`, a hash); unknown or option-like values are errors.
+- `ctx browse` Git Log → Review: "Pin N changed files" pins the range's
+  changed files (deleted ones excluded), so a branch diff can be packed
+  from the pinned board.
 - `ctx pack` records what it left out. Files dropped for the budget, listed
   files that could not be read and files removed by `--include`/`--exclude`
   are listed with their reason in a Markdown `## Omitted files` section
@@ -50,6 +62,10 @@ and this project does not yet follow strict semver — see release notes per tag
   reported as skipped.
 
 ### Fixed
+- `ctx pack | head`, `ctx where … | head` and every other one-shot command
+  panicked with "failed printing to stdout: Broken pipe" and a backtrace
+  when the reader closed the pipe early. They now end quietly like other
+  Unix filters (`browse`, `mcp` and `tui` are unaffected).
 - `ctx pack --from-stdin` / `--from-mix` with a `--goal` (or a recipe
   goal) silently dropped every listed file that did not score against the
   goal, often producing an empty pack. Explicitly selected files are now

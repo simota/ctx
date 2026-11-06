@@ -93,6 +93,17 @@ companion は選んだファイルの後ろに置かれ、予算はまず選ん�
 ctx pack --changed --companions --budget 30000
 ```
 
+#### ブランチ全体をレビュー用に pack する
+
+```bash
+ctx pack --base main --goal "review this branch" --companions
+ctx pack --base origin/main --explain --out review.md
+```
+
+`--changed` が見るのは未コミットの変更だけです。`--base <REV>` を付けると、REV との merge-base 以降にこのブランチで変わったファイル（コミット済み・staged・unstaged・untracked）をまとめて pack します（`--changed` を含意）。PR を出す前のセルフレビューや、作業途中のブランチを LLM に引き継ぐときに使えます。
+各ファイルの選択理由には `changed vs main (+12 -3, committed + uncommitted)` のように差分行数と状態が入り（`--explain` / JSON の `reason`）、ブランチで削除したファイルは `## Omitted files` に `deleted vs main` として記録されます。
+REV には `main`、`origin/main`、`HEAD~3`、commit hash など git が解釈できるリビジョンを指定でき、解決できない場合や `-` で始まる値はエラーになります。パッチそのものが必要な場合は `--diff main..HEAD` を使ってください。
+
 #### 範囲を絞る・予算に収まらないファイルを扱う
 
 ```bash
@@ -203,7 +214,8 @@ Claude Code や Cursor などの MCP client から、context 生成や検索を 
 }
 ```
 
-提供する tool: `ctx_pack`（`changed` / `companions` / `files` / `mix` / `include` / `exclude` / `overflow` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_roots_list`。
+提供する tool: `ctx_pack`（`changed` / `base` / `companions` / `files` / `mix` / `include` / `exclude` / `overflow` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_roots_list`。
+ブランチ全体を渡すには `ctx_pack {"base":"main","companions":5}`（merge-base 以降の変更＋作業ツリーの変更）を使います。
 編集前に `ctx_cochange {"anchor":"src/server.rs"}` で一緒に直すべきファイルを確認し、`ctx_pack {"changed":true,"companions":5}` で変更とその companion をまとめて渡す、といった使い方ができます。
 `ctx_where` で見つけたファイルだけを渡すには `ctx_pack {"files":["src/a.rs","src/b.rs"]}`（指定順に pack し、budget 超過・root 外・存在しないファイルは skipped として報告）、保存済み mix は `ctx_pack {"mix":"auth-review"}` で pack できます。
 ディレクトリ walk は `ctx_pack {"include":["src/**/*.rs"],"exclude":["tests"],"overflow":"signatures"}` のように CLI と同じ glob で絞り、予算に入らない関連ファイルをシグネチャだけで渡せます。
@@ -231,6 +243,7 @@ Codespaces などの port forwarding や reverse proxy が独自の hostname を
 Pins 画面（`#/pins`）では、ピン留めしたファイルを並び順のまま context pack にできます（goal / budget / Markdown・Plain を指定し、Copy または Download）。
 同じ選択を mix として保存すると `ctx pack --from-mix <id>` や MCP から再利用でき、保存済み mix の Pack / ピンへの読み込み / 削除もここから行えます。
 検索結果の「Pin all N results」で `where` の結果をまとめてピン留めできるので、検索 → ピン → pack をブラウザだけで完結できます。
+Git Log の Review 画面（`#/gitlog/review`）の「Pin N changed files」は、base..head で変更されたファイル（削除済みを除く）をピン留めし、ブランチ差分のレビュー → pack を同じ流れで行えます（内容は作業ツリーから読みます）。
 状態を変更する API（`POST /api/mix`、`DELETE /api/mix/<id>`、`POST /api/pack`）は `Content-Type: application/json` を必須とし、ブラウザが cross-site と示すリクエスト（別 `Origin` / `Sec-Fetch-Site: cross-site`）を `403 forbidden_origin` で拒否します。
 
 Frontend を変更した場合:
