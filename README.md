@@ -139,6 +139,22 @@ ctx mix save "store body" src/store.rs:120-180 src/main.rs
 
 pack contract は、excerpt と signatures-only のファイルについて**実際に見せた行だけ**を元の行番号で記録します（`"partial": true`）。`ctx contract verify` は見せた行の引用を受け入れ、見せていない行の引用を `out-of-context`（`referenced lines were not in the pack`）として検出し、`--check-worktree` では見せた行が変わった場合だけ stale と判定します。
 
+#### 返答・スタックトレースが指すファイルを pack する
+
+```bash
+pbpaste | ctx pack --from-refs --budget 20000
+ctx pack --from-refs --around 20 < stacktrace.txt
+gh pr view 42 --comments | ctx pack --from-refs --companions
+```
+
+`--from-refs` は stdin の**自由なテキスト**（LLM の返答、スタックトレース、コンパイルエラー、レビューコメント、GitHub permalink）から、このリポジトリのファイルへの言及を拾い、そのファイルと行だけを pack します。LLM が「`src/store.rs:120-180` と `session.rs` を見せて」と返したとき、パスを手で書き出さずにそのまま次の pack を作れます。
+
+- 認識する形式: `src/a.rs`、`src/a.rs:40`、`src/a.rs:40-60`、`a.ts:12:5`、`#L10-L20`（permalink）、`File "app/db.py", line 88`（Python）、`` `src/a.rs` lines 120-180 ``、`--> src/main.rs:10:5`（rustc）。
+- リポジトリに無い先頭部分（`/home/ci/build/`、`a/`・`b/`、`https://github.com/o/r/blob/main/`）は落として照合します。ディレクトリ付きの言及は末尾 2 階層以上が一致した場合だけ、ディレクトリ無しの名前（`store.rs`）は一意に決まる場合だけ解決します。
+- 行を指す言及は前後 `--around N` 行（既定 10）付きの excerpt に、行を指さない言及はファイル全体になります。同じファイルが両方で言及された場合は行を優先します。
+- 一致しない言及・複数に一致する言及は警告し、`## Omitted files` に理由付きで記録します（`.env` などの ignore / secret ファイルは解決対象になりません）。何も解決できなければエラーです。
+- `ctx mix save NAME --from-refs` で同じ選択を mix に保存でき、`ctx browse` の Pins 画面（「From a reply or stack trace」）と MCP `ctx_pack` の `refs` でも同じことができます。
+
 ### 4. 一緒に変わるファイルを知る
 
 ```bash
@@ -156,6 +172,7 @@ ctx cochange src/server.rs --format paths | ctx pack --from-stdin
 ```bash
 ctx mix save "auth review" src/auth/ src/session.rs --goal "session expiry" --budget 30000
 ctx where "session login" --json | ctx mix save login --from-where
+pbpaste | ctx mix save "reply follow-up" --from-refs   # 返答が言及したファイルと行
 ctx mix list
 ctx mix show auth-review              # 現在の root に無いファイルは "(missing here)"
 ctx mix add auth-review tests/session_test.rs
@@ -233,8 +250,9 @@ Claude Code や Cursor などの MCP client から、context 生成や検索を 
 }
 ```
 
-提供する tool: `ctx_pack`（`changed` / `base` / `companions` / `files` / `mix` / `include` / `exclude` / `overflow` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_roots_list`。
+提供する tool: `ctx_pack`（`changed` / `base` / `companions` / `files` / `mix` / `refs` / `include` / `exclude` / `overflow` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_roots_list`。
 signatures only で渡されたファイルの本体は `ctx_pack {"files":["src/store.rs:120-180"]}` のように行範囲で要求できます。
+ユーザーが貼ったスタックトレースやエラーは `ctx_pack {"refs":"<text>","around":15}` で、言及されたファイルと行（前後 15 行）にまとめて pack できます（解決できなかった言及は `## Unresolved references` に列挙）。
 ブランチ全体を渡すには `ctx_pack {"base":"main","companions":5}`（merge-base 以降の変更＋作業ツリーの変更）を使います。
 編集前に `ctx_cochange {"anchor":"src/server.rs"}` で一緒に直すべきファイルを確認し、`ctx_pack {"changed":true,"companions":5}` で変更とその companion をまとめて渡す、といった使い方ができます。
 `ctx_where` で見つけたファイルだけを渡すには `ctx_pack {"files":["src/a.rs","src/b.rs"]}`（指定順に pack し、budget 超過・root 外・存在しないファイルは skipped として報告）、保存済み mix は `ctx_pack {"mix":"auth-review"}` で pack できます。
@@ -263,8 +281,9 @@ Codespaces などの port forwarding や reverse proxy が独自の hostname を
 Pins 画面（`#/pins`）では、ピン留めしたファイルを並び順のまま context pack にできます（goal / budget / Markdown・Plain を指定し、Copy または Download）。
 同じ選択を mix として保存すると `ctx pack --from-mix <id>` や MCP から再利用でき、保存済み mix の Pack / ピンへの読み込み / 削除もここから行えます。
 検索結果の「Pin all N results」で `where` の結果をまとめてピン留めできるので、検索 → ピン → pack をブラウザだけで完結できます。
+「From a reply or stack trace」に LLM の返答やスタックトレースを貼り付けると、言及されたファイルと行を解決し（`POST /api/refs`）、「Pack cited lines」でその行だけを pack、「Pin N files」でピン留めできます。
 Git Log の Review 画面（`#/gitlog/review`）の「Pin N changed files」は、base..head で変更されたファイル（削除済みを除く）をピン留めし、ブランチ差分のレビュー → pack を同じ流れで行えます（内容は作業ツリーから読みます）。
-状態を変更する API（`POST /api/mix`、`DELETE /api/mix/<id>`、`POST /api/pack`）は `Content-Type: application/json` を必須とし、ブラウザが cross-site と示すリクエスト（別 `Origin` / `Sec-Fetch-Site: cross-site`）を `403 forbidden_origin` で拒否します。
+状態を変更する API（`POST /api/mix`、`DELETE /api/mix/<id>`、`POST /api/pack`、`POST /api/refs`）は `Content-Type: application/json` を必須とし、ブラウザが cross-site と示すリクエスト（別 `Origin` / `Sec-Fetch-Site: cross-site`）を `403 forbidden_origin` で拒否します。
 
 Frontend を変更した場合:
 
