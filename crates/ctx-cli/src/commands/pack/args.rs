@@ -45,6 +45,9 @@ pub(crate) struct PackArgs {
     /// `--overflow`: what to do with a relevant file that does not fit the
     /// budget — `drop` (default) or `signatures` (pack its declaration lines).
     pub(crate) overflow: String,
+    /// `--around <N>` (with `--from-where`): pack N lines either side of
+    /// each matched line instead of whole files; 0 = off.
+    pub(crate) around: usize,
     pub(crate) why_paths: Vec<String>,
     pub(crate) snapshot_id: String,
     pub(crate) since_snapshot: String,
@@ -123,6 +126,7 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
     let mut include = Vec::new();
     let mut exclude = Vec::new();
     let mut overflow = "drop".to_string();
+    let mut around = 0usize;
     let mut why_paths = Vec::new();
     let mut snapshot_id = String::new();
     let mut since_snapshot = String::new();
@@ -273,6 +277,11 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
         } else if arg == OsStr::new("--overflow") {
             i += 1;
             overflow = args.get(i)?.to_string_lossy().into_owned();
+        } else if let Some(value) = flag_value(arg, "--around") {
+            around = value.to_string_lossy().parse().ok()?;
+        } else if arg == OsStr::new("--around") {
+            i += 1;
+            around = args.get(i)?.to_string_lossy().parse().ok()?;
         } else if let Some(value) = flag_value(arg, "--why") {
             why_paths.push(value.to_string_lossy().into_owned());
         } else if arg == OsStr::new("--why") {
@@ -348,6 +357,7 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
         include,
         exclude,
         overflow,
+        around,
         why_paths,
         snapshot_id,
         since_snapshot,

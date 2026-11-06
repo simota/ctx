@@ -90,6 +90,12 @@ pub fn line_hashes(b: &[u8]) -> Vec<LineHash> {
         .collect()
 }
 
+/// The digest of an ordered list of line hashes — how a line range (and a
+/// partial file's `sha256`) is compared between a contract and a worktree.
+pub fn hash_line_hashes(hashes: &[String]) -> String {
+    sha256_hex(hashes.join("\n").as_bytes())
+}
+
 /// Returns a deduplicated, sorted copy of `in_syms` with empty entries
 /// removed. Matches Go's `dedupSymbols`: returns an empty Vec when no
 /// non-empty symbols remain (Go returns `nil`, which we expose as an
@@ -128,6 +134,21 @@ pub fn build(files: Vec<FileInput>) -> Contract {
         if f.path.is_empty() {
             continue;
         }
+        if let Some(mut lines) = f.partial {
+            lines.sort_by_key(|h| h.line);
+            lines.dedup_by_key(|h| h.line);
+            let hashes: Vec<String> = lines.iter().map(|h| h.sha256.clone()).collect();
+            c.files.push(File {
+                path: f.path,
+                line_start: lines.first().map_or(0, |h| h.line),
+                line_end: lines.last().map_or(0, |h| h.line),
+                sha256: hash_line_hashes(&hashes),
+                line_hashes: lines,
+                symbols: dedup_symbols(&f.symbols),
+                partial: true,
+            });
+            continue;
+        }
         c.files.push(File {
             path: f.path,
             line_start: 1,
@@ -135,6 +156,7 @@ pub fn build(files: Vec<FileInput>) -> Contract {
             sha256: sha256_hex(&f.content),
             line_hashes: line_hashes(&f.content),
             symbols: dedup_symbols(&f.symbols),
+            partial: false,
         });
     }
     c.files.sort_by(|a, b| a.path.cmp(&b.path));
@@ -184,16 +206,19 @@ mod tests {
                 path: "b.go".into(),
                 content: b"package b\n".to_vec(),
                 symbols: vec!["B".into()],
+                partial: None,
             },
             FileInput {
                 path: "".into(),
                 content: b"skipped".to_vec(),
                 symbols: vec![],
+                partial: None,
             },
             FileInput {
                 path: "a.go".into(),
                 content: b"package a\n".to_vec(),
                 symbols: vec!["A".into(), "A".into()],
+                partial: None,
             },
         ]);
         assert_eq!(c.schema_version, SCHEMA_VERSION);

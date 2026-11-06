@@ -83,6 +83,12 @@ ctx pack . --diff HEAD~1..HEAD --layout unified
 ctx where "session login" --format json | ctx pack --from-where --budget 30000 --out context.md
 ```
 
+`--around N` を付けると、`where` が一致した行の前後 N 行だけを pack します（行の一致がない結果はファイル全体）。大きなファイルが多い検索でも、同じ予算でより多くのヒットを渡せます（このリポジトリで上位 10 件を pack した例: ファイル全体 46,734 tokens → `--around 5` で 17,503 tokens）。
+
+```bash
+ctx where "session expiry" --json | ctx pack --from-where --around 15 --budget 30000
+```
+
 `ctx pack` は既定で末尾に `ctx:contract` manifest を埋め込みます。
 不要な場合は `--no-contract` を指定します。
 
@@ -119,6 +125,19 @@ ctx pack --goal "session expiry" --budget 20000 --overflow signatures
 pack は**入れなかったファイルも記録します**。予算超過・見つからない・フィルタで除外されたファイルは Markdown の `## Omitted files`（plain は `-` 行、JSON は `skipped`、`--snapshot` の manifest は `skipped`）に理由付きで並び、予算超過分をすべて入れるのに必要な `--budget` の目安も表示します。goal に一致しなかったファイルは件数だけを示します。
 
 `--overflow signatures` を付けると、関連度は高いが予算に入りきらないファイルを捨てる代わりに、その**宣言行（関数・型などのシグネチャ）を元の行番号付きで**入れます（入りきる場合のみ）。大きな中核ファイルの API を見せたまま予算を守れ、LLM は必要な箇所をパスと行番号で指定して追加で要求できます。既定は `--overflow drop`（従来通り除外）です。
+
+#### ファイルの一部（行範囲）だけを pack する
+
+```bash
+echo 'src/store.rs:120-180' | ctx pack --from-stdin
+printf 'src/store.rs:120-180\nsrc/store.rs#L300-L310\nsrc/main.rs\n' | ctx pack --from-stdin --budget 4000
+ctx mix save "store body" src/store.rs:120-180 src/main.rs
+```
+
+`--from-stdin`・mix・MCP `ctx_pack` の `files` では、各行に `path:START-END`・`path:N`・GitHub 形式の `path#LSTART-LEND` を書くと、**その行だけ**を pack します。`--overflow signatures` の digest で LLM が「`src/store.rs:120-180` の本体を見せて」と求めたとき、ファイル全体の予算を払わずに応えられます。
+同じファイルの複数範囲は 1 エントリにまとめられ（区間ごとに `[ctx: ...]` 見出し付き）、同じファイルを範囲なしでも指定した場合はファイル全体が優先されます。一覧には `(54 tokens, lines 120-180 of 412)`（JSON は `lines`）と表示され、末尾を越える範囲は `## Omitted files` に理由付きで記録されます。`--api-only` とは併用できません。
+
+pack contract は、excerpt と signatures-only のファイルについて**実際に見せた行だけ**を元の行番号で記録します（`"partial": true`）。`ctx contract verify` は見せた行の引用を受け入れ、見せていない行の引用を `out-of-context`（`referenced lines were not in the pack`）として検出し、`--check-worktree` では見せた行が変わった場合だけ stale と判定します。
 
 ### 4. 一緒に変わるファイルを知る
 
@@ -215,6 +234,7 @@ Claude Code や Cursor などの MCP client から、context 生成や検索を 
 ```
 
 提供する tool: `ctx_pack`（`changed` / `base` / `companions` / `files` / `mix` / `include` / `exclude` / `overflow` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_roots_list`。
+signatures only で渡されたファイルの本体は `ctx_pack {"files":["src/store.rs:120-180"]}` のように行範囲で要求できます。
 ブランチ全体を渡すには `ctx_pack {"base":"main","companions":5}`（merge-base 以降の変更＋作業ツリーの変更）を使います。
 編集前に `ctx_cochange {"anchor":"src/server.rs"}` で一緒に直すべきファイルを確認し、`ctx_pack {"changed":true,"companions":5}` で変更とその companion をまとめて渡す、といった使い方ができます。
 `ctx_where` で見つけたファイルだけを渡すには `ctx_pack {"files":["src/a.rs","src/b.rs"]}`（指定順に pack し、budget 超過・root 外・存在しないファイルは skipped として報告）、保存済み mix は `ctx_pack {"mix":"auth-review"}` で pack できます。

@@ -207,6 +207,8 @@ pub(crate) fn focus_command(args: FocusArgs) -> Result<(), FocusError> {
         let symbols: Vec<String> = input.symbols.iter().map(|sym| sym.name.clone()).collect();
         included.push(NativePackFile {
             signatures_only: false,
+            excerpt_note: String::new(),
+            contract_lines: None,
             path: input.path.clone(),
             abs_path: abs_path.to_string_lossy().into_owned(),
             content,
@@ -322,6 +324,7 @@ pub(crate) fn build_focus_pack_args(args: &FocusArgs, budget: i64) -> PackArgs {
         include: Vec::new(),
         exclude: Vec::new(),
         overflow: "drop".to_string(),
+        around: 0,
         why_paths: Vec::new(),
         snapshot_id: String::new(),
         since_snapshot: String::new(),

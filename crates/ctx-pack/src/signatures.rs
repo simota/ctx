@@ -23,6 +23,18 @@ pub fn signature_digest(
     symbol_lines: &[i64],
     full_tokens: i64,
 ) -> Option<String> {
+    signature_digest_with_lines(path, content, symbol_lines, full_tokens).map(|(digest, _)| digest)
+}
+
+/// [`signature_digest`], plus the 1-based numbers of the source lines it
+/// shows (declarations and their continuation lines), in order — what the
+/// pack contract records for a signatures-only file.
+pub fn signature_digest_with_lines(
+    path: &str,
+    content: &str,
+    symbol_lines: &[i64],
+    full_tokens: i64,
+) -> Option<(String, Vec<usize>)> {
     let lines: Vec<&str> = content.lines().collect();
     let mut wanted: Vec<usize> = symbol_lines
         .iter()
@@ -36,9 +48,10 @@ pub fn signature_digest(
     }
     let mut out = format!(
         "[ctx: signatures only - {path} is {full_tokens} tokens and did not fit the budget; \
-         numbers are line numbers in the full file]\n"
+         numbers are line numbers in the full file; ask for a body as {path}:START-END]\n"
     );
     let mut next_free = 0usize;
+    let mut shown = Vec::new();
     for start in wanted {
         if start < next_free {
             continue; // already printed as a continuation line
@@ -48,6 +61,7 @@ pub fn signature_digest(
         loop {
             let line = lines[idx].trim_end();
             out.push_str(&format!("{}: {}\n", idx + 1, line));
+            shown.push(idx + 1);
             depth += paren_delta(line);
             idx += 1;
             if depth <= 0 || idx >= lines.len() || idx - start > MAX_CONTINUATION_LINES {
@@ -56,7 +70,7 @@ pub fn signature_digest(
         }
         next_free = idx;
     }
-    Some(out)
+    Some((out, shown))
 }
 
 fn paren_delta(line: &str) -> i64 {
@@ -87,6 +101,13 @@ mod tests {
         let digest = signature_digest("a.rs", src, &[1], 50).unwrap();
         assert!(digest.contains("1: fn build(\n2:     a: i32,\n3:     b: i32,\n4: ) -> i32 {\n"));
         assert!(!digest.contains("a + b"));
+    }
+
+    #[test]
+    fn reports_the_source_lines_it_shows() {
+        let src = "fn build(\n    a: i32,\n) -> i32 {\n    a\n}\nfn other() {}\n";
+        let (_, lines) = signature_digest_with_lines("a.rs", src, &[6, 1], 50).unwrap();
+        assert_eq!(lines, vec![1, 2, 3, 6]);
     }
 
     #[test]

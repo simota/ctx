@@ -61,6 +61,56 @@ pub fn parse(data: &[u8]) -> Result<Vec<String>, FromWhereError> {
     }
 }
 
+#[derive(serde::Deserialize)]
+struct WhereHitLines {
+    #[serde(default)]
+    path: String,
+    #[serde(default)]
+    matches: Vec<WhereHitLine>,
+}
+
+#[derive(serde::Deserialize)]
+struct WhereHitLine {
+    #[serde(default)]
+    line: i64,
+}
+
+/// The matched line numbers of each result in `ctx where --format json`
+/// output, keyed by cleaned path (results without line matches are left
+/// out). Newline path lists and unparsable input yield an empty map.
+pub fn match_lines(data: &[u8]) -> std::collections::HashMap<String, Vec<usize>> {
+    let mut out = std::collections::HashMap::new();
+    let Ok(results) = serde_json::from_slice::<Vec<WhereHitLines>>(data) else {
+        return out;
+    };
+    for result in results {
+        let path = clean_input_path(&result.path);
+        let lines: Vec<usize> = result
+            .matches
+            .iter()
+            .filter(|m| m.line >= 1)
+            .map(|m| m.line as usize)
+            .collect();
+        if !path.is_empty() && !lines.is_empty() {
+            out.entry(path).or_insert_with(Vec::new).extend(lines);
+        }
+    }
+    out
+}
+
+/// Line ranges of `around` lines either side of each matched line, merged.
+pub fn ranges_around(lines: &[usize], around: usize) -> Vec<crate::excerpt::LineRange> {
+    crate::excerpt::merge_ranges(
+        lines
+            .iter()
+            .map(|line| crate::excerpt::LineRange {
+                start: line.saturating_sub(around).max(1),
+                end: line.saturating_add(around),
+            })
+            .collect(),
+    )
+}
+
 fn parse_json(data: &[u8]) -> Result<Vec<String>, FromWhereError> {
     let mut results: Vec<WhereResult> = match serde_json::from_slice(data) {
         Ok(v) => v,
@@ -183,6 +233,19 @@ fn filepath_clean(input: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn match_lines_and_ranges_around_them() {
+        let json = br#"[{"path":"./src/a.rs","score":3,"matches":[{"line":40},{"line":3}]},
+            {"path":"b.rs","score":2,"matches":[]},{"path":"c.rs","score":1}]"#;
+        let lines = match_lines(json);
+        assert_eq!(lines.get("src/a.rs"), Some(&vec![40, 3]));
+        assert!(!lines.contains_key("b.rs") && !lines.contains_key("c.rs"));
+        assert!(match_lines(b"src/a.rs\n").is_empty());
+        let r = ranges_around(&[40, 3, 44], 5);
+        let got: Vec<(usize, usize)> = r.iter().map(|r| (r.start, r.end)).collect();
+        assert_eq!(got, vec![(1, 8), (35, 49)]);
+    }
 
     #[test]
     fn empty_stdin_errors() {

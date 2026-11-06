@@ -45,7 +45,7 @@ const USAGE: &str = "usage: ctx mix <save|list|show|add|drop|set|rm> ...\n\
   ctx mix save NAME [PATH...] [--goal G] [--budget N] [--id ID] [--from-where|--from-stdin]\n\
   ctx mix list [--json]\n\
   ctx mix show ID|NAME [--json|--paths]\n\
-  ctx mix add ID|NAME PATH...\n\
+  ctx mix add ID|NAME PATH...      (PATH may be a file:START-END line range)\n\
   ctx mix drop ID|NAME PATH...\n\
   ctx mix set ID|NAME [--name N] [--goal G] [--budget N]\n\
   ctx mix rm ID|NAME...";
@@ -168,16 +168,25 @@ fn root_of(args: &MixArgs) -> Result<PathBuf, String> {
         .ok_or_else(|| format!("mix: --root {}: not a directory", root.display()))
 }
 
+/// The file part of a recipe entry: `src/a.rs` for `src/a.rs:10-20`
+/// (unless a file under `root` is literally named so).
+fn entry_file<'a>(root: &Path, entry: &'a str) -> &'a str {
+    ctx_pack::excerpt::split_spec_in(root, entry).0
+}
+
 /// Resolve command-line paths (relative to the current directory) to files
 /// relative to `root`. A directory expands to the files a pack of it would
 /// walk (ignore rules applied); a missing path or one outside `root` is an
-/// error so a typo never lands in a recipe.
+/// error so a typo never lands in a recipe. A file may carry a line range
+/// (`src/a.rs:120-180`, `src/a.rs#L42`), kept as `path:START-END` so the
+/// recipe packs that excerpt.
 fn resolve_cli_paths(root: &Path, raw: &[String]) -> Result<Vec<String>, String> {
     let cwd = std::env::current_dir().map_err(|err| err.to_string())?;
     let cfg = load_pack_ctx_toml(root).unwrap_or_default();
     let ignore = PackIgnore::load(root, &cfg.ignore.patterns, true);
     let mut out = Vec::new();
-    for path in raw {
+    for spec in raw {
+        let (path, range) = ctx_pack::excerpt::split_spec_in(&cwd, spec);
         let joined = cwd.join(path);
         let abs = std::fs::canonicalize(&joined)
             .map_err(|_| format!("mix: {path}: no such file or directory"))?;
@@ -186,6 +195,9 @@ fn resolve_cli_paths(root: &Path, raw: &[String]) -> Result<Vec<String>, String>
                 "mix: {path}: outside the repository root {}",
                 root.display()
             ));
+        }
+        if range.is_some() && !abs.is_file() {
+            return Err(format!("mix: {spec}: a line range needs a file"));
         }
         if abs.is_dir() {
             let mut inputs = Vec::new();
@@ -200,7 +212,10 @@ fn resolve_cli_paths(root: &Path, raw: &[String]) -> Result<Vec<String>, String>
                 .map_err(|err| err.to_string())?
                 .to_string_lossy()
                 .replace('\\', "/");
-            out.push(rel);
+            match range {
+                Some(range) => out.push(format!("{rel}:{}", range_spec(range))),
+                None => out.push(rel),
+            }
         } else {
             return Err(format!("mix: {path}: not a regular file"));
         }
@@ -226,12 +241,16 @@ fn read_stdin_paths(root: &Path, from_where: bool) -> Result<Vec<String>, String
         if clean.is_empty() {
             continue;
         }
-        let Ok(normalized) = ctx_mix::normalize_path(&clean) else {
+        let (file, range) = ctx_pack::excerpt::split_spec_in(root, &clean);
+        let Ok(normalized) = ctx_mix::normalize_path(file) else {
             eprintln!("warning: mix: skipping {clean}: outside the repository");
             continue;
         };
         if resolves_to_file_in(root, &root.join(&normalized)) {
-            out.push(normalized);
+            match range {
+                Some(range) => out.push(format!("{normalized}:{}", range_spec(range))),
+                None => out.push(normalized),
+            }
         } else {
             eprintln!(
                 "warning: mix: skipping {clean}: not a file under {}",
@@ -240,6 +259,11 @@ fn read_stdin_paths(root: &Path, from_where: bool) -> Result<Vec<String>, String
         }
     }
     Ok(out)
+}
+
+/// `10-20` / `42`: the canonical recipe spelling of a line range.
+fn range_spec(range: ctx_pack::excerpt::LineRange) -> String {
+    range.to_string()
 }
 
 fn save(store: &ctx_mix::Store, args: MixArgs) -> Result<(), String> {
@@ -369,7 +393,9 @@ fn show(store: &ctx_mix::Store, args: &MixArgs) -> Result<(), String> {
     println!("Files ({}):", mix.files.len());
     let mut missing = 0;
     for file in &mix.files {
-        let exists = root.as_ref().is_none_or(|root| root.join(file).is_file());
+        let exists = root
+            .as_ref()
+            .is_none_or(|root| root.join(entry_file(root, file)).is_file());
         if exists {
             println!("  {file}");
         } else {
@@ -418,11 +444,17 @@ fn drop_files(store: &ctx_mix::Store, args: MixArgs) -> Result<(), String> {
         return Err("mix drop: no files given".to_string());
     }
     let before = mix.files.len();
-    // A pattern removes the file itself or everything under a directory.
+    // A pattern removes the entry itself, every excerpt of a file, or
+    // everything under a directory.
+    let root = root_of(&args).ok();
     mix.files.retain(|file| {
+        let path = match root.as_deref() {
+            Some(root) => entry_file(root, file),
+            None => ctx_pack::excerpt::split_spec(file).0,
+        };
         !patterns
             .iter()
-            .any(|p| file == p || file.starts_with(&format!("{p}/")))
+            .any(|p| file == p || path == p || file.starts_with(&format!("{p}/")))
     });
     let removed = before - mix.files.len();
     if removed == 0 {

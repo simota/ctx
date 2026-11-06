@@ -205,6 +205,7 @@ mod tests {
                 sha256: "abc".into(),
                 line_hashes: vec![],
                 symbols: vec!["A".into()],
+                partial: false,
             }],
         }
     }

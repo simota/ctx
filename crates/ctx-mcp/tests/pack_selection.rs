@@ -198,3 +198,55 @@ fn overflow_signatures_packs_declarations_of_a_file_over_budget() {
     let reply = call(&root, args("trim"));
     assert!(reply["error"].is_object(), "{reply}");
 }
+
+#[test]
+fn files_line_ranges_pack_the_body_a_signature_digest_pointed_at() {
+    let root = repo("excerpt");
+    let big: String = (0..200)
+        .map(|i| format!("pub fn handler_{i}() -> u32 {{\n    let v = {i};\n    v * 2 + 1\n}}\n\n"))
+        .collect();
+    std::fs::write(root.join("src/handlers.rs"), big).unwrap();
+
+    // The digest names the declaration line and the hint says how to ask.
+    let digest = text(&call(
+        &root,
+        json!({"path": ".", "goal": "handlers", "budget": 2500, "overflow": "signatures"}),
+    ));
+    assert!(
+        digest.contains("16: pub fn handler_3() -> u32 {\n"),
+        "{digest}"
+    );
+    assert!(
+        digest.contains(r#"ctx_pack {"files":["src/handlers.rs:START-END"]}"#),
+        "{digest}"
+    );
+
+    // Asking for lines 16-19 packs exactly that body.
+    let body = text(&call(
+        &root,
+        json!({"path": ".", "files": ["src/handlers.rs:16-19", "src/a.rs", "src/handlers.rs#L1200"]}),
+    ));
+    assert!(
+        body.contains("- src/handlers.rs (") && body.contains("lines 16-19 of 1000)"),
+        "{body}"
+    );
+    assert!(body.contains("    let v = 3;\n"), "{body}");
+    assert!(!body.contains("let v = 4;"), "{body}");
+    assert!(body.contains("pub fn alpha()"), "{body}");
+    assert!(
+        body.contains(
+            "- src/handlers.rs:1200 (line range 1200 is past the end of the file (1000 lines))"
+        ),
+        "{body}"
+    );
+
+    let json_body = text(&call(
+        &root,
+        json!({"path": ".", "files": ["src/handlers.rs:16-19"], "format": "json"}),
+    ));
+    let pack: Value = serde_json::from_str(&json_body).unwrap();
+    assert_eq!(
+        pack["included"][0]["lines"], "lines 16-19 of 1000",
+        "{json_body}"
+    );
+}

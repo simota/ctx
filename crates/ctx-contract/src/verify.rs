@@ -69,6 +69,21 @@ pub fn verify(c: &Contract, response: &[u8], opts: &VerifyOptions) -> VerifyResu
                     message: "file path is not in pack contract".into(),
                     ..Default::default()
                 }),
+                Some(f) if f.partial && !partial_covers(&f, r.line_start, r.line_end) => {
+                    res.violations.push(Violation {
+                        kind: ViolationKind::OutOfContext,
+                        path: f.path.clone(),
+                        line_start: r.line_start,
+                        line_end: r.line_end,
+                        source_line: r.source_line,
+                        message: format!(
+                            "{} (it carried only lines {} of this file)",
+                            crate::format::PARTIAL_UNSEEN_PREFIX,
+                            shown_label(&f)
+                        ),
+                        ..Default::default()
+                    });
+                }
                 Some(f) => {
                     if range_contained(r.line_start, r.line_end, f.line_start, f.line_end) {
                         res.ok.push(OK {
@@ -196,7 +211,13 @@ fn add_worktree_staleness(res: &mut VerifyResult, root: &str, cited: &BTreeMap<S
             add_line_range_staleness(res, root, f, &c.ranges, &mut suggestions);
             continue;
         }
-        let (got, message) = worktree_sha(root, &f.path);
+        // A partially packed file is current when every line it showed
+        // still reads the same at the same line number.
+        let (got, message) = if f.partial {
+            worktree_partial_sha(root, f)
+        } else {
+            worktree_sha(root, &f.path)
+        };
         if got == f.sha256 && message.is_empty() {
             continue;
         }
@@ -378,8 +399,75 @@ fn contract_line_range_sha(f: &File, start: i32, end: i32) -> Option<String> {
     Some(hash_line_hashes(&hashes))
 }
 
-fn hash_line_hashes(hashes: &[String]) -> String {
-    sha256_hex(hashes.join("\n").as_bytes())
+use crate::builder::hash_line_hashes;
+
+/// Whether every line of the (normalised) range was shown by a partial
+/// file's pack.
+fn partial_covers(f: &File, start: i32, end: i32) -> bool {
+    if start <= 0 || end <= 0 {
+        return false;
+    }
+    let (start, end) = normalise_range(start, end);
+    let shown: BTreeSet<i32> = f.line_hashes.iter().map(|h| h.line).collect();
+    (start..=end).all(|line| shown.contains(&line))
+}
+
+/// `10-20, 40` — the line spans a partial file's contract shows.
+fn shown_label(f: &File) -> String {
+    let mut spans: Vec<(i32, i32)> = Vec::new();
+    for h in &f.line_hashes {
+        match spans.last_mut() {
+            Some((_, end)) if h.line == *end + 1 => *end = h.line,
+            _ => spans.push((h.line, h.line)),
+        }
+    }
+    spans
+        .iter()
+        .map(|(a, b)| {
+            if a == b {
+                a.to_string()
+            } else {
+                format!("{a}-{b}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// The worktree counterpart of a partial file's `sha256`: the digest of
+/// the current hashes of the lines it showed.
+fn worktree_partial_sha(root: &str, f: &File) -> (String, String) {
+    let Some(full) = clean_worktree_path(root, &f.path) else {
+        return (
+            String::new(),
+            "contract path cannot be resolved inside worktree".to_string(),
+        );
+    };
+    match std::fs::read(&full) {
+        Ok(body) => {
+            let lines = split_logical_lines(&body);
+            let mut hashes = Vec::with_capacity(f.line_hashes.len());
+            for h in &f.line_hashes {
+                match usize::try_from(h.line)
+                    .ok()
+                    .and_then(|n| lines.get(n.wrapping_sub(1)))
+                {
+                    Some(line) => hashes.push(sha256_hex(line)),
+                    None => {
+                        return (
+                            String::new(),
+                            "packed lines cannot be resolved in worktree".to_string(),
+                        )
+                    }
+                }
+            }
+            (hash_line_hashes(&hashes), String::new())
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            (String::new(), "worktree file is missing".to_string())
+        }
+        Err(e) => (String::new(), e.to_string()),
+    }
 }
 
 fn split_logical_lines(b: &[u8]) -> Vec<&[u8]> {
