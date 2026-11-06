@@ -52,6 +52,12 @@ pub(crate) struct PackArgs {
     pub(crate) companions: i64,
     #[serde(default)]
     pub(crate) explain: bool,
+    /// Explicit repository-relative files to pack, in this order.
+    #[serde(default)]
+    pub(crate) files: Vec<String>,
+    /// A saved mix (id or name) to pack.
+    #[serde(default)]
+    pub(crate) mix: String,
 }
 
 #[derive(Deserialize)]

@@ -359,3 +359,98 @@ pub(crate) fn render_pack_xml(plan: &PackPlan, args: &PackArgs) -> String {
         (plan.high.len() + plan.medium.len()).to_string()
     )
 }
+
+/// `ctx_pack` with `files` or `mix`: pack an explicit, ordered selection
+/// under `root` (see `ctx_pack::selection`). A mix supplies its goal and
+/// budget unless the call set them.
+pub(crate) fn run_pack_selection(
+    root: &Path,
+    args: &PackArgs,
+    explicit_budget: bool,
+) -> Result<String, RpcError> {
+    let mut goal = args.goal.clone();
+    let mut budget = args.budget;
+    let mut label = String::new();
+    let files = if args.mix.trim().is_empty() {
+        args.files.clone()
+    } else {
+        let store = ctx_mix::Store::open_default().map_err(|e| tool_error(e.to_string()))?;
+        let mix = store.find(&args.mix).map_err(|e| {
+            tool_error(format!(
+                "ctx_pack: {e}. Saved mixes are created with `ctx mix save` or the ctx browse pinned board."
+            ))
+        })?;
+        if goal.is_empty() {
+            goal = mix.goal.clone();
+        }
+        if !explicit_budget && mix.budget.limit > 0 {
+            budget = mix.budget.limit;
+        }
+        label = format!("{} ({})", mix.name, mix.id);
+        mix.files
+    };
+    let format = match args.format.as_str() {
+        "markdown" | "plain" => args.format.as_str(),
+        "json" => "markdown",
+        other => {
+            return Err(tool_error(format!(
+                "ctx_pack: format {other:?} is not supported with files / mix (use markdown, plain or json)"
+            )))
+        }
+    };
+    let opts = ctx_pack::selection::SelectionOptions {
+        goal: goal.clone(),
+        budget,
+        format: format.to_string(),
+        contract: false,
+    };
+    let pack = ctx_pack::selection::pack_selection(root, &files, &opts).map_err(tool_error)?;
+    if args.format == "json" {
+        let mut m = Map::new();
+        m.insert("budget".to_string(), json!(pack.budget));
+        m.insert("goal".to_string(), json!(value_or_dash(&goal)));
+        m.insert(
+            "included".to_string(),
+            Value::Array(
+                pack.included
+                    .iter()
+                    .map(|f| json!({"path": f.path, "relevance": "selected", "tokens": f.tokens}))
+                    .collect(),
+            ),
+        );
+        if !label.is_empty() {
+            m.insert("mix".to_string(), json!(label));
+        }
+        m.insert(
+            "skipped".to_string(),
+            Value::Array(
+                pack.skipped
+                    .iter()
+                    .map(|s| json!({"path": s.path, "reason": s.reason}))
+                    .collect(),
+            ),
+        );
+        m.insert("used".to_string(), json!(pack.used));
+        m.insert("warnings".to_string(), Value::Array(Vec::new()));
+        let mut out = serde_json::to_string_pretty(&Value::Object(m)).map_err(tool_error)?;
+        out.push('\n');
+        return Ok(out);
+    }
+    let mut out = String::new();
+    if !label.is_empty() {
+        out.push_str(&format!("Mix: {label}\n\n"));
+    }
+    out.push_str(&pack.content);
+    if !pack.skipped.is_empty() {
+        out.push_str("\n## Skipped\n");
+        for s in &pack.skipped {
+            out.push_str(&format!("- {} ({})\n", s.path, s.reason));
+        }
+        if pack.skipped.iter().any(|s| s.reason.starts_with("budget")) {
+            out.push_str(
+                "\nRaise 'budget', or call `ctx_skim {\"path\":...}` for a compressed view of a dropped file.\n",
+            );
+        }
+    }
+    Ok(out)
+}

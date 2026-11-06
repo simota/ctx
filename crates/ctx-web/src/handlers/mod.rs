@@ -10,6 +10,7 @@ pub mod file;
 pub mod git;
 pub mod limit;
 pub mod mix;
+pub mod pack;
 pub mod raw;
 pub mod relations;
 pub mod replay;

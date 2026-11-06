@@ -10,6 +10,7 @@ pub(crate) mod echo;
 pub(crate) mod focus;
 pub(crate) mod log;
 pub(crate) mod map;
+pub(crate) mod mix;
 pub(crate) mod noise;
 pub(crate) mod onboarding;
 pub(crate) mod pack;

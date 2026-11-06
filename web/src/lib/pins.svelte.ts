@@ -233,3 +233,30 @@ export function markPinStale(path: string): void {
   entry.stale = true;
   persist();
 }
+
+/** Append every path not yet pinned (in order, up to the pin limit). */
+export function pinMany(paths: string[]): PinResult {
+  if (!pins.root) {
+    return result('no-root', false, 'Cannot pin files until the project root is loaded.');
+  }
+  let added = 0;
+  let limited = false;
+  for (const raw of paths) {
+    const normalized = normalizePath(raw);
+    if (!normalized || isPinned(normalized)) continue;
+    if (pins.entries.length >= PIN_LIMIT) {
+      limited = true;
+      break;
+    }
+    pins.entries.push({ path: normalized, pinnedAt: safeNow(), label: entryLabel(normalized) });
+    added += 1;
+  }
+  if (added === 0) {
+    return result(limited ? 'limit' : 'noop', !limited, limited
+      ? `Pin limit reached (${PIN_LIMIT} files).`
+      : 'All of those files are already pinned.');
+  }
+  const persisted = persist();
+  const base = `Pinned ${added} file${added === 1 ? '' : 's'}${limited ? ` (pin limit ${PIN_LIMIT} reached)` : ''}.`;
+  return result('pinned', true, withPersistenceMessage(base, persisted));
+}

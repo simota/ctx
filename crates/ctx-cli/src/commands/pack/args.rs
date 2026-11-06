@@ -1,6 +1,4 @@
-use std::env;
 use std::ffi::{OsStr, OsString};
-use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::common::*;
@@ -82,22 +80,6 @@ impl Default for PackCtxToml {
             security: SecurityToml::default(),
         }
     }
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub(crate) struct NativeMixRecipe {
-    #[serde(default)]
-    pub(crate) goal: String,
-    #[serde(default)]
-    pub(crate) files: Vec<String>,
-    #[serde(default)]
-    pub(crate) budget: NativeMixBudget,
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub(crate) struct NativeMixBudget {
-    #[serde(default)]
-    pub(crate) limit: i64,
 }
 
 pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
@@ -342,57 +324,15 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
     })
 }
 
-pub(crate) fn load_pack_mix(id: &str) -> Result<NativeMixRecipe, String> {
-    validate_mix_id(id)?;
-    let dir = resolve_mix_store()?;
-    std::fs::create_dir_all(&dir)
-        .map_err(|err| format!("pack: --from-mix: cannot open mix store: {err}"))?;
-    let path = dir.join(format!("{id}.mix.json"));
-    let body = std::fs::read_to_string(&path).map_err(|err| {
-        if err.kind() == io::ErrorKind::NotFound {
-            format!("pack: --from-mix: mix: recipe not found: {id}")
-        } else {
-            format!("pack: --from-mix: {err}")
-        }
-    })?;
-    serde_json::from_str(&body).map_err(|err| format!("pack: --from-mix: {err}"))
-}
-
-pub(crate) fn resolve_mix_store() -> Result<PathBuf, String> {
-    if let Ok(xdg) = env::var("XDG_STATE_HOME") {
-        let trimmed = xdg.trim();
-        if !trimmed.is_empty() {
-            return Ok(Path::new(trimmed).join("ctx").join("mixes"));
-        }
-    }
-    let home = env::var("HOME").map_err(|_| "mix: cannot resolve store directory".to_string())?;
-    if home.is_empty() {
-        return Err("mix: cannot resolve store directory".to_string());
-    }
-    let state = Path::new(&home).join(".local").join("state");
-    if state.exists() {
-        Ok(state.join("ctx").join("mixes"))
-    } else {
-        Ok(Path::new(&home).join(".ctx").join("mixes"))
-    }
-}
-
-pub(crate) fn validate_mix_id(id: &str) -> Result<(), String> {
-    if id.is_empty() {
+/// Load a saved recipe by id or (unique) name.
+pub(crate) fn load_pack_mix(reference: &str) -> Result<ctx_mix::Mix, String> {
+    if reference.trim().is_empty() {
         return Err("pack: --from-mix: mix: invalid recipe id: empty id".to_string());
     }
-    if id == "." || id == ".." || id.starts_with('.') {
-        return Err(format!("pack: --from-mix: mix: invalid recipe id: {id:?}"));
-    }
-    for ch in id.chars() {
-        if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '.' {
-            continue;
-        }
-        return Err(format!(
-            "pack: --from-mix: mix: invalid recipe id: {id:?} contains disallowed character {ch:?}"
-        ));
-    }
-    Ok(())
+    let store = ctx_mix::Store::open_default().map_err(|err| err.to_string())?;
+    store
+        .find(reference)
+        .map_err(|err| format!("pack: --from-mix: {err}"))
 }
 
 pub(crate) fn load_pack_ctx_toml(root: &Path) -> Result<PackCtxToml, String> {

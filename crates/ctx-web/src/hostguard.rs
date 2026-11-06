@@ -32,7 +32,56 @@ pub async fn guard(State(state): State<AppState>, req: Request, next: Next) -> R
             "Host is not a loopback name; open the URL printed by ctx browse",
         );
     }
+    if !is_safe_method(req.method()) && !same_origin(&req) {
+        return response::error(
+            StatusCode::FORBIDDEN,
+            "forbidden_origin",
+            "cross-site requests may not change state; use the ctx browse page",
+        );
+    }
     next.run(req).await
+}
+
+fn is_safe_method(method: &axum::http::Method) -> bool {
+    matches!(
+        *method,
+        axum::http::Method::GET | axum::http::Method::HEAD | axum::http::Method::OPTIONS
+    )
+}
+
+/// CSRF guard for state-changing requests (`POST /api/mix`, `DELETE
+/// /api/mix/<id>`, `POST /api/pack`): a page on another site can make the
+/// browser send them to the local server. Browsers label such requests with
+/// `Sec-Fetch-Site` and an `Origin` that names the other site, so a request
+/// whose `Origin` authority differs from `Host`, or that the browser marks as
+/// cross-site, is refused. Requests without either header (curl, scripts)
+/// are not browser requests and pass.
+fn same_origin(req: &Request) -> bool {
+    let headers = req.headers();
+    if let Some(site) = headers.get("sec-fetch-site").and_then(|v| v.to_str().ok()) {
+        if !matches!(site, "same-origin" | "none") {
+            return false;
+        }
+    }
+    let Some(origin) = headers.get(header::ORIGIN) else {
+        return true;
+    };
+    let Ok(origin) = origin.to_str() else {
+        return false;
+    };
+    let authority = origin
+        .strip_prefix("http://")
+        .or_else(|| origin.strip_prefix("https://"));
+    let Some(authority) = authority else {
+        // `Origin: null` (sandboxed frames, file:// pages) and other schemes.
+        return false;
+    };
+    let host = headers
+        .get(header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string)
+        .or_else(|| req.uri().authority().map(|a| a.as_str().to_string()));
+    host.is_some_and(|host| host.eq_ignore_ascii_case(authority.trim_end_matches('/')))
 }
 
 fn request_host_allowed(req: &Request) -> bool {

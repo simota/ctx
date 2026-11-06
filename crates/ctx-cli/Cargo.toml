@@ -27,6 +27,7 @@ ctx-digest = { path = "../ctx-digest" }
 ctx-echo = { path = "../ctx-echo" }
 ctx-focus = { path = "../ctx-focus" }
 ctx-git = { path = "../ctx-git" }
+ctx-mix = { path = "../ctx-mix" }
 ctx-heatmap = { path = "../ctx-heatmap" }
 ctx-mcp = { path = "../ctx-mcp" }
 ctx-pack = { path = "../ctx-pack" }

@@ -7,7 +7,43 @@ and this project does not yet follow strict semver — see release notes per tag
 
 ## [Unreleased]
 
+### Added
+- `ctx mix` (`save` / `list` / `show` / `add` / `drop` / `set` / `rm`):
+  create and edit saved file selections ("mixes") — an ordered file list
+  plus goal and budget. `ctx pack --from-mix` could read recipes, but
+  nothing in the Rust build could create one. `save` and `add` accept
+  files and directories (expanded like a pack walk), `ctx where --json`
+  output (`--from-where`) or a path list (`--from-stdin`); paths outside
+  the root or missing are rejected. Recipes live in the shared
+  `ctx-mix` store, also used by `ctx browse` and MCP.
+- `ctx pack --from-mix` accepts a recipe name as well as its id and warns
+  about listed files that are missing from the tree.
+- `ctx browse` pinned board: build a context pack from the pinned files in
+  board order (goal, budget, Markdown/plain; copy or download, with a
+  preview and the list of skipped files), save the pins as a mix, and pack,
+  load into pins or delete saved mixes. Search results gain
+  "Pin all N results", so search → pin → pack works without the CLI.
+- `ctx browse` API: `POST /api/pack` (pack an explicit file list or a saved
+  mix), `POST /api/mix` (create; `skip_missing` drops files absent from the
+  served root) and `DELETE /api/mix/<id>` — the mix mutations that used to
+  return `405`.
+- MCP `ctx_pack`: `files` packs exactly the given files in order (e.g. the
+  top `ctx_where` hits) and `mix` packs a saved recipe with its goal and
+  budget; files that are missing, outside the root or over budget are
+  reported as skipped.
+
+### Fixed
+- `ctx pack --from-stdin` / `--from-mix` with a `--goal` (or a recipe
+  goal) silently dropped every listed file that did not score against the
+  goal, often producing an empty pack. Explicitly selected files are now
+  always packed; the goal only orders them.
+
 ### Security
+- `ctx browse`: state-changing requests (`POST` / `DELETE`) must be
+  `application/json` and are refused with `403 forbidden_origin` when the
+  browser marks them as cross-site (`Origin` not matching `Host`, or
+  `Sec-Fetch-Site: cross-site` / `same-site`), so another web page cannot
+  create or delete mixes through the local server.
 - Replay snapshot store (`ctx pack --snapshot`, `ctx replay`, `ctx browse`
   replay/evidence): saving a snapshot no longer writes through a fixed
   `<id>.tmp` path, so a repository that commits

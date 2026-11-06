@@ -79,6 +79,22 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
         if !args.budget_changed && mix.budget.limit > 0 {
             args.budget = mix.budget.limit;
         }
+        if !args.no_warnings {
+            let base = if root.is_file() {
+                root.parent().unwrap_or(&root).to_path_buf()
+            } else {
+                root.clone()
+            };
+            for file in &mix.files {
+                if !base.join(file).is_file() {
+                    eprintln!(
+                        "warning: --from-mix: {} lists {file}, which is not a file under {}",
+                        mix.id,
+                        base.display()
+                    );
+                }
+            }
+        }
         Some(mix.files)
     };
     if !args.why_paths.is_empty() {

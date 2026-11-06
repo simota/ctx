@@ -1,7 +1,10 @@
 <script lang="ts">
-  import { fetchWhere, type WhereResponse } from '../lib/api';
+  import { fetchWhere, fetchTree, type WhereResponse } from '../lib/api';
   import { navigate, toFileHash } from '../lib/router.svelte';
   import type { SearchMatchMode } from '../lib/router.svelte';
+  import { announce } from '../lib/announce.svelte';
+  import { repo, setRepoRoot } from '../lib/repo.svelte';
+  import { ensurePinsRoot, pinMany } from '../lib/pins.svelte';
 
   let { query, matchMode = 'all', exact = false } = $props<{
     query: string;
@@ -43,6 +46,29 @@
     return result.matches.find((m) => m.line > 0)?.line;
   }
 
+  // Seed the pinned board (and from there a context pack or saved mix) with
+  // every hit, best match first — the browser twin of
+  // `ctx where … --json | ctx pack --from-where`.
+  async function pinAll() {
+    if (!data) return;
+    const paths = data.results.map((r) => r.path);
+    if (!repo.root) {
+      try {
+        setRepoRoot((await fetchTree({ depth: 1 })).abs_root);
+      } catch (e: unknown) {
+        pinMessage = `Could not load the repository root: ${e instanceof Error ? e.message : String(e)}`;
+        announce(pinMessage);
+        return;
+      }
+    }
+    ensurePinsRoot(repo.root);
+    const result = pinMany(paths);
+    pinMessage = result.message;
+    announce(result.message);
+  }
+
+  let pinMessage = $state('');
+
   function openFile(result: WhereResponse['results'][number]) {
     navigate(toFileHash(result.path, { line: firstMatchLine(result) }));
   }
@@ -70,6 +96,13 @@
   {:else if data && data.results.length === 0}
     <p class="muted">No matches.</p>
   {:else if data}
+    <div class="toolbar">
+      <button type="button" class="pin-all" onclick={pinAll}>
+        Pin all {data.results.length} result{data.results.length === 1 ? '' : 's'}
+      </button>
+      <a href="#/pins" class="muted">Open pinned board to pack them</a>
+      {#if pinMessage}<span class="muted" role="status">{pinMessage}</span>{/if}
+    </div>
     <ol class="hit-list">
       {#each data.results as r, idx (r.path + ':' + idx)}
         <li>
@@ -116,6 +149,39 @@
   .query {
     margin: 0;
     font-size: 12px;
+  }
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    margin-bottom: 10px;
+    font-size: 12px;
+  }
+  .pin-all {
+    border: 1px solid var(--ctx-border);
+    border-radius: 3px;
+    background: var(--ctx-bg-elev);
+    color: var(--ctx-fg);
+    font: inherit;
+    font-size: 12px;
+    padding: 3px 8px;
+    cursor: pointer;
+  }
+  .pin-all:hover:not(:disabled) {
+    border-color: var(--ctx-accent);
+  }
+  .pin-all:focus-visible,
+  .toolbar a:focus-visible {
+    outline: 2px solid var(--ctx-accent);
+    outline-offset: 1px;
+  }
+  .pin-all:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .toolbar a {
+    color: var(--ctx-accent-text);
   }
   .hit-list {
     list-style: none;

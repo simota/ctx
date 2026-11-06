@@ -21,7 +21,7 @@ Selection:
       --api-only              Keep public API signatures only
       --from-where            Read `ctx where --format json` results from stdin
       --from-stdin            Read paths (one per line) from stdin
-      --from-mix <ID>         Use a saved mix recipe
+      --from-mix <ID|NAME>    Use a saved mix recipe (see `ctx mix`)
       --diff <BASE..HEAD>     Pack a git diff instead of files
       --layout <LAYOUT>       --diff layout: sequential, side-by-side, unified
 
@@ -101,6 +101,39 @@ Command options:
       --format <FORMAT>       markdown (default), plain, json (--json is shorthand)
       --out <FILE>            Write to FILE instead of stdout",
         ),
+        "mix" => (
+            "ctx mix <ACTION> [ARGS]... [OPTIONS]",
+            "\
+Saved file selections (\"mixes\"): an ordered list of repository files plus the
+goal and budget they were chosen for. Pack one later with
+`ctx pack --from-mix <ID|NAME>`; `ctx browse` and the MCP ctx_pack tool use the
+same store.
+
+Actions:
+  save NAME [PATH...]         Create a mix (a directory adds the files a pack of it would walk)
+  list                        List saved mixes
+  show ID|NAME                Show a mix; marks files missing under the current root
+  add ID|NAME PATH...         Append files
+  drop ID|NAME PATH...        Remove files (a directory removes everything under it)
+  set ID|NAME                 Change --name, --goal and/or --budget
+  rm ID|NAME...               Delete mixes
+
+Command options:
+      --goal <TEXT>           Goal recorded with the mix (save, set)
+      --budget <N>            Token budget recorded with the mix (save, set)
+      --name <TEXT>           New display name (set)
+      --id <ID>               Explicit id for save (default: derived from NAME)
+      --from-where            Also read `ctx where --format json` results from stdin (save, add)
+      --from-stdin            Also read paths, one per line, from stdin (save, add)
+      --root <DIR>            Repository root paths are stored relative to (default .)
+      --json                  JSON output (save, list, show)
+      --paths                 Print only the file list (show)
+
+Examples:
+  ctx mix save \"auth review\" src/auth/ src/session.rs --goal \"session expiry\" --budget 30000
+  ctx where \"session login\" --json | ctx mix save login --from-where
+  ctx pack --from-mix auth-review --out context.md",
+        ),
         _ => return None,
     })
 }
@@ -118,6 +151,7 @@ mod tests {
         }
         assert!(command_help("cochange").unwrap().1.contains("--min-weight"));
         assert!(command_help("digest").unwrap().0.contains("[ROOT]"));
+        assert!(command_help("mix").unwrap().1.contains("--from-where"));
         assert!(command_help("no-such-command").is_none());
     }
 }
