@@ -37,7 +37,12 @@ pub(crate) fn render_root_budget(
     want_json: bool,
     plain: bool,
 ) -> Result<(), String> {
-    let node = build_root_tree(root, tree_opts)?.ok_or_else(|| "root is ignored".to_string())?;
+    // The plan reads only path / tokens / role: skip the symbol parse.
+    let tree_opts = TreeBuildOpts {
+        detail: TreeDetail::NoSymbols,
+        ..*tree_opts
+    };
+    let node = build_root_tree(root, &tree_opts)?.ok_or_else(|| "root is ignored".to_string())?;
     let mut files = Vec::new();
     flatten_budget_files(&node, &mut files);
     let result = budget_plan(&files, budget);

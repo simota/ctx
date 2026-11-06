@@ -101,6 +101,24 @@ pub(crate) struct TreeBuildOpts {
     pub(crate) max_depth: i64,
     pub(crate) since: Option<SystemTime>,
     pub(crate) until: Option<SystemTime>,
+    /// How much per-file metadata to compute. Only affects fields the caller
+    /// declared it does not read; the walk itself (which entries, depth,
+    /// time filter, errors) is identical at every level.
+    pub(crate) detail: TreeDetail,
+}
+
+/// Per-file metadata a tree walk computes.
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum TreeDetail {
+    /// Everything: size, tokens, lines, chars, role and tree-sitter symbols.
+    #[default]
+    Full,
+    /// Everything except symbols (left empty) — for views that never show
+    /// them, so they skip the tree-sitter parse that dominates the walk.
+    NoSymbols,
+    /// Paths only: files are listed but not read (size, role and the
+    /// text/token/symbol metadata are left zero/empty).
+    PathsOnly,
 }
 
 impl TreeBuildOpts {
@@ -241,6 +259,23 @@ pub(crate) fn build_json_tree_node(
         }));
     }
 
+    if opts.detail == TreeDetail::PathsOnly {
+        return Ok(Some(JsonTreeNode {
+            path: rel,
+            is_dir: false,
+            metadata: JsonMetadata {
+                size: 0,
+                tokens: 0,
+                lines: 0,
+                chars: 0,
+                role: String::new(),
+                git_status: String::new(),
+                symbols: Vec::new(),
+            },
+            children: Vec::new(),
+        }));
+    }
+
     // File node. Only regular files (or links to one) are read: opening a
     // FIFO or device would block the walk, so those get the same fallback as
     // an unreadable file (no stats, size-based token estimate, no symbols).
@@ -263,6 +298,7 @@ pub(crate) fn build_json_tree_node(
     // Go runs symbol extraction and embeds the result (rendered via JSONTree).
     let symbols = data
         .as_deref()
+        .filter(|_| opts.detail == TreeDetail::Full)
         .map(|data| ctx_symbols::extract_source(path, data))
         .map(|syms| {
             syms.into_iter()
@@ -389,6 +425,73 @@ pub(crate) fn json_is_core_extension(ext: &str) -> bool {
 mod tests {
     use super::*;
     use crate::common::test_support::{finishes_within, TempDir};
+
+    fn flatten(node: &JsonTreeNode, out: &mut Vec<(String, i64, String, usize)>) {
+        out.push((
+            node.path.clone(),
+            node.metadata.tokens,
+            node.metadata.role.clone(),
+            node.metadata.symbols.len(),
+        ));
+        for child in &node.children {
+            flatten(child, out);
+        }
+    }
+
+    fn walk(root: &Path, detail: TreeDetail) -> Vec<(String, i64, String, usize)> {
+        let opts = TreeBuildOpts {
+            detail,
+            ..TreeBuildOpts::default()
+        };
+        let node = build_root_tree(root, &opts).unwrap().unwrap();
+        let mut out = Vec::new();
+        flatten(&node, &mut out);
+        out
+    }
+
+    #[test]
+    fn reduced_detail_walks_list_the_same_entries() {
+        let fx = TempDir::new("tree-detail");
+        fx.write("src/lib.rs", "pub fn alpha() {}\npub struct Beta;\n");
+        fx.write("src/deep/mod.rs", "fn gamma() {}\n");
+        fx.write("README.md", "# readme\n");
+        fx.write("Cargo.lock", "skipped\n");
+
+        let full = walk(&fx.0, TreeDetail::Full);
+        let no_symbols = walk(&fx.0, TreeDetail::NoSymbols);
+        let paths_only = walk(&fx.0, TreeDetail::PathsOnly);
+
+        let paths = |rows: &[(String, i64, String, usize)]| {
+            rows.iter().map(|row| row.0.clone()).collect::<Vec<_>>()
+        };
+        assert_eq!(
+            paths(&full),
+            [
+                ".",
+                "README.md",
+                "src",
+                "src/deep",
+                "src/deep/mod.rs",
+                "src/lib.rs"
+            ]
+        );
+        assert_eq!(paths(&no_symbols), paths(&full));
+        assert_eq!(paths(&paths_only), paths(&full));
+        assert!(
+            full.iter().any(|row| row.3 > 0),
+            "full walk extracts symbols"
+        );
+
+        // NoSymbols keeps every other field the budget view reads.
+        for (full_row, row) in full.iter().zip(&no_symbols) {
+            assert_eq!(
+                (&full_row.0, full_row.1, &full_row.2),
+                (&row.0, row.1, &row.2)
+            );
+            assert_eq!(row.3, 0);
+        }
+        assert!(paths_only.iter().all(|row| row.1 == 0 && row.3 == 0));
+    }
 
     #[test]
     fn file_node_does_not_read_through_fifos() {
