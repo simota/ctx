@@ -26,8 +26,10 @@
 //     reads ChildByFieldName("name"), dedups by `kind\x00name`, emits
 //     Symbol{name, kind, line = start_row + 1}.
 
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::Path;
+use std::sync::OnceLock;
 
 use tree_sitter::{Language, Node, Parser};
 
@@ -40,10 +42,6 @@ const MAX_PARSE_BYTES: u64 = 500 * 1024;
 /// The kind strings are the canonical `model.SymbolKind` values.
 struct LangSpec {
     language: Language,
-    /// (node_type, symbol_kind) pairs. A Vec (not a map) because lookups
-    /// are O(n) over ≤a dozen entries and we avoid a HashMap allocation per
-    /// file.
-    kinds: &'static [(&'static str, &'static str)],
     /// When true, a matched node that lacks a `name` field falls back to its
     /// first identifier-typed named child. Needed for grammars that don't
     /// label the declaration name as a field (tree-sitter-kotlin). Kept
@@ -51,6 +49,44 @@ struct LangSpec {
     /// a `name` field, so the fallback never fires and extraction stays
     /// byte-identical to the field-only path.
     name_fallback: bool,
+    /// The language's (node_type, symbol_kind) pairs keyed by node kind id:
+    /// `kind_by_id[id]` is the symbol kind of a node whose `kind_id()` is
+    /// `id`. Every id whose name is one of the node types is filled (several
+    /// ids can share one name), so a lookup by id answers exactly what
+    /// comparing `node.kind()` against the pairs does, without turning each
+    /// node's C type name into a `&str` first.
+    kind_by_id: Vec<Option<&'static str>>,
+}
+
+impl LangSpec {
+    fn new(
+        language: Language,
+        kinds: &'static [(&'static str, &'static str)],
+        name_fallback: bool,
+    ) -> Self {
+        let kind_by_id = (0..language.node_kind_count())
+            .map(|id| {
+                let id = u16::try_from(id).ok()?;
+                kind_for(kinds, language.node_kind_for_id(id)?)
+            })
+            .collect();
+        Self {
+            language,
+            name_fallback,
+            kind_by_id,
+        }
+    }
+
+    /// The symbol kind of `node`, if its node type is one of `kinds`.
+    #[inline]
+    fn kind_of(&self, node: Node) -> Option<&'static str> {
+        // An id outside the table (the ERROR node's 65535) has no `kinds`
+        // entry, just as its "ERROR" name matches none.
+        self.kind_by_id
+            .get(usize::from(node.kind_id()))
+            .copied()
+            .flatten()
+    }
 }
 
 // ── Per-language kind maps (mirror langSpecs in extractor.go) ────────────
@@ -134,29 +170,45 @@ const JAVA_KINDS: &[(&str, &str)] = &[
 
 /// Resolve the LangSpec for a file extension, mirroring `langSpecs` keyed
 /// by `strings.ToLower(filepath.Ext(path))`. Returns `None` for unsupported
-/// extensions (Go: `ok == false`).
-fn lang_spec_for_ext(ext: &str) -> Option<LangSpec> {
-    let (language, kinds, name_fallback): (Language, &'static [(&str, &str)], bool) = match ext {
-        "go" => (tree_sitter_go::language(), GO_KINDS, false),
-        "ts" => (
-            tree_sitter_typescript::language_typescript(),
-            TS_KINDS,
-            false,
-        ),
-        "tsx" => (tree_sitter_typescript::language_tsx(), TS_KINDS, false),
-        "js" | "jsx" | "mjs" => (tree_sitter_javascript::language(), JS_KINDS, false),
-        "py" => (tree_sitter_python::language(), PY_KINDS, false),
-        "rs" => (tree_sitter_rust::language(), RUST_KINDS, false),
-        "swift" => (tree_sitter_swift::language(), SWIFT_KINDS, false),
-        "kt" | "kts" => (tree_sitter_kotlin::language(), KOTLIN_KINDS, true),
-        "java" => (tree_sitter_java::language(), JAVA_KINDS, false),
+/// extensions (Go: `ok == false`). Each spec (with its kind-id table) is
+/// built once per process.
+fn lang_spec_for_ext(ext: &str) -> Option<&'static LangSpec> {
+    static SPECS: [OnceLock<LangSpec>; 9] = [const { OnceLock::new() }; 9];
+    let (slot, build): (usize, fn() -> LangSpec) = match ext {
+        "go" => (0, || {
+            LangSpec::new(tree_sitter_go::language(), GO_KINDS, false)
+        }),
+        "ts" => (1, || {
+            LangSpec::new(
+                tree_sitter_typescript::language_typescript(),
+                TS_KINDS,
+                false,
+            )
+        }),
+        "tsx" => (2, || {
+            LangSpec::new(tree_sitter_typescript::language_tsx(), TS_KINDS, false)
+        }),
+        "js" | "jsx" | "mjs" => (3, || {
+            LangSpec::new(tree_sitter_javascript::language(), JS_KINDS, false)
+        }),
+        "py" => (4, || {
+            LangSpec::new(tree_sitter_python::language(), PY_KINDS, false)
+        }),
+        "rs" => (5, || {
+            LangSpec::new(tree_sitter_rust::language(), RUST_KINDS, false)
+        }),
+        "swift" => (6, || {
+            LangSpec::new(tree_sitter_swift::language(), SWIFT_KINDS, false)
+        }),
+        "kt" | "kts" => (7, || {
+            LangSpec::new(tree_sitter_kotlin::language(), KOTLIN_KINDS, true)
+        }),
+        "java" => (8, || {
+            LangSpec::new(tree_sitter_java::language(), JAVA_KINDS, false)
+        }),
         _ => return None,
     };
-    Some(LangSpec {
-        language,
-        kinds,
-        name_fallback,
-    })
+    Some(SPECS[slot].get_or_init(build))
 }
 
 /// Extracts named symbols for a supported source file, mirroring Go's
@@ -178,7 +230,7 @@ pub fn extract(path: impl AsRef<Path>) -> std::io::Result<Vec<Symbol>> {
         None => return Ok(Vec::new()),
     };
     let source = std::fs::read(path)?;
-    Ok(parse_symbols(&spec, &source))
+    Ok(parse_symbols(spec, &source))
 }
 
 /// [`extract`] for a caller that has already read the file: `source` is the
@@ -190,7 +242,7 @@ pub fn extract_source(path: impl AsRef<Path>, source: &[u8]) -> Vec<Symbol> {
         return Vec::new();
     }
     match lang_spec_for_path(path.as_ref()) {
-        Some(spec) => parse_symbols(&spec, source),
+        Some(spec) => parse_symbols(spec, source),
         None => Vec::new(),
     }
 }
@@ -244,7 +296,7 @@ pub fn extract_on_worker(path: impl AsRef<Path>) -> std::io::Result<Vec<Symbol>>
         None => return Ok(Vec::new()),
     };
     let source = std::fs::read(path)?;
-    Ok(parse_symbols_on_worker(&spec, &source))
+    Ok(parse_symbols_on_worker(spec, &source))
 }
 
 /// [`extract_source`] for a worker thread of a parallel walk; see
@@ -254,7 +306,7 @@ pub fn extract_source_on_worker(path: impl AsRef<Path>, source: &[u8]) -> Vec<Sy
         return Vec::new();
     }
     match lang_spec_for_path(path.as_ref()) {
-        Some(spec) => parse_symbols_on_worker(&spec, source),
+        Some(spec) => parse_symbols_on_worker(spec, source),
         None => Vec::new(),
     }
 }
@@ -277,13 +329,32 @@ fn parse_symbols_on_worker(spec: &LangSpec, source: &[u8]) -> Vec<Symbol> {
 }
 
 fn parse_symbols(spec: &LangSpec, source: &[u8]) -> Vec<Symbol> {
-    let mut parser = Parser::new();
+    thread_local! {
+        // One parser per thread, reused across files: building a parser
+        // allocates its stack and lexer buffers, a measurable share of a
+        // small file's extraction. Its trees are independent of it.
+        static PARSER: RefCell<Parser> = RefCell::new(Parser::new());
+    }
+    PARSER.with(|parser| {
+        // A nested call on this thread (none exist) would find the parser
+        // borrowed; give it a parser of its own rather than panicking.
+        match parser.try_borrow_mut() {
+            Ok(mut parser) => parse_with(&mut parser, spec, source),
+            Err(_) => parse_with(&mut Parser::new(), spec, source),
+        }
+    })
+}
+
+fn parse_with(parser: &mut Parser, spec: &LangSpec, source: &[u8]) -> Vec<Symbol> {
     // set_language only fails on ABI mismatch — impossible for grammars we
     // compiled against this tree-sitter version. Treat as "no symbols",
     // mirroring Go's parse-failure → (nil, nil).
     if parser.set_language(&spec.language).is_err() {
         return Vec::new();
     }
+    // No timeout or cancellation flag is ever set, so every parse runs to
+    // completion; reset anyway so a parse can never resume earlier state.
+    parser.reset();
     let tree = match parser.parse(source, None) {
         Some(tree) => tree,
         None => return Vec::new(),
@@ -291,18 +362,11 @@ fn parse_symbols(spec: &LangSpec, source: &[u8]) -> Vec<Symbol> {
 
     let mut out = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
-    walk_node(
-        tree.root_node(),
-        source,
-        spec.kinds,
-        spec.name_fallback,
-        &mut out,
-        &mut seen,
-    );
+    walk_node(tree.root_node(), source, spec, &mut out, &mut seen);
     out
 }
 
-fn lang_spec_for_path(path: &Path) -> Option<LangSpec> {
+fn lang_spec_for_path(path: &Path) -> Option<&'static LangSpec> {
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
@@ -318,8 +382,7 @@ fn lang_spec_for_path(path: &Path) -> Option<LangSpec> {
 fn walk_node(
     root: Node,
     source: &[u8],
-    kinds: &[(&str, &str)],
-    name_fallback: bool,
+    spec: &LangSpec,
     out: &mut Vec<Symbol>,
     seen: &mut HashSet<String>,
 ) {
@@ -330,8 +393,8 @@ fn walk_node(
     // (`for i := 0; i < NamedChildCount; i++ { walkNode(NamedChild(i)) }`).
     let mut stack = vec![root];
     while let Some(node) = stack.pop() {
-        if let Some(kind) = kind_for(kinds, node.kind()) {
-            if let Some(name) = symbol_name(node, source, name_fallback) {
+        if let Some(kind) = spec.kind_of(node) {
+            if let Some(name) = symbol_name(node, source, spec.name_fallback) {
                 let key = format!("{kind}\x00{name}");
                 if seen.insert(key) {
                     out.push(Symbol {
@@ -375,7 +438,7 @@ fn symbol_name(node: Node, source: &[u8], fallback: bool) -> Option<String> {
 }
 
 #[inline]
-fn kind_for<'a>(kinds: &'a [(&'a str, &'a str)], node_type: &str) -> Option<&'a str> {
+fn kind_for(kinds: &[(&str, &'static str)], node_type: &str) -> Option<&'static str> {
     kinds
         .iter()
         .find(|(ty, _)| *ty == node_type)
@@ -385,6 +448,40 @@ fn kind_for<'a>(kinds: &'a [(&'a str, &'a str)], node_type: &str) -> Option<&'a 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every node of a parsed sample (named or not, aliased or not) gets the
+    /// same kind from the id table as from comparing its type name.
+    #[test]
+    fn kind_ids_match_kind_names_for_every_language() {
+        type Kinds = &'static [(&'static str, &'static str)];
+        let samples: &[(&str, Kinds, &str)] = &[
+            ("go", GO_KINDS, "package p\ntype T struct{}\nfunc (t T) M() {}\nfunc F() { var x = 1; _ = x }\n"),
+            ("ts", TS_KINDS, "interface I { a: number }\ntype A = string;\nclass C { m() {} }\nfunction f(): void {}\n"),
+            ("tsx", TS_KINDS, "function App() { return <div className=\"a\">{1}</div>; }\nclass K {}\n"),
+            ("js", JS_KINDS, "class C { m() {} }\nfunction f() { return `x${1}`; }\nconst g = () => 1;\n"),
+            ("py", PY_KINDS, "class C:\n    def m(self):\n        return [x for x in range(3)]\ndef f(): pass\n"),
+            ("rs", RUST_KINDS, "mod m { pub fn f() {} }\nstruct S; enum E { A }\ntrait T { fn r(&self); }\nmacro_rules! mm { () => {} }\nconst C: u8 = 1; static X: u8 = 2; type Y = u8; union U { a: u8 }\n"),
+            ("swift", SWIFT_KINDS, "protocol P { func r() }\nclass C { func m() {} }\nstruct S {}\nfunc f() {}\n"),
+            ("kt", KOTLIN_KINDS, "class C { fun m() {} }\nobject O\ninterface I\nfun f() = 1\n"),
+            ("java", JAVA_KINDS, "@interface A {}\nrecord R(int a) {}\nenum E { X }\ninterface I {}\nclass C { C() {} void m() {} }\n"),
+        ];
+        for (ext, kinds, source) in samples {
+            let spec = lang_spec_for_ext(ext).expect("supported extension");
+            let mut parser = Parser::new();
+            parser.set_language(&spec.language).unwrap();
+            let tree = parser.parse(source, None).unwrap();
+            let mut matched = 0;
+            let mut cursor = tree.walk();
+            let mut stack = vec![tree.root_node()];
+            while let Some(node) = stack.pop() {
+                let expected = kind_for(kinds, node.kind());
+                assert_eq!(spec.kind_of(node), expected, "{ext}: {}", node.kind());
+                matched += usize::from(expected.is_some());
+                stack.extend(node.children(&mut cursor));
+            }
+            assert!(matched >= 2, "{ext}: sample matched only {matched} nodes");
+        }
+    }
 
     /// A Rust source of roughly `items` functions (each ~40 bytes).
     fn rust_source(items: usize) -> String {
