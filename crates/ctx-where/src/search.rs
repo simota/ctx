@@ -36,6 +36,18 @@ pub struct FileInput {
     pub lines: Vec<String>,
 }
 
+/// `body.lines()` as owned strings — the `FileInput::lines` every walker
+/// builds — in a Vec sized exactly up front. Collecting the iterator
+/// directly grows the Vec by doubling, leaving on average about a quarter
+/// of its 24-byte slots unused, and a walk holds every file's lines at once.
+pub fn split_lines(body: &str) -> Vec<String> {
+    let newlines = body.bytes().filter(|&b| b == b'\n').count();
+    let unterminated = usize::from(!body.is_empty() && !body.ends_with('\n'));
+    let mut lines = Vec::with_capacity(newlines + unterminated);
+    lines.extend(body.lines().map(str::to_string));
+    lines
+}
+
 fn null_as_empty_vec<'de, D, T>(d: D) -> std::result::Result<Vec<T>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -380,6 +392,27 @@ pub fn suggest_similar(files: &[FileInput], query: &str, limit: i64) -> Vec<Sugg
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn split_lines_matches_str_lines_with_an_exact_capacity() {
+        for body in [
+            "",
+            "\n",
+            "\n\n",
+            "one",
+            "one\n",
+            "one\ntwo",
+            "one\r\ntwo\r\n",
+            "a\n\nb\n\n",
+            "trailing\r",
+            "é\n🦀\nend",
+        ] {
+            let lines = split_lines(body);
+            let expected: Vec<String> = body.lines().map(str::to_string).collect();
+            assert_eq!(lines, expected, "{body:?}");
+            assert_eq!(lines.capacity(), expected.len(), "{body:?}");
+        }
+    }
     use super::*;
 
     fn mkfile(path: &str, lines: Vec<&str>, syms: Vec<(&str, i64)>) -> FileInput {

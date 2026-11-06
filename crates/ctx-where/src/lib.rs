@@ -32,5 +32,7 @@ pub use crate::levenshtein::levenshtein;
 pub use crate::score::{
     extract_keywords, score_file, score_file_literal, score_file_with_sets, split_identifier,
 };
-pub use crate::search::{search_with_options, suggest_similar, FileInput, Options, SymbolInput};
+pub use crate::search::{
+    search_with_options, split_lines, suggest_similar, FileInput, Options, SymbolInput,
+};
 pub use crate::types::{KeywordSet, Match, Result as SearchResult, ScoreBreakdown, Suggestion};

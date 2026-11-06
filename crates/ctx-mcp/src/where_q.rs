@@ -45,7 +45,7 @@ pub(crate) fn collect_where_files_inner(
         let Ok(body) = std::fs::read_to_string(&path) else {
             continue;
         };
-        let lines: Vec<String> = body.lines().map(ToString::to_string).collect();
+        let lines = ctx_where::split_lines(&body);
         let symbols = extract_where_symbols(&rel, &lines);
         out.push(ctx_where::FileInput {
             path: rel,
