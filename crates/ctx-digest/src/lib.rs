@@ -144,12 +144,35 @@ pub fn generate(opts: DigestOptions<'_>) -> Result<DigestBrief, String> {
     let mut path_deltas: HashMap<String, (i64, i64)> = HashMap::new();
     let can_compute_delta = since_ref != "N/A" && !since_ref.is_empty();
     if can_compute_delta {
-        for path in all_paths.iter().take(MAX_DELTA_FILES) {
-            let old_content = show_content(opts.root, &since_ref, path).unwrap_or_default();
-            let new_content = show_content(opts.root, &head_ref, path).unwrap_or_default();
-            let td = ctx_tokens::count_str(&new_content) - ctx_tokens::count_str(&old_content);
-            let sd = count(opts.count_symbols, path, &new_content)
-                - count(opts.count_symbols, path, &old_content);
+        // Each path's delta needs two `git show` processes, which dominate
+        // the time and are independent. Start a window of them at once and
+        // collect their output in path order: the processes overlap, while
+        // this thread still reads, counts and parses one file at a time.
+        let delta_paths = &all_paths[..all_paths.len().min(MAX_DELTA_FILES)];
+        let window = std::thread::available_parallelism().map_or(1, usize::from);
+        let mut deltas: Vec<(i64, i64)> = Vec::with_capacity(delta_paths.len());
+        for chunk in delta_paths.chunks(window) {
+            let running: Vec<_> = chunk
+                .iter()
+                .map(|path| {
+                    (
+                        spawn_show(opts.root, &since_ref, path),
+                        spawn_show(opts.root, &head_ref, path),
+                    )
+                })
+                .collect();
+            for (path, (old_show, new_show)) in chunk.iter().zip(running) {
+                let old_content =
+                    finish_show(old_show, opts.root, &since_ref, path).unwrap_or_default();
+                let new_content =
+                    finish_show(new_show, opts.root, &head_ref, path).unwrap_or_default();
+                let td = ctx_tokens::count_str(&new_content) - ctx_tokens::count_str(&old_content);
+                let sd = count(opts.count_symbols, path, &new_content)
+                    - count(opts.count_symbols, path, &old_content);
+                deltas.push((td, sd));
+            }
+        }
+        for (path, (td, sd)) in delta_paths.iter().zip(deltas) {
             total_token_delta += td;
             total_symbol_delta += sd;
             path_deltas.insert(path.clone(), (td, sd));
@@ -290,10 +313,12 @@ pub fn parse_log(raw: &str, skip_empty_commits: bool) -> DigestLog {
     log
 }
 
-/// File content at `git_ref:path`, or `None` when the file is absent at that
-/// ref or is not UTF-8 (binary). A scoped digest names paths from `root`, so
-/// they are passed as `./path` (cwd-relative tree paths).
-fn show_content(root: Option<&Path>, git_ref: &str, path: &str) -> Option<String> {
+/// Starts `git show git_ref:path` without waiting for it, so several can run
+/// at once; [`finish_show`] collects the content. A scoped digest names paths
+/// from `root`, so they are passed as `./path` (cwd-relative tree paths).
+/// `None` if the process could not be started.
+fn spawn_show(root: Option<&Path>, git_ref: &str, path: &str) -> Option<std::process::Child> {
+    use std::process::Stdio;
     let spec = if root.is_some() {
         format!("{git_ref}:./{path}")
     } else {
@@ -303,7 +328,30 @@ fn show_content(root: Option<&Path>, git_ref: &str, path: &str) -> Option<String
     if let Some(root) = root {
         cmd.arg("-C").arg(root);
     }
-    let output = cmd.args(["show", &spec]).output().ok()?;
+    // Only stdout is read; stderr is discarded, as it always was.
+    cmd.args(["show", &spec])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()
+}
+
+/// File content at `git_ref:path` from a [`spawn_show`], or `None` when the
+/// file is absent at that ref or is not UTF-8 (binary). A process that could
+/// not be started (say, while a window of others is running) is retried on
+/// its own, so starting several at once never changes the result.
+fn finish_show(
+    child: Option<std::process::Child>,
+    root: Option<&Path>,
+    git_ref: &str,
+    path: &str,
+) -> Option<String> {
+    let child = match child {
+        Some(child) => child,
+        None => spawn_show(root, git_ref, path)?,
+    };
+    let output = child.wait_with_output().ok()?;
     if !output.status.success() {
         return None;
     }

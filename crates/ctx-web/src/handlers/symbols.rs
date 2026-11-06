@@ -12,6 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::handlers::file::relative_to_root;
@@ -125,13 +126,16 @@ fn handle_symbols_sync(state: AppState, params: SymbolsParams) -> Response {
     collect_symbols_from_dir(&target, root_str, &mut files);
 
     let path_key = dotted_relative_to_root(root_str, &target);
-    response::json(
+    let resp = response::json(
         StatusCode::OK,
         &SymbolsResponse {
             path: path_key,
             files,
         },
-    )
+    );
+    // The walk parsed every file on the rayon pool (see `run_parallel`).
+    crate::blocking::release_freed_memory();
+    resp
 }
 
 // ── /api/definition ───────────────────────────────────────────────────────────
@@ -288,6 +292,29 @@ fn collect_symbols_from_dir(
     root: &str,
     files: &mut BTreeMap<String, Option<Vec<SymbolWire>>>,
 ) {
+    // List the files sequentially, then parse them in parallel: each parse
+    // reads only its own file, and the map is keyed by path, so the result
+    // does not depend on the order the parses finish in.
+    let mut paths = Vec::new();
+    list_symbol_files(dir, &mut paths);
+    let parsed: Vec<(PathBuf, Vec<ctx_symbols::Symbol>)> = paths
+        .into_par_iter()
+        .filter_map(|path| {
+            // Go skips on errE != nil || len(syms) == 0.
+            match ctx_symbols::extract_on_worker(&path) {
+                Ok(syms) if !syms.is_empty() => Some((path, syms)),
+                _ => None,
+            }
+        })
+        .collect();
+    for (path, syms) in parsed {
+        let key = dotted_relative_to_root(root, &path);
+        files.insert(key, convert_symbols(syms));
+    }
+}
+
+/// The files [`collect_symbols_from_dir`] parses, in walk order.
+fn list_symbol_files(dir: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
@@ -316,17 +343,10 @@ fn collect_symbols_from_dir(
         }
 
         if is_dir {
-            collect_symbols_from_dir(&path, root, files);
+            list_symbol_files(&path, out);
             continue;
         }
-
-        // Go skips on errE != nil || len(syms) == 0.
-        let syms = match ctx_symbols::extract(&path) {
-            Ok(s) if !s.is_empty() => s,
-            _ => continue,
-        };
-        let key = dotted_relative_to_root(root, &path);
-        files.insert(key, convert_symbols(syms));
+        out.push(path);
     }
 }
 

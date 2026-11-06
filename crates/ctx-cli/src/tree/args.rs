@@ -193,6 +193,7 @@ pub(crate) fn run_root_command(args: &[OsString]) -> Option<ExitCode> {
         max_depth: r.depth,
         since,
         until,
+        detail: TreeDetail::Full,
     };
 
     // Dispatch order mirrors Go's runRoot: budget > 0 first, then JSON, then text.

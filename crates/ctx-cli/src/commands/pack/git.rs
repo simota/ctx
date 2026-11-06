@@ -1,6 +1,8 @@
 use std::path::Path;
 use std::process::Command;
 
+use rayon::prelude::*;
+
 use super::*;
 use crate::common::SecurityToml;
 
@@ -146,47 +148,87 @@ pub(crate) fn git_diff_entries(
         root,
         &git_diff_args(&["--name-status", "-z", base, head, "--"]),
     )?;
-    let mut entries = Vec::new();
-    for (status, path, before_path) in parse_git_name_status_z(&name_status) {
-        let added = status.starts_with('A');
-        let deleted = status.starts_with('D');
-        let binary = git_diff_is_binary(root, base, head, &path)?;
-        let mut patch = git_output_allow_empty(root, &git_diff_args(&[base, head, "--", &path]))?;
-        let mut before_content = if added || binary {
-            String::new()
-        } else {
-            git_show_file(root, base, &before_path).unwrap_or_default()
-        };
-        let mut after_content = if deleted || binary {
-            String::new()
-        } else {
-            git_show_file(root, head, &path).unwrap_or_default()
-        };
-        if api_only {
-            before_content =
-                extract_public_api_light(&path, &before_content).unwrap_or(before_content);
-            after_content =
-                extract_public_api_light(&path, &after_content).unwrap_or(after_content);
-        }
-        // Committed secrets show up in both blobs and in the patch. The
-        // path stands in for allowlist_files matching (there is no file).
-        let label = root.join(&path).to_string_lossy().into_owned();
-        redact_pack_body(&label, &mut before_content, security);
-        redact_pack_body(&label, &mut after_content, security);
-        redact_pack_body(&label, &mut patch, security);
-        entries.push(ctx_pack::DiffEntry {
-            path,
-            before_content,
-            after_content,
-            before_commit: before_commit.clone(),
-            after_commit: after_commit.clone(),
-            patch,
-            added,
-            deleted,
-            binary,
-        });
+    // Each changed file costs a few git processes (binary probe, patch, two
+    // blobs) and is independent of the others, so files are built in
+    // parallel. The indexed collect keeps git's order, and taking the results
+    // in that order returns the same first error the sequential loop did.
+    let ctx = DiffPackContext {
+        root,
+        base,
+        head,
+        api_only,
+        security,
+        before_commit: &before_commit,
+        after_commit: &after_commit,
+    };
+    let built: Vec<Result<ctx_pack::DiffEntry, String>> = parse_git_name_status_z(&name_status)
+        .into_par_iter()
+        .map(|(status, path, before_path)| git_diff_entry(&ctx, &status, path, &before_path))
+        .collect();
+    built.into_iter().collect()
+}
+
+/// The per-pack inputs every `--diff` entry is built from.
+struct DiffPackContext<'a> {
+    root: &'a Path,
+    base: &'a str,
+    head: &'a str,
+    api_only: bool,
+    security: &'a SecurityToml,
+    before_commit: &'a str,
+    after_commit: &'a str,
+}
+
+fn git_diff_entry(
+    ctx: &DiffPackContext,
+    status: &str,
+    path: String,
+    before_path: &str,
+) -> Result<ctx_pack::DiffEntry, String> {
+    let DiffPackContext {
+        root,
+        base,
+        head,
+        api_only,
+        security,
+        before_commit,
+        after_commit,
+    } = *ctx;
+    let added = status.starts_with('A');
+    let deleted = status.starts_with('D');
+    let binary = git_diff_is_binary(root, base, head, &path)?;
+    let mut patch = git_output_allow_empty(root, &git_diff_args(&[base, head, "--", &path]))?;
+    let mut before_content = if added || binary {
+        String::new()
+    } else {
+        git_show_file(root, base, before_path).unwrap_or_default()
+    };
+    let mut after_content = if deleted || binary {
+        String::new()
+    } else {
+        git_show_file(root, head, &path).unwrap_or_default()
+    };
+    if api_only {
+        before_content = extract_public_api_light(&path, &before_content).unwrap_or(before_content);
+        after_content = extract_public_api_light(&path, &after_content).unwrap_or(after_content);
     }
-    Ok(entries)
+    // Committed secrets show up in both blobs and in the patch. The
+    // path stands in for allowlist_files matching (there is no file).
+    let label = root.join(&path).to_string_lossy().into_owned();
+    redact_pack_body(&label, &mut before_content, security);
+    redact_pack_body(&label, &mut after_content, security);
+    redact_pack_body(&label, &mut patch, security);
+    Ok(ctx_pack::DiffEntry {
+        path,
+        before_content,
+        after_content,
+        before_commit: before_commit.to_string(),
+        after_commit: after_commit.to_string(),
+        patch,
+        added,
+        deleted,
+        binary,
+    })
 }
 
 fn parse_git_name_status_z(output: &[u8]) -> Vec<(String, String, String)> {

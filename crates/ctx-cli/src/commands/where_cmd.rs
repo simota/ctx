@@ -397,7 +397,6 @@ pub(crate) fn build_where_input(root: &Path, path: &Path) -> Option<ctx_where::F
         .to_string_lossy()
         .replace('\\', "/");
     let body = std::fs::read_to_string(path).ok()?;
-    let lines: Vec<String> = body.lines().map(ToString::to_string).collect();
     // Mirror Go: every consumer of this walk (where / noise / onboarding /
     // focus / braid) extracts symbols via symbols.New() — the tree-sitter
     // extractor (ported as ctx_symbols::extract). The previous regex
@@ -413,6 +412,8 @@ pub(crate) fn build_where_input(root: &Path, path: &Path) -> Option<ctx_where::F
             line: i64::from(sym.line),
         })
         .collect();
+    // Split after the parse, so its tree is freed before the lines exist.
+    let lines = ctx_where::split_lines(&body);
     Some(ctx_where::FileInput {
         path: rel,
         is_dir: false,

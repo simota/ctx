@@ -25,3 +25,27 @@ where
         },
     }
 }
+
+/// [`run`] for handlers that read and parse many files on the rayon pool.
+/// Once `f` has built its response (and dropped its per-file data), the
+/// memory freed by the pool's worker threads is handed back to the OS.
+/// glibc keeps freed memory in each thread's arena, so without this every
+/// such request left the server holding — and the next request growing
+/// past — the high-water mark of the parallel build.
+pub async fn run_parallel<F>(f: F) -> Response
+where
+    F: FnOnce() -> Response + Send + 'static,
+{
+    run(move || {
+        let resp = f();
+        release_freed_memory();
+        resp
+    })
+    .await
+}
+
+/// Return already-freed heap memory to the OS; see
+/// [`ctx_symbols::release_freed_memory`].
+pub fn release_freed_memory() {
+    ctx_symbols::release_freed_memory();
+}

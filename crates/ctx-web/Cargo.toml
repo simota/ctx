@@ -30,6 +30,7 @@ ctx-contract = { path = "../ctx-contract" }
 ctx-git = { path = "../ctx-git" }
 ctx-mix = { path = "../ctx-mix" }
 ctx-pack = { path = "../ctx-pack" }
+rayon = "1"
 sha2 = "0.10"
 hex = "0.4"
 toml = "0.8"

@@ -2,6 +2,8 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use rayon::prelude::*;
+
 use crate::common::*;
 use crate::tree::*;
 
@@ -86,8 +88,11 @@ pub(crate) fn render_symbols_json(root: &Path, max_depth: i64) -> Result<(), Str
     // (`build_root_tree`), so `--depth N` excludes files deeper than the limit
     // exactly like Go's `walk` (MaxDepth halts recursion at `depth >= N`). Go's
     // `render.JSONSymbols` then flattens that file set.
+    // Only the file list is used here (symbols are extracted below), so the
+    // walk does not read or parse any file.
     let opts = TreeBuildOpts {
         max_depth,
+        detail: TreeDetail::PathsOnly,
         ..TreeBuildOpts::default()
     };
     let mut files: Vec<String> = Vec::new();
@@ -96,10 +101,16 @@ pub(crate) fn render_symbols_json(root: &Path, max_depth: i64) -> Result<(), Str
     }
     files.sort();
 
+    // Extraction is independent per file, so it runs in parallel. The indexed
+    // collect keeps the sorted order, and walking the results in that order
+    // returns the same first error the sequential loop stopped at.
+    let extracted: Vec<std::io::Result<Vec<ctx_symbols::Symbol>>> = files
+        .par_iter()
+        .map(|rel| ctx_symbols::extract(root.join(rel)))
+        .collect();
     let mut entries: Vec<SymbolsJsonFile> = Vec::new();
-    for rel in &files {
-        let abs = root.join(rel);
-        let syms = ctx_symbols::extract(&abs).map_err(|e| e.to_string())?;
+    for (rel, syms) in files.iter().zip(extracted) {
+        let syms = syms.map_err(|e| e.to_string())?;
         if syms.is_empty() {
             continue;
         }

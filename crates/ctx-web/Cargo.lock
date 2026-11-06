@@ -493,6 +493,7 @@ dependencies = [
  "http-body-util",
  "libc",
  "mime_guess",
+ "rayon",
  "rust-embed",
  "serde",
  "serde_json",
@@ -508,6 +509,7 @@ version = "0.1.0"
 dependencies = [
  "cbindgen",
  "libc",
+ "memchr",
  "once_cell",
  "rayon",
  "regex",
