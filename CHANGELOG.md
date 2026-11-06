@@ -8,6 +8,22 @@ and this project does not yet follow strict semver — see release notes per tag
 ## [Unreleased]
 
 ### Added
+- Line-range excerpts: a selection entry `path:START-END`, `path:N` or
+  `path#LSTART-LEND` packs only those lines — on `ctx pack --from-stdin`,
+  in mixes (`ctx mix save` / `add`, `ctx pack --from-mix`), in MCP
+  `ctx_pack` `files` and in `ctx browse` `POST /api/pack`. This answers the
+  request an `--overflow signatures` digest invites ("show me
+  `src/store.rs:120-180`") without paying for the whole file again. Ranges
+  of one file merge into one entry with a `[ctx: ...]` header per segment;
+  a whole-file entry wins; listings show `lines 120-180 of 412` (JSON:
+  `lines`), and ranges past the end of the file are recorded as omitted.
+  The digest header and the MCP next-step hint now say how to ask.
+- Pack contracts record partially packed files — excerpts and
+  signatures-only digests — as the lines actually shown, under their line
+  numbers in the full file (`"partial": true`). `ctx contract verify`
+  reports a citation of a line the pack never showed as `out-of-context`
+  (`referenced lines were not in the pack`), and `--check-worktree` calls
+  such a file stale only when a shown line changed.
 - `ctx pack --base <REV>` (MCP `ctx_pack` `base`): a branch-review pack of
   every file the current branch changes relative to REV — changed since the
   merge base in commits, staged, unstaged or untracked — where `--changed`
@@ -62,6 +78,10 @@ and this project does not yet follow strict semver — see release notes per tag
   reported as skipped.
 
 ### Fixed
+- `ctx pack --overflow signatures`: the contract hashed the digest text as
+  lines 1..N, so verifying a citation of a real declaration line compared
+  it against the wrong line and reported stale content. It now records the
+  declaration lines under their own numbers.
 - `ctx pack | head`, `ctx where … | head` and every other one-shot command
   panicked with "failed printing to stdout: Broken pipe" and a backtrace
   when the reader closed the pipe early. They now end quietly like other

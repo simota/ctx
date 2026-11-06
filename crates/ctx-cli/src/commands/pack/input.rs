@@ -16,6 +16,14 @@ pub(crate) use ctx_pack::assemble::SkippedFile as PackSkipped;
 /// `--exclude` filtered out.
 const REASON_FILTERED: &str = "excluded by --include/--exclude";
 
+/// Line ranges requested for explicitly selected files (`src/a.rs:10-20`
+/// on `--from-stdin` or in a mix), keyed by repository-relative path.
+pub(crate) type PackExcerpts = std::collections::HashMap<String, Vec<ctx_pack::excerpt::LineRange>>;
+
+/// A signature digest standing in for a file that did not fit: its text,
+/// token count and the contract line hashes of the source lines it shows.
+type OverflowDigest = (String, i64, Vec<ctx_contract::types::LineHash>);
+
 /// When `overflow` is `signatures`, the signature digest standing in for a
 /// file whose full text (`body`, `full_tokens`) does not fit, if it has one.
 fn overflow_digest(
@@ -24,13 +32,39 @@ fn overflow_digest(
     body: &str,
     symbol_lines: &[i64],
     full_tokens: i64,
-) -> Option<(String, i64)> {
+) -> Option<OverflowDigest> {
     if args.overflow != "signatures" {
         return None;
     }
-    let digest = ctx_pack::signatures::signature_digest(rel, body, symbol_lines, full_tokens)?;
+    let (digest, shown) =
+        ctx_pack::signatures::signature_digest_with_lines(rel, body, symbol_lines, full_tokens)?;
     let tokens = estimate_text_tokens(&digest);
-    Some((digest, tokens))
+    let hashes = ctx_pack::excerpt::line_hashes_of(body, &shown);
+    Some((digest, tokens, hashes))
+}
+
+/// Split explicit selection entries into the paths to pack and the line
+/// ranges asked for (`path:N-M`, `path#LN-LM`). A whole-file entry for a
+/// path wins over its ranges; ranges of one path are merged.
+pub(crate) fn split_pack_selection(root: &Path, entries: &[String]) -> (Vec<String>, PackExcerpts) {
+    let base = if root.is_file() {
+        root.parent().unwrap_or(root)
+    } else {
+        root
+    };
+    let (grouped, _) = ctx_pack::excerpt::group_specs(base, entries, |path| {
+        let clean = clean_pack_input_path(path);
+        (!clean.is_empty()).then_some(clean)
+    });
+    let mut paths = Vec::with_capacity(grouped.len());
+    let mut excerpts = PackExcerpts::new();
+    for (path, wanted) in grouped {
+        if let ctx_pack::excerpt::Wanted::Lines(ranges) = wanted {
+            excerpts.insert(path.clone(), ranges);
+        }
+        paths.push(path);
+    }
+    (paths, excerpts)
 }
 
 pub(crate) fn read_pack_paths_ordered(
@@ -82,13 +116,15 @@ pub(crate) fn read_pack_paths_ordered(
         let lines: Vec<&str> = body.lines().collect();
         let where_symbols = extract_where_symbols(&rel, &lines);
         let mut signatures_only = false;
+        let mut contract_lines = None;
         if used + tokens > budget {
             let symbol_lines: Vec<i64> = where_symbols.iter().map(|sym| sym.line).collect();
             match overflow_digest(args, &rel, &body, &symbol_lines, tokens) {
-                Some((digest, digest_tokens)) if used + digest_tokens <= budget => {
+                Some((digest, digest_tokens, hashes)) if used + digest_tokens <= budget => {
                     body = digest;
                     tokens = digest_tokens;
                     signatures_only = true;
+                    contract_lines = Some(hashes);
                 }
                 _ => {
                     skipped.push(PackSkipped::new(
@@ -104,6 +140,8 @@ pub(crate) fn read_pack_paths_ordered(
         let symbols = where_symbols.into_iter().map(|sym| sym.name).collect();
         files.push(NativePackFile {
             signatures_only,
+            excerpt_note: String::new(),
+            contract_lines,
             path: rel,
             abs_path: abs.to_string_lossy().into_owned(),
             content: body,
@@ -126,6 +164,7 @@ pub(crate) fn read_pack_root(
     cfg: &PackCtxToml,
     filter: &ctx_pack::pathfilter::PathFilter,
     only_paths: Option<&[String]>,
+    excerpts: &PackExcerpts,
     respect_ctxignore: bool,
 ) -> Result<PackSelection, String> {
     let mut inputs = Vec::new();
@@ -192,6 +231,45 @@ pub(crate) fn read_pack_root(
             .map(|path| clean_pack_input_path(path))
             .collect();
         inputs.retain(|input| wanted.contains(&input.path));
+    }
+    // Excerpts: cut the requested lines now, so the budget and the
+    // relevance listing see the excerpt's size rather than the file's.
+    let mut cut = std::collections::HashMap::new();
+    if !excerpts.is_empty() {
+        let mut kept = Vec::with_capacity(inputs.len());
+        for mut input in inputs {
+            let Some(ranges) = excerpts.get(&input.path) else {
+                kept.push(input);
+                continue;
+            };
+            let body = read_native_pack_content(&input.path, &input.abs_path, args, cfg)?;
+            match ctx_pack::excerpt::excerpt(&input.path, &body, ranges) {
+                Ok(ex) => {
+                    if let Some(reason) = ex.out_of_range_reason() {
+                        let spec = format!(
+                            "{}:{}",
+                            input.path,
+                            ctx_pack::excerpt::label(&ex.out_of_range)
+                        );
+                        if !args.no_warnings {
+                            eprintln!("warning: pack: skipped {spec}: {reason}");
+                        }
+                        skipped.push(PackSkipped::new(spec, reason, 0));
+                    }
+                    input.tokens = estimate_text_tokens(&ex.content);
+                    cut.insert(input.path.clone(), ex);
+                    kept.push(input);
+                }
+                Err(err) => {
+                    let spec = format!("{}:{}", input.path, ctx_pack::excerpt::label(ranges));
+                    if !args.no_warnings {
+                        eprintln!("warning: pack: skipped {spec}: {err}");
+                    }
+                    skipped.push(PackSkipped::new(spec, err, 0));
+                }
+            }
+        }
+        inputs = kept;
     }
     let ctx = ctx_pack::RelevanceContext::new(&args.goal, args.budget);
     let seeds: Vec<String> = if all_inputs.is_some() {
@@ -266,15 +344,15 @@ pub(crate) fn read_pack_root(
             .map(|sym| sym.name.clone())
             .collect();
         if args.budget > 0 && used + input.tokens > args.budget {
-            let digest = if args.overflow == "signatures" {
+            let digest = if args.overflow == "signatures" && !cut.contains_key(&input.path) {
                 let body = read_native_pack_content(&input.path, &input.abs_path, args, cfg)?;
                 let lines: Vec<i64> = input.metadata.symbols.iter().map(|sym| sym.line).collect();
                 overflow_digest(args, &input.path, &body, &lines, input.tokens)
-                    .filter(|(_, tokens)| used + tokens <= args.budget)
+                    .filter(|(_, tokens, _)| used + tokens <= args.budget)
             } else {
                 None
             };
-            let Some((digest, tokens)) = digest else {
+            let Some((digest, tokens, hashes)) = digest else {
                 if !args.no_warnings {
                     eprintln!("warning: pack: skipped {}: budget exceeded", input.path);
                 }
@@ -288,6 +366,8 @@ pub(crate) fn read_pack_root(
             used += tokens;
             files.push(NativePackFile {
                 signatures_only: true,
+                excerpt_note: String::new(),
+                contract_lines: Some(hashes),
                 path: input.path,
                 abs_path: input.abs_path,
                 content: digest,
@@ -299,11 +379,20 @@ pub(crate) fn read_pack_root(
             });
             continue;
         }
-        let body = read_native_pack_content(&input.path, &input.abs_path, args, cfg)?;
+        let (body, excerpt_note, contract_lines) = match cut.remove(&input.path) {
+            Some(ex) => (ex.content.clone(), ex.note(), Some(ex.line_hashes)),
+            None => (
+                read_native_pack_content(&input.path, &input.abs_path, args, cfg)?,
+                String::new(),
+                None,
+            ),
+        };
         let tokens = estimate_text_tokens(&body);
         used += tokens;
         files.push(NativePackFile {
             signatures_only: false,
+            excerpt_note,
+            contract_lines,
             path: input.path,
             abs_path: input.abs_path,
             content: body,

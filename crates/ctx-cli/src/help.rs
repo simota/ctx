@@ -25,11 +25,13 @@ Selection:
                               `*.rs`, `src/**/*.ts`, `crates/web`, `*.{rs,toml}`)
       --exclude <GLOB>        Never pack matching paths (same syntax; wins over --include)
       --overflow <MODE>       Relevant file over budget: drop (default) or signatures
-                              (pack its declaration lines with line numbers instead)
+                              (pack its declaration lines with line numbers instead;
+                              request a body later with `path:START-END`)
       --api-only              Keep public API signatures only
       --from-where            Read `ctx where --format json` results from stdin
-      --from-stdin            Read paths (one per line) from stdin
-      --from-mix <ID|NAME>    Use a saved mix recipe (see `ctx mix`)
+      --from-stdin            Read paths (one per line) from stdin; `path:START-END`,
+                              `path:N` or `path#LSTART-LEND` packs only those lines
+      --from-mix <ID|NAME>    Use a saved mix recipe (see `ctx mix`; may hold line ranges)
       --diff <BASE..HEAD>     Pack a git diff instead of files
       --layout <LAYOUT>       --diff layout: sequential, side-by-side, unified
 
@@ -54,6 +56,7 @@ Examples:
   ctx pack --changed --companions
   ctx pack --base main --companions --goal \"review this branch\"
   ctx pack --include 'crates/ctx-web/**' --exclude tests --goal \"routing\" --overflow signatures
+  echo 'src/store.rs:120-180' | ctx pack --from-stdin
   ctx where \"session login\" --format json | ctx pack --from-where --companions=3",
         ),
         "where" => (

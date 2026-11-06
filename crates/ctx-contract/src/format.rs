@@ -160,6 +160,10 @@ fn describe_violation(v: &Violation) -> String {
         ViolationKind::OutOfContext => {
             if !v.symbol.is_empty() {
                 format!("`{}` symbol referenced outside pack contract", v.symbol)
+            } else if v.line_start > 0 && v.message.starts_with(PARTIAL_UNSEEN_PREFIX) {
+                // A partially packed file (excerpt / signatures only): the
+                // file is in the pack, these lines are not.
+                format!("`{}:{}-{}` {}", v.path, v.line_start, v.line_end, v.message)
             } else if v.line_start > 0 {
                 format!(
                     "`{}:{}-{}` referenced but file is not in pack",
@@ -206,3 +210,7 @@ impl PartialOrd for ViolationKind {
         Some(self.cmp(other))
     }
 }
+
+/// Message prefix of the out-of-context violation for lines a partially
+/// packed file did not show (see `verify`).
+pub const PARTIAL_UNSEEN_PREFIX: &str = "referenced lines were not in the pack";

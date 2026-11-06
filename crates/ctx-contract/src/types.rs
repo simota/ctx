@@ -23,6 +23,17 @@ pub struct File {
     pub line_hashes: Vec<LineHash>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub symbols: Vec<String>,
+    /// True when the pack carried only some lines of the file (a line-range
+    /// excerpt or a signature digest): `line_hashes` then lists exactly the
+    /// lines shown, under their line numbers in the full file, and `sha256`
+    /// hashes those line hashes rather than the whole file. Absent (false)
+    /// for whole files, so existing manifests are unchanged.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub partial: bool,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 /// LineHash records the SHA-256 of one packed logical line. Mirrors
@@ -233,6 +244,10 @@ pub struct FileInput {
     pub path: String,
     pub content: Vec<u8>,
     pub symbols: Vec<String>,
+    /// For a file packed only in part: the original line number and hash
+    /// of every source line the pack shows. `content` is then not hashed;
+    /// the contract records these lines instead (`File::partial`).
+    pub partial: Option<Vec<LineHash>>,
 }
 
 // ---------------------------------------------------------------------

@@ -300,6 +300,19 @@ pub(crate) fn pack_next_hint(plan: &PackPlan) -> Option<String> {
             serde_json::to_string(base).unwrap_or_else(|_| "\"\"".to_string())
         ));
     }
+    if let Some(digested) = plan
+        .high
+        .iter()
+        .chain(plan.medium.iter())
+        .find(|candidate| candidate.digest.is_some())
+    {
+        out.push_str(&format!(
+            "- {} is packed as signatures only. Call `ctx_pack {{\"files\":[{}]}}` with the line range of the body you need.\n",
+            digested.file.path,
+            serde_json::to_string(&format!("{}:START-END", digested.file.path))
+                .unwrap_or_else(|_| "\"\"".to_string())
+        ));
+    }
     for (path, reason) in &plan.skipped {
         if reason.to_ascii_lowercase().contains("budget") {
             out.push_str(&format!(
@@ -478,7 +491,14 @@ pub(crate) fn run_pack_selection(
             Value::Array(
                 pack.included
                     .iter()
-                    .map(|f| json!({"path": f.path, "relevance": "selected", "tokens": f.tokens}))
+                    .map(|f| {
+                        let mut entry =
+                            json!({"path": f.path, "relevance": "selected", "tokens": f.tokens});
+                        if !f.lines.is_empty() {
+                            entry["lines"] = json!(f.lines);
+                        }
+                        entry
+                    })
                     .collect(),
             ),
         );

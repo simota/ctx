@@ -79,6 +79,7 @@ fn f02_relative_dotdot_collapses_against_preceding_component() {
             sha256: expected_sha.clone(),
             line_hashes: vec![],
             symbols: vec![],
+            partial: false,
         }],
     };
     let opts = VerifyOptions {
@@ -230,6 +231,7 @@ fn line_range_worktree_staleness_checks_only_cited_range() {
         path: "a.go".into(),
         content: original.to_vec(),
         symbols: vec![],
+        partial: None,
     }]);
     let opts = VerifyOptions {
         strict: false,
@@ -252,6 +254,60 @@ fn line_range_worktree_staleness_checks_only_cited_range() {
             && v.line_end == 2),
         "expected line-range stale violation, got {changed:#?}"
     );
+
+    cleanup(&dir);
+}
+
+#[test]
+fn partial_file_contract_accepts_shown_lines_and_flags_unseen_ones() {
+    use ctx_contract::types::LineHash;
+    let dir = tempdir_unique("ctx-contract-partial");
+    let body: String = (1..=30).map(|n| format!("line {n}\n")).collect();
+    std::fs::write(dir.join("a.go"), &body).unwrap();
+    let shown: Vec<LineHash> = (10..=12)
+        .map(|n| LineHash {
+            line: n,
+            sha256: ctx_contract::hash::sha256_hex(format!("line {n}\n").as_bytes()),
+        })
+        .collect();
+    let contract = build(vec![FileInput {
+        path: "a.go".into(),
+        content: b"[ctx: excerpt]\nline 10\nline 11\nline 12\n".to_vec(),
+        symbols: vec![],
+        partial: Some(shown),
+    }]);
+    let f = &contract.files[0];
+    assert!(f.partial);
+    assert_eq!((f.line_start, f.line_end), (10, 12));
+    let opts = VerifyOptions {
+        strict: false,
+        no_symbols: false,
+        worktree_root: dir.to_string_lossy().to_string(),
+    };
+
+    // Shown lines and a whole-file mention are current.
+    let ok = verify(&contract, b"see a.go:L11-L12 and a.go\n", &opts);
+    assert_eq!(ok.exit_code, 0, "{ok:#?}");
+
+    // A line the pack never showed is out of context, not merely stale.
+    let unseen = verify(&contract, b"see a.go:L20\n", &opts);
+    assert_eq!(unseen.exit_code, 1);
+    assert!(
+        unseen
+            .violations
+            .iter()
+            .any(|v| v.kind.as_str() == "out-of-context" && v.message.contains("only lines 10-12")),
+        "{unseen:#?}"
+    );
+
+    // Editing an unseen line keeps the excerpt current; editing a shown
+    // line makes it stale.
+    std::fs::write(dir.join("a.go"), body.replace("line 20\n", "edited\n")).unwrap();
+    assert_eq!(verify(&contract, b"see a.go\n", &opts).exit_code, 0);
+    std::fs::write(dir.join("a.go"), body.replace("line 11\n", "edited\n")).unwrap();
+    let stale = verify(&contract, b"see a.go\n", &opts);
+    assert_eq!(stale.exit_code, 1, "{stale:#?}");
+    assert_eq!(stale.repack_suggestions, vec!["a.go".to_string()]);
 
     cleanup(&dir);
 }

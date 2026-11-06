@@ -110,7 +110,8 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
             } else {
                 root.clone()
             };
-            for file in &mix.files {
+            for entry in &mix.files {
+                let file = ctx_pack::excerpt::split_spec_in(&base, entry).0;
                 if !base.join(file).is_file() {
                     eprintln!(
                         "warning: --from-mix: {} lists {file}, which is not a file under {}",
@@ -173,12 +174,39 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
         io::stdin()
             .read_to_string(&mut stdin)
             .map_err(|err| format!("pack: read stdin: {err}"))?;
-        let paths = parse_pack_stdin_paths(&stdin);
-        read_pack_root(&root, &args, &cfg, &path_filter, Some(&paths), false)?
-    } else if let Some(paths) = mix_paths.as_ref() {
-        read_pack_root(&root, &args, &cfg, &path_filter, Some(paths), false)?
+        let (paths, excerpts) = split_pack_selection(&root, &parse_pack_stdin_paths(&stdin));
+        check_excerpt_args(&args, &excerpts)?;
+        read_pack_root(
+            &root,
+            &args,
+            &cfg,
+            &path_filter,
+            Some(&paths),
+            &excerpts,
+            false,
+        )?
+    } else if let Some(entries) = mix_paths.as_ref() {
+        let (paths, excerpts) = split_pack_selection(&root, entries);
+        check_excerpt_args(&args, &excerpts)?;
+        read_pack_root(
+            &root,
+            &args,
+            &cfg,
+            &path_filter,
+            Some(&paths),
+            &excerpts,
+            false,
+        )?
     } else {
-        read_pack_root(&root, &args, &cfg, &path_filter, None, true)?
+        read_pack_root(
+            &root,
+            &args,
+            &cfg,
+            &path_filter,
+            None,
+            &Default::default(),
+            true,
+        )?
     };
     let replay_header = if args.since_snapshot.is_empty() {
         None
@@ -192,6 +220,17 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
         if let Err(err) = save_pack_snapshot(&root, &args, &files, &skipped, &out_sha256) {
             eprintln!("warning: snapshot save failed: {err}");
         }
+    }
+    Ok(())
+}
+
+/// Line-range excerpts cut the file's own text: they do not combine with
+/// `--api-only`, which packs a rewritten public-API view.
+fn check_excerpt_args(args: &PackArgs, excerpts: &PackExcerpts) -> Result<(), String> {
+    if args.api_only && !excerpts.is_empty() {
+        return Err(
+            "pack: line ranges (path:START-END) do not combine with --api-only".to_string(),
+        );
     }
     Ok(())
 }

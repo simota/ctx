@@ -51,6 +51,7 @@
 
 pub mod assemble;
 pub mod diff;
+pub mod excerpt;
 pub mod ffi;
 pub mod from_where;
 pub mod pathfilter;

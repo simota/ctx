@@ -82,6 +82,11 @@ struct PackJsonFile {
     relevance: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     reason: String,
+    /// `lines 10-20 of 412` for an excerpt.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    lines: String,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    signatures_only: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -140,7 +145,7 @@ pub fn is_default_breakdown(value: &ScoreBreakdown) -> bool {
 
 /// A planned, content-loaded file ready for rendering (Go: the
 /// candidate/IncludedFile pair the renderers consume).
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PackFile {
     pub path: String,
     pub abs_path: String,
@@ -154,6 +159,28 @@ pub struct PackFile {
     /// that did not fit the budget in full (`ctx pack --overflow
     /// signatures`).
     pub signatures_only: bool,
+    /// For a line-range excerpt (`src/a.rs:120-180`): what part of the file
+    /// `content` holds, e.g. `lines 120-180 of 412`. Empty for whole files.
+    pub excerpt_note: String,
+    /// For a file packed in part (an excerpt or a signature digest): the
+    /// original line numbers and hashes of the source lines `content`
+    /// shows, recorded in the pack contract instead of `content`'s own
+    /// lines. `None` for whole files.
+    pub contract_lines: Option<Vec<ctx_contract::types::LineHash>>,
+}
+
+impl PackFile {
+    /// The listing note after the token count (`, signatures only`,
+    /// `, lines 10-20 of 412`), empty for a whole file.
+    fn listing_note(&self) -> String {
+        if self.signatures_only {
+            ", signatures only".to_string()
+        } else if !self.excerpt_note.is_empty() {
+            format!(", {}", self.excerpt_note)
+        } else {
+            String::new()
+        }
+    }
 }
 
 /// Render a pack in the requested format, optionally embedding a
@@ -195,6 +222,8 @@ pub fn render_with_skipped(
                         tokens: file.tokens,
                         relevance: file.relevance.clone(),
                         reason: file.reason.clone(),
+                        lines: file.excerpt_note.clone(),
+                        signatures_only: file.signatures_only,
                     })
                     .collect(),
                 skipped: skipped
@@ -232,14 +261,12 @@ pub fn render_with_skipped(
                     files.len()
                 ));
                 for file in files {
-                    if file.signatures_only {
-                        out.push_str(&format!(
-                            "+ {}  ({} tokens, signatures only)\n",
-                            file.path, file.tokens
-                        ));
-                    } else {
-                        out.push_str(&format!("+ {}  ({} tokens)\n", file.path, file.tokens));
-                    }
+                    out.push_str(&format!(
+                        "+ {}  ({} tokens{})\n",
+                        file.path,
+                        file.tokens,
+                        file.listing_note()
+                    ));
                 }
                 append_plain_omitted(&mut out, skipped);
                 // No trailing blank line — mirrors Go's packPlain which ends with the
@@ -296,11 +323,7 @@ pub fn render_with_skipped(
                     files.iter().map(|file| file.tokens).sum::<i64>()
                 ));
                 for file in files {
-                    let note = if file.signatures_only {
-                        ", signatures only"
-                    } else {
-                        ""
-                    };
+                    let note = file.listing_note();
                     if opts.explain && !file.reason.is_empty() {
                         out.push_str(&format!(
                             "- {} ({} tokens{note}) - {}\n",
@@ -481,6 +504,7 @@ pub fn build_pack_contract(files: &[PackFile]) -> ctx_contract::Contract {
                 path: file.path.clone(),
                 content: file.content.as_bytes().to_vec(),
                 symbols: file.symbols.clone(),
+                partial: file.contract_lines.clone(),
             })
             .collect(),
     )
@@ -617,6 +641,8 @@ pub fn pack_markdown(inputs: &[FileInput], goal: &str, budget: i64) -> Result<St
         used += tokens;
         files.push(PackFile {
             signatures_only: false,
+            excerpt_note: String::new(),
+            contract_lines: None,
             path: input.path.clone(),
             abs_path: input.abs_path.clone(),
             content,
@@ -710,6 +736,8 @@ mod tests {
     fn pack_file(path: &str, content: &str, tokens: i64) -> PackFile {
         PackFile {
             signatures_only: false,
+            excerpt_note: String::new(),
+            contract_lines: None,
             path: path.to_string(),
             abs_path: String::new(),
             content: content.to_string(),

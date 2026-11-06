@@ -98,6 +98,7 @@ fn build_contract_for_fixture(stem: &str, body: &[u8]) -> Contract {
                     path: f.path.clone(),
                     content: format!("// synthetic content for {}\n", f.path).into_bytes(),
                     symbols: f.symbols.clone(),
+                    partial: None,
                 })
                 .collect();
             build(inputs)
@@ -106,6 +107,7 @@ fn build_contract_for_fixture(stem: &str, body: &[u8]) -> Contract {
             path: format!("{stem}.synthetic.go"),
             content: b"package synthetic\n".to_vec(),
             symbols: vec!["Synthetic".to_string()],
+            partial: None,
         }]),
     }
 }

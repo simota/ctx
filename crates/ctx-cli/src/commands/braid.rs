@@ -286,6 +286,8 @@ pub(crate) fn braid_build_pack_files(
         let tokens = estimate_path_tokens(root, &mf.path);
         pack_files.push(NativePackFile {
             signatures_only: false,
+            excerpt_note: String::new(),
+            contract_lines: None,
             path: mf.path.clone(),
             abs_path: abs.to_string_lossy().into_owned(),
             content,

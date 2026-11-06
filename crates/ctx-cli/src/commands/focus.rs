@@ -207,6 +207,8 @@ pub(crate) fn focus_command(args: FocusArgs) -> Result<(), FocusError> {
         let symbols: Vec<String> = input.symbols.iter().map(|sym| sym.name.clone()).collect();
         included.push(NativePackFile {
             signatures_only: false,
+            excerpt_note: String::new(),
+            contract_lines: None,
             path: input.path.clone(),
             abs_path: abs_path.to_string_lossy().into_owned(),
             content,

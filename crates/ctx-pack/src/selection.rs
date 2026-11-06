@@ -9,6 +9,10 @@
 // resolving outside the root and non-regular files are reported as skipped,
 // never read. Contents are secret-redacted with the default `[security]`
 // settings, as every other non-CLI pack path does.
+//
+// An entry may name a line range (`src/a.rs:120-180`, `src/a.rs#L42`); the
+// file is then packed as that excerpt (see `crate::excerpt`). Ranges of one
+// file merge into one entry; a whole-file entry for it wins.
 
 use std::path::Path;
 
@@ -40,6 +44,8 @@ impl Default for SelectionOptions {
 pub struct SelectedFile {
     pub path: String,
     pub tokens: i64,
+    /// `lines 10-20 of 412` when only an excerpt was packed.
+    pub lines: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -89,21 +95,17 @@ pub fn pack_selection(
     };
     let canonical_root =
         std::fs::canonicalize(root).map_err(|err| format!("root {}: {err}", root.display()))?;
-    let mut seen = std::collections::HashSet::new();
+    let (wanted, rejected) = crate::excerpt::group_specs(&canonical_root, paths, clean_relative);
     let mut files = Vec::new();
-    let mut skipped = Vec::new();
+    let mut skipped: Vec<SkippedFile> = rejected
+        .into_iter()
+        .map(|path| SkippedFile {
+            path,
+            reason: "outside the repository".to_string(),
+        })
+        .collect();
     let mut used = 0_i64;
-    for raw in paths {
-        let Some(rel) = clean_relative(raw) else {
-            skipped.push(SkippedFile {
-                path: raw.clone(),
-                reason: "outside the repository".to_string(),
-            });
-            continue;
-        };
-        if !seen.insert(rel.clone()) {
-            continue;
-        }
+    for (rel, want) in wanted {
         let abs = canonical_root.join(&rel);
         let target = match std::fs::canonicalize(&abs) {
             Ok(target) => target,
@@ -154,7 +156,31 @@ pub fn pack_selection(
             continue;
         };
         let abs_str = abs.to_string_lossy().into_owned();
-        let content = crate::redact::redact_secrets(&abs_str, &text, &Default::default());
+        let mut content = crate::redact::redact_secrets(&abs_str, &text, &Default::default());
+        let mut excerpt_note = String::new();
+        let mut contract_lines = None;
+        if let crate::excerpt::Wanted::Lines(ranges) = &want {
+            match crate::excerpt::excerpt(&rel, &content, ranges) {
+                Ok(ex) => {
+                    if let Some(reason) = ex.out_of_range_reason() {
+                        skipped.push(SkippedFile {
+                            path: format!("{rel}:{}", crate::excerpt::label(&ex.out_of_range)),
+                            reason,
+                        });
+                    }
+                    excerpt_note = ex.note();
+                    contract_lines = Some(ex.line_hashes);
+                    content = ex.content;
+                }
+                Err(err) => {
+                    skipped.push(SkippedFile {
+                        path: format!("{rel}:{}", crate::excerpt::label(ranges)),
+                        reason: err,
+                    });
+                    continue;
+                }
+            }
+        }
         let tokens = estimate_text_tokens(&content);
         if opts.budget > 0 && used + tokens > opts.budget {
             skipped.push(SkippedFile {
@@ -166,6 +192,8 @@ pub fn pack_selection(
         used += tokens;
         files.push(PackFile {
             signatures_only: false,
+            excerpt_note,
+            contract_lines,
             path: rel,
             abs_path: abs_str,
             content,
@@ -194,6 +222,7 @@ pub fn pack_selection(
             .map(|file| SelectedFile {
                 path: file.path.clone(),
                 tokens: file.tokens,
+                lines: file.excerpt_note.clone(),
             })
             .collect(),
         skipped,
@@ -303,6 +332,67 @@ mod tests {
         assert!(pack.included.is_empty());
         assert_eq!(pack.skipped[0].reason, "links outside the repository");
         assert!(!pack.content.contains("top secret"));
+    }
+
+    #[test]
+    fn packs_line_range_excerpts_with_a_partial_contract() {
+        let dir = tmp("excerpt");
+        let root = &dir.0;
+        let body: String = (1..=50).map(|n| format!("line {n}\n")).collect();
+        std::fs::write(root.join("big.rs"), &body).unwrap();
+        std::fs::write(root.join("small.rs"), "fn s() {}\n").unwrap();
+        let paths: Vec<String> = [
+            "big.rs:10-12",
+            "small.rs",
+            "big.rs#L20",
+            "small.rs:1",
+            "big.rs:99",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let pack = pack_selection(root, &paths, &SelectionOptions::default()).unwrap();
+        let included: Vec<(&str, &str)> = pack
+            .included
+            .iter()
+            .map(|f| (f.path.as_str(), f.lines.as_str()))
+            .collect();
+        // big.rs:99 is past the end: reported, while the other big.rs
+        // ranges are packed (merged into one entry, in first-seen order).
+        assert_eq!(
+            included,
+            vec![("big.rs", "lines 10-12, 20 of 50"), ("small.rs", "")]
+        );
+        assert_eq!(pack.skipped.len(), 1);
+        assert_eq!(pack.skipped[0].path, "big.rs:99");
+        assert!(
+            pack.skipped[0].reason.contains("past the end"),
+            "{:?}",
+            pack.skipped
+        );
+
+        let paths: Vec<String> = ["big.rs:10-12", "big.rs#L20"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let pack = pack_selection(root, &paths, &SelectionOptions::default()).unwrap();
+        assert_eq!(pack.included[0].lines, "lines 10-12, 20 of 50");
+        assert!(
+            pack.content.contains("lines 10-12, 20 of 50)"),
+            "{}",
+            pack.content
+        );
+        assert!(pack
+            .content
+            .contains("line 11\nline 12\n[ctx: big.rs lines 20]\nline 20\n"));
+        assert!(!pack.content.contains("line 13\n"));
+        let contract = ctx_contract::embed::parse_from_pack(pack.content.as_bytes())
+            .expect("contract embedded");
+        let file = &contract.files[0];
+        assert!(file.partial);
+        assert_eq!((file.line_start, file.line_end), (10, 20));
+        let lines: Vec<i32> = file.line_hashes.iter().map(|h| h.line).collect();
+        assert_eq!(lines, vec![10, 11, 12, 20]);
     }
 
     #[test]
