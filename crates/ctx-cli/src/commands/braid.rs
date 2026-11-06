@@ -285,6 +285,7 @@ pub(crate) fn braid_build_pack_files(
         redact_pack_body(&abs.to_string_lossy(), &mut content, security);
         let tokens = estimate_path_tokens(root, &mf.path);
         pack_files.push(NativePackFile {
+            signatures_only: false,
             path: mf.path.clone(),
             abs_path: abs.to_string_lossy().into_owned(),
             content,

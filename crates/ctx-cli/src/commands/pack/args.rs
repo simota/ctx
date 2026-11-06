@@ -35,6 +35,13 @@ pub(crate) struct PackArgs {
     pub(crate) api_only: bool,
     pub(crate) layout: String,
     pub(crate) from_mix: String,
+    /// `--include` globs (repeatable, comma-separated): pack only matching paths.
+    pub(crate) include: Vec<String>,
+    /// `--exclude` globs (repeatable, comma-separated): never pack matching paths.
+    pub(crate) exclude: Vec<String>,
+    /// `--overflow`: what to do with a relevant file that does not fit the
+    /// budget — `drop` (default) or `signatures` (pack its declaration lines).
+    pub(crate) overflow: String,
     pub(crate) why_paths: Vec<String>,
     pub(crate) snapshot_id: String,
     pub(crate) since_snapshot: String,
@@ -109,6 +116,9 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
     let mut api_only = false;
     let mut layout = "sequential".to_string();
     let mut from_mix = String::new();
+    let mut include = Vec::new();
+    let mut exclude = Vec::new();
+    let mut overflow = "drop".to_string();
     let mut why_paths = Vec::new();
     let mut snapshot_id = String::new();
     let mut since_snapshot = String::new();
@@ -237,6 +247,21 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
         } else if arg == OsStr::new("--from-mix") {
             i += 1;
             from_mix = args.get(i)?.to_string_lossy().into_owned();
+        } else if let Some(value) = flag_value(arg, "--include") {
+            include.push(value.to_string_lossy().into_owned());
+        } else if arg == OsStr::new("--include") {
+            i += 1;
+            include.push(args.get(i)?.to_string_lossy().into_owned());
+        } else if let Some(value) = flag_value(arg, "--exclude") {
+            exclude.push(value.to_string_lossy().into_owned());
+        } else if arg == OsStr::new("--exclude") {
+            i += 1;
+            exclude.push(args.get(i)?.to_string_lossy().into_owned());
+        } else if let Some(value) = flag_value(arg, "--overflow") {
+            overflow = value.to_string_lossy().into_owned();
+        } else if arg == OsStr::new("--overflow") {
+            i += 1;
+            overflow = args.get(i)?.to_string_lossy().into_owned();
         } else if let Some(value) = flag_value(arg, "--why") {
             why_paths.push(value.to_string_lossy().into_owned());
         } else if arg == OsStr::new("--why") {
@@ -308,6 +333,9 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
         api_only,
         layout,
         from_mix,
+        include,
+        exclude,
+        overflow,
         why_paths,
         snapshot_id,
         since_snapshot,

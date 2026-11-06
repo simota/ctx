@@ -53,10 +53,12 @@ pub mod assemble;
 pub mod diff;
 pub mod ffi;
 pub mod from_where;
+pub mod pathfilter;
 pub mod preset;
 pub mod redact;
 pub mod relevance;
 pub mod selection;
+pub mod signatures;
 pub mod types;
 
 #[cfg(any(test, feature = "testing"))]

@@ -165,6 +165,7 @@ pub fn pack_selection(
         }
         used += tokens;
         files.push(PackFile {
+            signatures_only: false,
             path: rel,
             abs_path: abs_str,
             content,

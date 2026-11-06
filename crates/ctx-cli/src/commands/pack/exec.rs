@@ -54,6 +54,20 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
     ) {
         return Err(format!("unknown --layout value {:?}", args.layout));
     }
+    if !matches!(args.overflow.as_str(), "drop" | "signatures") {
+        return Err(format!(
+            "pack: unknown --overflow value {:?} (use drop or signatures)",
+            args.overflow
+        ));
+    }
+    if args.overflow == "signatures" && args.api_only {
+        return Err("pack: --overflow signatures does not combine with --api-only".to_string());
+    }
+    let path_filter = ctx_pack::pathfilter::PathFilter::new(&args.include, &args.exclude)
+        .map_err(|err| format!("pack: --include/--exclude: {err}"))?;
+    if !path_filter.is_empty() && !args.diff_spec.is_empty() {
+        return Err("pack: --include/--exclude do not apply to --diff".to_string());
+    }
     if args.from_where && !args.goal.is_empty() && !args.no_warnings {
         eprintln!("warning: --from-where is set; --goal relevance scoring is skipped (using where ranking instead)");
     }
@@ -121,7 +135,7 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
         write_pack_output(&args, rendered)?;
         return Ok(());
     }
-    let mut files = if args.from_where {
+    let (mut files, skipped) = if args.from_where {
         let mut stdin = Vec::new();
         io::stdin()
             .read_to_end(&mut stdin)
@@ -142,35 +156,29 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
                 reasons.insert(path, reason);
             }
         }
-        read_pack_paths_ordered(
-            &root,
-            &paths,
-            &reasons,
-            args.budget,
-            args.no_warnings,
-            &cfg.security,
-        )?
+        read_pack_paths_ordered(&root, &paths, &reasons, &args, &path_filter, &cfg.security)?
     } else if args.from_stdin {
         let mut stdin = String::new();
         io::stdin()
             .read_to_string(&mut stdin)
             .map_err(|err| format!("pack: read stdin: {err}"))?;
         let paths = parse_pack_stdin_paths(&stdin);
-        read_pack_root(&root, &args, &cfg, Some(&paths), false)?
+        read_pack_root(&root, &args, &cfg, &path_filter, Some(&paths), false)?
     } else if let Some(paths) = mix_paths.as_ref() {
-        read_pack_root(&root, &args, &cfg, Some(paths), false)?
+        read_pack_root(&root, &args, &cfg, &path_filter, Some(paths), false)?
     } else {
-        read_pack_root(&root, &args, &cfg, None, true)?
+        read_pack_root(&root, &args, &cfg, &path_filter, None, true)?
     };
     let replay_header = if args.since_snapshot.is_empty() {
         None
     } else {
         Some(apply_since_snapshot_narrowing(&root, &args, &mut files)?)
     };
-    let rendered = render_native_pack(&args, &files, replay_header.as_ref())?;
+    let rendered =
+        render_native_pack_with_skipped(&args, &files, &skipped, replay_header.as_ref())?;
     let out_sha256 = write_pack_output(&args, rendered)?;
     if !args.snapshot_id.is_empty() {
-        if let Err(err) = save_pack_snapshot(&root, &args, &files, &out_sha256) {
+        if let Err(err) = save_pack_snapshot(&root, &args, &files, &skipped, &out_sha256) {
             eprintln!("warning: snapshot save failed: {err}");
         }
     }
@@ -193,6 +201,7 @@ pub(crate) fn save_pack_snapshot(
     root: &Path,
     args: &PackArgs,
     files: &[NativePackFile],
+    skipped: &[PackSkipped],
     out_sha256: &str,
 ) -> Result<(), String> {
     let dir = ctx_replay::resolve(ctx_replay::ResolveOptions {
@@ -223,7 +232,13 @@ pub(crate) fn save_pack_snapshot(
                 reason: file.reason.clone(),
             })
             .collect(),
-        skipped: Vec::new(),
+        skipped: skipped
+            .iter()
+            .map(|file| ctx_replay::SkippedInput {
+                path: file.path.clone(),
+                reason: file.reason.clone(),
+            })
+            .collect(),
     })
     .map_err(|err| err.to_string())?;
     store.save(&manifest).map_err(|err| err.to_string())?;
