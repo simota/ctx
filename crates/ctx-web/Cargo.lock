@@ -509,6 +509,7 @@ version = "0.1.0"
 dependencies = [
  "cbindgen",
  "libc",
+ "memchr",
  "once_cell",
  "rayon",
  "regex",

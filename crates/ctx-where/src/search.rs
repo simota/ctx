@@ -41,7 +41,7 @@ pub struct FileInput {
 /// directly grows the Vec by doubling, leaving on average about a quarter
 /// of its 24-byte slots unused, and a walk holds every file's lines at once.
 pub fn split_lines(body: &str) -> Vec<String> {
-    let newlines = body.bytes().filter(|&b| b == b'\n').count();
+    let newlines = memchr::memchr_iter(b'\n', body.as_bytes()).count();
     let unterminated = usize::from(!body.is_empty() && !body.ends_with('\n'));
     let mut lines = Vec::with_capacity(newlines + unterminated);
     lines.extend(body.lines().map(str::to_string));

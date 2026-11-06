@@ -287,6 +287,7 @@ dependencies = [
  "criterion",
  "dhat",
  "libc",
+ "memchr",
  "once_cell",
  "pretty_assertions",
  "rayon",
