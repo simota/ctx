@@ -207,6 +207,17 @@ fn collect_files_inner(
     Ok(())
 }
 
+/// Repository-relative paths of the regular files the search walk visits
+/// under `root` (no file is read) — what `/api/refs` resolves mentions
+/// against.
+pub(crate) fn list_files(root: &Path) -> Result<Vec<String>, String> {
+    let mut candidates = Vec::new();
+    collect_files_inner(root, root, &mut candidates)?;
+    let mut out: Vec<String> = candidates.into_iter().map(|(_, rel)| rel).collect();
+    out.sort();
+    Ok(out)
+}
+
 /// Read and parse one listed file, or `None` when it is not UTF-8 text.
 fn build_file_input(path: &Path, rel: String) -> Option<FileInput> {
     // Skip binary-like files (non-UTF-8).

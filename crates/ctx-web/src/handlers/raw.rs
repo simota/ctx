@@ -47,7 +47,7 @@ const SECRET_SUFFIXES: &[&str] = &[
 ];
 const SECRET_DIRS: &[&str] = &[".aws", ".gnupg", ".ssh"];
 
-fn secret_deny(rel: &str) -> bool {
+pub(crate) fn secret_deny(rel: &str) -> bool {
     let rel = rel.replace('\\', "/");
     let base = rel.rsplit('/').next().unwrap_or(&rel);
     if SECRET_BASENAMES.contains(&base) {

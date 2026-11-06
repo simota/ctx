@@ -273,3 +273,55 @@ fn state_changing_requests_must_be_same_origin_json() {
     );
     assert_eq!(status, 200);
 }
+
+#[test]
+fn refs_resolve_pasted_text_to_files_and_lines_then_pack_them() {
+    let root = fixture();
+    let body: String = (1..=60).map(|i| format!("line {i}\n")).collect();
+    std::fs::write(root.join("src/store.rs"), body).unwrap();
+    std::fs::write(root.join("server.pem"), "-----BEGIN CERTIFICATE-----\n").unwrap();
+    let srv = Running::start(root);
+
+    let text =
+        "The bug is at src/store.rs:30 (see login.rs).\nAlso .env, server.pem and src/gone.rs";
+    let (status, body) = srv.json(
+        "POST",
+        "/api/refs",
+        &serde_json::json!({ "text": text, "around": 2 }).to_string(),
+    );
+    assert_eq!(status, 200, "{body}");
+    let targets = body["targets"].as_array().unwrap();
+    let paths: Vec<&str> = targets
+        .iter()
+        .map(|t| t["path"].as_str().unwrap())
+        .collect();
+    assert_eq!(paths, vec!["src/store.rs", "src/login.rs"]);
+    assert_eq!(
+        targets[0]["specs"],
+        serde_json::json!(["src/store.rs:28-32"])
+    );
+    assert_eq!(targets[0]["lines"], "28-32");
+    assert_eq!(targets[1]["specs"], serde_json::json!(["src/login.rs"]));
+    let unresolved = body["unresolved"].as_array().unwrap();
+    assert_eq!(unresolved.len(), 1, "{unresolved:?}");
+    assert_eq!(unresolved[0]["mention"], "src/gone.rs");
+
+    // The specs pack exactly the cited lines.
+    let (status, body) = srv.json(
+        "POST",
+        "/api/pack",
+        r#"{"files":["src/store.rs:28-32"],"budget":1000}"#,
+    );
+    assert_eq!(status, 200, "{body}");
+    let content = body["content"].as_str().unwrap();
+    assert!(
+        content.contains("line 30\n") && !content.contains("line 27\n"),
+        "{content}"
+    );
+
+    // Plain-text bodies are refused like the other POST routes.
+    let (status, _) = srv.request("POST", "/api/refs", "Content-Type: text/plain\r\n", "x");
+    assert_eq!(status, 415);
+    let (status, _) = srv.json("POST", "/api/refs", r#"{"text":"a","around":5000}"#);
+    assert_eq!(status, 400);
+}
