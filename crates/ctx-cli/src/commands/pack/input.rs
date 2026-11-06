@@ -161,7 +161,25 @@ pub(crate) fn read_pack_root(
     // before the seed filters below narrow `inputs` down.
     let all_inputs = (args.companions > 0).then(|| inputs.clone());
     apply_pack_time_filters(base, &mut inputs, args)?;
-    if args.changed {
+    // `--base`: why each branch file is in the pack, keyed by path.
+    let mut change_notes = std::collections::HashMap::new();
+    if !args.base.is_empty() {
+        let changes = branch_changed_paths(base, &args.base)?;
+        for (path, note, deleted) in changes {
+            if deleted {
+                if filter.allows(&path) {
+                    skipped.push(PackSkipped::new(
+                        path,
+                        format!("deleted vs {}", args.base),
+                        0,
+                    ));
+                }
+            } else {
+                change_notes.insert(path, note);
+            }
+        }
+        inputs.retain(|input| change_notes.contains_key(&input.path));
+    } else if args.changed {
         let changed = git_changed_paths(base)?;
         inputs.retain(|input| changed.contains(&input.path));
     }
@@ -195,6 +213,9 @@ pub(crate) fn read_pack_root(
         if result.tier.is_empty() {
             irrelevant.push(PackSkipped::new(input.path, result.reason, 0));
         } else {
+            if let Some(note) = change_notes.get(&input.path) {
+                result.reason = format!("{note}; {}", result.reason);
+            }
             scored.push((input, result));
         }
     }

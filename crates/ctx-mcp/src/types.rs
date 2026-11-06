@@ -48,6 +48,10 @@ pub(crate) struct PackArgs {
     pub(crate) format: String,
     #[serde(default)]
     pub(crate) changed: bool,
+    /// Branch review: files changed since the merge base with this revision
+    /// (committed, staged, unstaged, untracked). Implies `changed`.
+    #[serde(default)]
+    pub(crate) base: String,
     #[serde(default)]
     pub(crate) companions: i64,
     #[serde(default)]

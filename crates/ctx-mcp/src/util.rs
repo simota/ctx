@@ -77,6 +77,28 @@ pub(crate) fn changed_paths_under(
         .collect())
 }
 
+/// Files the current branch changes relative to `base` (merge base → work
+/// tree, plus untracked), relative to `root` and limited to it: each with
+/// its selection reason and whether it was deleted.
+pub(crate) fn branch_changes_under(
+    root: &Path,
+    base: &str,
+) -> Result<Vec<(String, String, bool)>, String> {
+    let prefix = ctx_git::show_prefix(root).map_err(|err| err.to_string())?;
+    let changes = ctx_git::branch_changes(root, base).map_err(|err| err.to_string())?;
+    Ok(changes
+        .files
+        .iter()
+        .filter_map(|file| {
+            let rel = file
+                .path
+                .strip_prefix(prefix.as_str())
+                .filter(|rel| !rel.is_empty())?;
+            Some((rel.to_string(), file.describe(&changes.base), file.deleted))
+        })
+        .collect())
+}
+
 /// Co-change partners of `seeds` (paths relative to `root`) that lie under
 /// `root`, strongest first, with a selection reason. Empty without history.
 pub(crate) fn co_change_companions(root: &Path, seeds: &[String]) -> Vec<(String, String)> {

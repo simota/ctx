@@ -143,6 +143,17 @@ impl Server {
             validate_len("files[]", file, MAX_PATH_LEN)?;
         }
         validate_len("mix", &args.mix, MAX_MIX_REF_LEN)?;
+        validate_len("base", &args.base, MAX_MIX_REF_LEN)?;
+        args.base = args.base.trim().to_string();
+        if args.base.starts_with('-') {
+            return invalid_params_with_hint(
+                "base must be a revision, not an option",
+                "e.g. {\"base\":\"main\"} or {\"base\":\"origin/main\"}",
+            );
+        }
+        if !args.base.is_empty() {
+            args.changed = true;
+        }
         if args.include.len() > MAX_PACK_PATTERNS || args.exclude.len() > MAX_PACK_PATTERNS {
             return invalid_params_with_hint(
                 &format!("include / exclude hold at most {MAX_PACK_PATTERNS} patterns each"),
@@ -214,12 +225,29 @@ impl Server {
             files.retain(|file| filter.allows(&file.path));
         }
         let mut companions = Vec::new();
+        let mut change_notes = BTreeMap::new();
+        let mut deleted = Vec::new();
         if args.changed {
-            let changed = changed_paths_under(&root).map_err(|err| {
-                tool_error(format!(
-                    "ctx_pack: changed=true needs a Git work tree: {err}"
-                ))
-            })?;
+            let changed = if args.base.is_empty() {
+                changed_paths_under(&root).map_err(|err| {
+                    tool_error(format!(
+                        "ctx_pack: changed=true needs a Git work tree: {err}"
+                    ))
+                })?
+            } else {
+                for (path, note, gone) in branch_changes_under(&root, &args.base)
+                    .map_err(|err| tool_error(format!("ctx_pack: base: {err}")))?
+                {
+                    if gone {
+                        if filter.allows(&path) {
+                            deleted.push((path, format!("deleted vs {}", args.base)));
+                        }
+                    } else {
+                        change_notes.insert(path, note);
+                    }
+                }
+                change_notes.keys().cloned().collect()
+            };
             let (selected, rest): (Vec<PackFile>, Vec<PackFile>) = std::mem::take(&mut files)
                 .into_iter()
                 .partition(|file| changed.contains(&file.path));
@@ -247,7 +275,15 @@ impl Server {
         };
         files.par_iter_mut().for_each(count);
         companions.par_iter_mut().for_each(|(file, _)| count(file));
-        let plan = build_pack_plan(files, companions, &args);
+        let mut plan = build_pack_plan(files, companions, &args);
+        if !change_notes.is_empty() {
+            for candidate in plan.high.iter_mut().chain(plan.medium.iter_mut()) {
+                if let Some(note) = change_notes.get(&candidate.file.path) {
+                    candidate.reason = format!("{note}; {}", candidate.reason);
+                }
+            }
+        }
+        plan.skipped.extend(deleted);
         match args.format.as_str() {
             "json" => render_pack_json(&plan, &args).map_err(tool_error),
             "plain" => render_pack_plain(&plan, &args),

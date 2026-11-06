@@ -37,6 +37,17 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
     if !args.snapshot_id.is_empty() && !args.since_snapshot.is_empty() {
         return Err("--snapshot and --since-snapshot are mutually exclusive".to_string());
     }
+    if !args.base.is_empty() {
+        if !args.diff_spec.is_empty() {
+            return Err(
+                "pack: --base does not combine with --diff (use --diff BASE..HEAD for patches)"
+                    .to_string(),
+            );
+        }
+        if args.from_where {
+            return Err("pack: --base does not combine with --from-where".to_string());
+        }
+    }
     if args.companions > 0 {
         if !args.diff_spec.is_empty() {
             return Err("pack: --companions does not apply to --diff".to_string());

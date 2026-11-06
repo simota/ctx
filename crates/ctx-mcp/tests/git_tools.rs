@@ -136,6 +136,67 @@ fn pack_companions_adds_files_that_change_with_the_changed_ones() {
 }
 
 #[test]
+fn pack_base_packs_the_whole_branch_since_the_merge_base() {
+    if !git_available() {
+        return;
+    }
+    // main: api.rs, api_test.rs, README.md. feature: a committed new file,
+    // a deleted README, plus the uncommitted api.rs edit from api_repo.
+    let root = api_repo("base");
+    git(&root, &["checkout", "-q", "-b", "feature"]);
+    std::fs::write(root.join("src/feature.rs"), "pub fn feature() {}\n").unwrap();
+    std::fs::remove_file(root.join("README.md")).unwrap();
+    git(&root, &["add", "src/feature.rs", "README.md"]);
+    git(&root, &["commit", "-q", "-m", "feature"]);
+
+    let body = text(&call_tool(
+        &root,
+        "ctx_pack",
+        json!({"path": ".", "base": "main", "format": "json"}),
+    ));
+    let pack: Value = serde_json::from_str(&body).unwrap();
+    let included: Vec<(&str, &str)> = pack["included"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| {
+            (
+                f["path"].as_str().unwrap(),
+                f["reason"].as_str().unwrap_or(""),
+            )
+        })
+        .collect();
+    let paths: Vec<&str> = included.iter().map(|(p, _)| *p).collect();
+    assert!(paths.contains(&"src/api.rs"), "{body}");
+    assert!(paths.contains(&"src/feature.rs"), "{body}");
+    assert!(!paths.contains(&"src/api_test.rs"), "{body}");
+    let feature = included
+        .iter()
+        .find(|(p, _)| *p == "src/feature.rs")
+        .unwrap();
+    assert!(
+        feature.1.starts_with("changed vs main (+1 -0, committed)"),
+        "{body}"
+    );
+    assert!(
+        body.contains("deleted vs main"),
+        "README deletion is reported: {body}"
+    );
+
+    let bad = call_tool(
+        &root,
+        "ctx_pack",
+        json!({"path": ".", "base": "--output=x"}),
+    );
+    assert_eq!(bad["error"]["code"], -32602, "{bad}");
+    let unknown = call_tool(&root, "ctx_pack", json!({"path": ".", "base": "nope"}));
+    assert!(
+        unknown.to_string().contains("cannot resolve base"),
+        "{unknown}"
+    );
+}
+
+#[test]
 fn cochange_ranks_partners_and_pairs() {
     if !git_available() {
         return;

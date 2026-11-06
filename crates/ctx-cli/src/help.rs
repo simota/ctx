@@ -12,6 +12,9 @@ Selection:
       --budget <N>            Token budget (default 50000)
       --goal <TEXT>           Rank files by relevance to a goal
       --changed               Only files changed in the work tree (git status)
+      --base <REV>            Branch review: files changed since the merge base with REV
+                              (committed on the branch, staged, unstaged, untracked);
+                              implies --changed. REV: main, origin/main, HEAD~3, ...
       --companions[=<N>]      Also pack up to N (default 5) files that usually change
                               together with the selected ones (git co-change); needs
                               --changed, --from-where, --from-stdin or --from-mix
@@ -49,6 +52,7 @@ Snapshots:
 Examples:
   ctx pack . --goal \"debug session expiry\" --budget 30000 --out context.md
   ctx pack --changed --companions
+  ctx pack --base main --companions --goal \"review this branch\"
   ctx pack --include 'crates/ctx-web/**' --exclude tests --goal \"routing\" --overflow signatures
   ctx where \"session login\" --format json | ctx pack --from-where --companions=3",
         ),

@@ -36,6 +36,28 @@ pub(crate) fn git_changed_paths(root: &Path) -> Result<std::collections::BTreeSe
     Ok(parse_git_changed_paths(&output.stdout, &prefix))
 }
 
+/// Files the current branch changes relative to `base` (see
+/// [`ctx_git::branch_changes`]), re-expressed relative to `root`: each with
+/// its selection reason and whether it was deleted. Files outside `root` are
+/// left out. Unlike plain `--changed`, a missing work tree or an unknown
+/// `base` is an error — the user asked for this comparison explicitly.
+pub(crate) fn branch_changed_paths(
+    root: &Path,
+    base: &str,
+) -> Result<Vec<(String, String, bool)>, String> {
+    let prefix = git_root_prefix(root).map_err(|err| format!("pack: --base: {err}"))?;
+    let changes =
+        ctx_git::branch_changes(root, base).map_err(|err| format!("pack: --base: {err}"))?;
+    Ok(changes
+        .files
+        .iter()
+        .filter_map(|file| {
+            let rel = strip_git_root_prefix(&file.path, &prefix)?;
+            Some((rel, file.describe(&changes.base), file.deleted))
+        })
+        .collect())
+}
+
 /// `root`'s directory inside its git work tree with a trailing `/`, or `""`
 /// at the top level. Porcelain status and `git log` name paths from the top
 /// of the work tree, while pack paths are relative to `root`.
