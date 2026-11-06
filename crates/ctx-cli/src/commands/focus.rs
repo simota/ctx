@@ -324,6 +324,7 @@ pub(crate) fn build_focus_pack_args(args: &FocusArgs, budget: i64) -> PackArgs {
         include: Vec::new(),
         exclude: Vec::new(),
         overflow: "drop".to_string(),
+        around: 0,
         why_paths: Vec::new(),
         snapshot_id: String::new(),
         since_snapshot: String::new(),

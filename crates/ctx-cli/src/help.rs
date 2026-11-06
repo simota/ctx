@@ -29,6 +29,8 @@ Selection:
                               request a body later with `path:START-END`)
       --api-only              Keep public API signatures only
       --from-where            Read `ctx where --format json` results from stdin
+      --around <N>            With --from-where: pack N lines either side of each
+                              matched line instead of whole files
       --from-stdin            Read paths (one per line) from stdin; `path:START-END`,
                               `path:N` or `path#LSTART-LEND` packs only those lines
       --from-mix <ID|NAME>    Use a saved mix recipe (see `ctx mix`; may hold line ranges)
@@ -57,6 +59,7 @@ Examples:
   ctx pack --base main --companions --goal \"review this branch\"
   ctx pack --include 'crates/ctx-web/**' --exclude tests --goal \"routing\" --overflow signatures
   echo 'src/store.rs:120-180' | ctx pack --from-stdin
+  ctx where \"session expiry\" --json | ctx pack --from-where --around 15
   ctx where \"session login\" --format json | ctx pack --from-where --companions=3",
         ),
         "where" => (

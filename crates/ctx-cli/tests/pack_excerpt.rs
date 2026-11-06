@@ -264,3 +264,38 @@ fn mixes_keep_line_ranges() {
     let show = ok(ctx(&root, &["mix", "show", "body"], None, &env));
     assert!(!show.contains("session.rs"), "{show}");
 }
+
+#[test]
+fn from_where_around_packs_the_neighbourhood_of_each_match() {
+    let root = fixture("pack-excerpt-around");
+    // session_fn_50 is declared on line 301; login.rs has no line matches
+    // and is packed whole.
+    let hits = r#"[
+      {"path": "src/auth/session.rs", "score": 9,
+       "matches": [{"line": 301, "column": 8, "type": "symbol", "text": "pub fn session_fn_50("},
+                   {"line": 304, "column": 1, "type": "content", "text": "x > 0"}]},
+      {"path": "src/auth/login.rs", "score": 3}
+    ]"#;
+    let md = ok(ctx(
+        &root,
+        &[
+            "pack",
+            "--from-where",
+            "--around",
+            "2",
+            "--no-contract",
+            "--budget",
+            "300",
+        ],
+        Some(hits),
+        &[],
+    ));
+    assert!(md.contains("lines 299-306 of 720)"), "{md}");
+    assert!(md.contains("pub fn session_fn_50(user: &str,\n"), "{md}");
+    assert!(!md.contains("session_fn_49("), "{md}");
+    assert!(md.contains("pub fn login()"), "{md}");
+
+    let out = ctx(&root, &["pack", "--around", "5"], None, &[]);
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("--around needs --from-where"));
+}

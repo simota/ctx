@@ -71,6 +71,12 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
             args.overflow
         ));
     }
+    if args.around > 0 && !args.from_where {
+        return Err("pack: --around needs --from-where (ctx where --format json | ctx pack --from-where --around 20)".to_string());
+    }
+    if args.around > 0 && args.api_only {
+        return Err("pack: --around does not combine with --api-only".to_string());
+    }
     if args.overflow == "signatures" && args.api_only {
         return Err("pack: --overflow signatures does not combine with --api-only".to_string());
     }
@@ -154,6 +160,15 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
             .map_err(|err| format!("pack: read stdin: {err}"))?;
         let mut paths = ctx_pack::from_where::parse(&stdin).map_err(|err| err.to_string())?;
         let mut reasons = std::collections::HashMap::new();
+        let mut excerpts = PackExcerpts::new();
+        if args.around > 0 {
+            for (path, lines) in ctx_pack::from_where::match_lines(&stdin) {
+                excerpts.insert(
+                    path,
+                    ctx_pack::from_where::ranges_around(&lines, args.around),
+                );
+            }
+        }
         if args.companions > 0 {
             let seeds: Vec<String> = paths
                 .iter()
@@ -168,7 +183,15 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
                 reasons.insert(path, reason);
             }
         }
-        read_pack_paths_ordered(&root, &paths, &reasons, &args, &path_filter, &cfg.security)?
+        read_pack_paths_ordered(
+            &root,
+            &paths,
+            &reasons,
+            &excerpts,
+            &args,
+            &path_filter,
+            &cfg.security,
+        )?
     } else if args.from_stdin {
         let mut stdin = String::new();
         io::stdin()

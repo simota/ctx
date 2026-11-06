@@ -83,6 +83,12 @@ ctx pack . --diff HEAD~1..HEAD --layout unified
 ctx where "session login" --format json | ctx pack --from-where --budget 30000 --out context.md
 ```
 
+`--around N` を付けると、`where` が一致した行の前後 N 行だけを pack します（行の一致がない結果はファイル全体）。大きなファイルが多い検索でも、同じ予算でより多くのヒットを渡せます（このリポジトリで上位 10 件を pack した例: ファイル全体 46,734 tokens → `--around 5` で 17,503 tokens）。
+
+```bash
+ctx where "session expiry" --json | ctx pack --from-where --around 15 --budget 30000
+```
+
 `ctx pack` は既定で末尾に `ctx:contract` manifest を埋め込みます。
 不要な場合は `--no-contract` を指定します。
 

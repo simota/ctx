@@ -18,6 +18,11 @@ and this project does not yet follow strict semver — see release notes per tag
   a whole-file entry wins; listings show `lines 120-180 of 412` (JSON:
   `lines`), and ranges past the end of the file are recorded as omitted.
   The digest header and the MCP next-step hint now say how to ask.
+- `ctx pack --from-where --around N`: pack the N lines either side of each
+  line `ctx where` matched (merged per file) instead of whole files;
+  results without line matches are packed whole. On this repository the
+  top 10 hits for one query went from 46,734 tokens to 17,503 with
+  `--around 5`.
 - Pack contracts record partially packed files — excerpts and
   signatures-only digests — as the lines actually shown, under their line
   numbers in the full file (`"partial": true`). `ctx contract verify`

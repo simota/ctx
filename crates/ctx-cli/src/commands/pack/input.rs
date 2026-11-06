@@ -71,6 +71,7 @@ pub(crate) fn read_pack_paths_ordered(
     root: &Path,
     paths: &[String],
     reasons: &std::collections::HashMap<String, String>,
+    excerpts: &PackExcerpts,
     args: &PackArgs,
     filter: &ctx_pack::pathfilter::PathFilter,
     security: &SecurityToml,
@@ -112,11 +113,33 @@ pub(crate) fn read_pack_paths_ordered(
             }
         };
         redact_pack_body(&abs.to_string_lossy(), &mut body, security);
-        let mut tokens = estimate_text_tokens(&body);
         let lines: Vec<&str> = body.lines().collect();
         let where_symbols = extract_where_symbols(&rel, &lines);
         let mut signatures_only = false;
         let mut contract_lines = None;
+        let mut excerpt_note = String::new();
+        if let Some(ranges) = excerpts.get(&clean) {
+            match ctx_pack::excerpt::excerpt(&rel, &body, ranges) {
+                Ok(ex) => {
+                    excerpt_note = ex.note();
+                    contract_lines = Some(ex.line_hashes);
+                    body = ex.content;
+                }
+                Err(err) => {
+                    skipped.push(PackSkipped::new(rel, err, 0));
+                    continue;
+                }
+            }
+        }
+        let mut tokens = estimate_text_tokens(&body);
+        if used + tokens > budget && !excerpt_note.is_empty() {
+            skipped.push(PackSkipped::new(
+                rel,
+                ctx_pack::assemble::REASON_BUDGET,
+                tokens,
+            ));
+            continue;
+        }
         if used + tokens > budget {
             let symbol_lines: Vec<i64> = where_symbols.iter().map(|sym| sym.line).collect();
             match overflow_digest(args, &rel, &body, &symbol_lines, tokens) {
@@ -140,7 +163,7 @@ pub(crate) fn read_pack_paths_ordered(
         let symbols = where_symbols.into_iter().map(|sym| sym.name).collect();
         files.push(NativePackFile {
             signatures_only,
-            excerpt_note: String::new(),
+            excerpt_note,
             contract_lines,
             path: rel,
             abs_path: abs.to_string_lossy().into_owned(),
@@ -740,6 +763,7 @@ mod tests {
             read_pack_paths_ordered(
                 &root,
                 &paths,
+                &Default::default(),
                 &Default::default(),
                 &args,
                 &Default::default(),
