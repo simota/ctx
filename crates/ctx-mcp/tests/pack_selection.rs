@@ -250,3 +250,44 @@ fn files_line_ranges_pack_the_body_a_signature_digest_pointed_at() {
         "{json_body}"
     );
 }
+
+#[test]
+fn refs_pack_the_files_and_lines_a_stack_trace_names() {
+    let root = repo("refs");
+    let long: String = (1..=50).map(|i| format!("// line {i}\n")).collect();
+    std::fs::write(root.join("src/long.rs"), long).unwrap();
+    let trace =
+        "thread 'main' panicked at /build/ci/src/long.rs:25:9:\nsee also `a.rs` and lib/gone.rs";
+    let body = text(&call(
+        &root,
+        json!({"path": ".", "refs": trace, "around": 2}),
+    ));
+    assert!(body.contains("### src/long.rs"), "{body}");
+    assert!(
+        body.contains("// line 23\n") && body.contains("// line 27\n"),
+        "{body}"
+    );
+    assert!(!body.contains("// line 22\n"), "{body}");
+    assert!(body.contains("pub fn alpha"), "{body}");
+    assert!(body.contains("## Unresolved references"), "{body}");
+    assert!(body.contains("lib/gone.rs (input line 2)"), "{body}");
+
+    let reply = call(&root, json!({"path": ".", "refs": "nothing to see"}));
+    assert!(
+        reply["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("names no file"),
+        "{reply}"
+    );
+    let reply = call(
+        &root,
+        json!({"path": ".", "refs": "src/a.rs", "files": ["src/b.rs"]}),
+    );
+    assert!(reply["error"].is_object(), "{reply}");
+    let reply = call(
+        &root,
+        json!({"path": ".", "files": ["src/b.rs"], "around": 3}),
+    );
+    assert!(reply["error"].is_object(), "{reply}");
+}

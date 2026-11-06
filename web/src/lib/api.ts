@@ -797,6 +797,27 @@ export function packSelection(req: PackRequest): Promise<PackResponse> {
   return postJSON<PackResponse>('/api/pack', req);
 }
 
+/** A repository file a pasted text refers to (`POST /api/refs`). */
+export interface RefTarget {
+  path: string;
+  /** Selection entries for `packSelection`: `path` or `path:START-END`. */
+  specs: string[];
+  /** Cited lines with context, e.g. `28-52, 90`; empty = the whole file. */
+  lines: string;
+  mentions: number;
+  reason: string;
+}
+
+export interface RefsResponse {
+  targets: RefTarget[];
+  unresolved: { mention: string; line: number; reason: string }[];
+}
+
+/** Resolve the file references in a model reply, stack trace or comment. */
+export function findRefs(text: string, around?: number): Promise<RefsResponse> {
+  return postJSON<RefsResponse>('/api/refs', around === undefined ? { text } : { text, around });
+}
+
 export interface MixSummary {
   id: string;
   name: string;

@@ -67,6 +67,7 @@ pub fn build(state: AppState) -> Router {
             get(handlers::replay::handle_verify).post(handlers::replay::handle_verify),
         )
         .route("/api/pack", post(handlers::pack::handle))
+        .route("/api/refs", post(handlers::refs::handle))
         // --- /api/mix/* (GET list / POST create, GET by id / DELETE) ---
         .route("/api/mix", any(handlers::mix::handle_collection))
         .route("/api/mix/:id", any(handlers::mix::handle_route))

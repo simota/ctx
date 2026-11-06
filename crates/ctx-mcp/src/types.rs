@@ -62,6 +62,13 @@ pub(crate) struct PackArgs {
     /// A saved mix (id or name) to pack.
     #[serde(default)]
     pub(crate) mix: String,
+    /// Free text (a stack trace, an error, a review comment) whose file
+    /// references are resolved and packed — `ctx pack --from-refs`.
+    #[serde(default)]
+    pub(crate) refs: String,
+    /// With `refs`: lines of context either side of a cited line.
+    #[serde(default)]
+    pub(crate) around: Option<i64>,
     /// Path globs: pack only matching files.
     #[serde(default)]
     pub(crate) include: Vec<String>,

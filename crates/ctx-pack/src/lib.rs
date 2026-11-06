@@ -57,6 +57,7 @@ pub mod from_where;
 pub mod pathfilter;
 pub mod preset;
 pub mod redact;
+pub mod refs;
 pub mod relevance;
 pub mod selection;
 pub mod signatures;

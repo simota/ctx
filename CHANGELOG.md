@@ -8,6 +8,32 @@ and this project does not yet follow strict semver — see release notes per tag
 ## [Unreleased]
 
 ### Added
+- `ctx pack --from-refs`: pack the files and lines a piece of free text
+  refers to — a model reply ("look at `src/store.rs:120-180` and
+  `session.rs`"), a stack trace (`at f (src/a.ts:42:7)`,
+  `File "app/db.py", line 88`, `panicked at src/main.rs:10:5`), a compiler
+  error, a review comment or a GitHub permalink (`#L10-L20`). Closes the
+  loop of a conversation: the paths a model asks for become the next pack
+  without copying them out by hand. Mentions resolve only to files the pack
+  walk lists (ignored and secret files never resolve); prefixes the
+  repository lacks (an absolute CI path, `a/`/`b/`, a GitHub URL) are
+  dropped, a mention with directories must match at least its last two
+  components and a bare name must be unique. Cited lines are packed with
+  `--around N` lines of context (default 10), other mentions whole; each
+  file's reason names the mention and its input line. Unresolved and
+  ambiguous mentions are warned about and listed under `## Omitted files`;
+  finding no file is an error. Combines with `--goal`, `--budget`,
+  `--companions`, `--include`/`--exclude` and `--overflow`.
+- `ctx mix save` / `add --from-refs`: save the files and lines a text
+  mentions as a mix.
+- `ctx browse` Pins: "From a reply or stack trace" — paste text, see the
+  files and lines it cites (and what did not resolve), then "Pack cited
+  lines" or "Pin N files". Backed by the new `POST /api/refs`
+  (`{"text": "…", "around": 10}`), which takes the same CSRF and
+  `application/json` checks as the other POST routes.
+- MCP `ctx_pack` `refs` (+ `around`): pack what a pasted stack trace or
+  error names in one call; unresolved mentions are listed under
+  `## Unresolved references`.
 - Line-range excerpts: a selection entry `path:START-END`, `path:N` or
   `path#LSTART-LEND` packs only those lines — on `ctx pack --from-stdin`,
   in mixes (`ctx mix save` / `add`, `ctx pack --from-mix`), in MCP

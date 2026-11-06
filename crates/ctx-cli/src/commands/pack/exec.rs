@@ -31,6 +31,20 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
     if !args.from_mix.is_empty() && args.from_stdin {
         return Err("pack: --from-mix and --from-stdin are mutually exclusive".to_string());
     }
+    if args.from_refs {
+        for (set, flag) in [
+            (args.from_where, "--from-where"),
+            (args.from_stdin, "--from-stdin"),
+            (!args.from_mix.is_empty(), "--from-mix"),
+            (!args.diff_spec.is_empty(), "--diff"),
+            (!args.base.is_empty(), "--base"),
+            (args.changed, "--changed"),
+        ] {
+            if set {
+                return Err(format!("pack: --from-refs does not combine with {flag}"));
+            }
+        }
+    }
     if !args.why_paths.is_empty() && args.explain {
         return Err("pack: --why is mutually exclusive with --explain".to_string());
     }
@@ -52,9 +66,14 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
         if !args.diff_spec.is_empty() {
             return Err("pack: --companions does not apply to --diff".to_string());
         }
-        if !(args.changed || args.from_where || args.from_stdin || !args.from_mix.is_empty()) {
+        if !(args.changed
+            || args.from_where
+            || args.from_stdin
+            || args.from_refs
+            || !args.from_mix.is_empty())
+        {
             return Err(
-                "pack: --companions needs a file selection to start from (--changed, --from-where, --from-stdin or --from-mix)"
+                "pack: --companions needs a file selection to start from (--changed, --from-where, --from-stdin, --from-refs or --from-mix)"
                     .to_string(),
             );
         }
@@ -71,8 +90,14 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
             args.overflow
         ));
     }
-    if args.around > 0 && !args.from_where {
-        return Err("pack: --around needs --from-where (ctx where --format json | ctx pack --from-where --around 20)".to_string());
+    if args.around > 0 && !args.from_where && !args.from_refs {
+        return Err("pack: --around needs --from-where or --from-refs (ctx where --format json | ctx pack --from-where --around 20)".to_string());
+    }
+    if args.from_refs && !args.around_set {
+        args.around = DEFAULT_REFS_AROUND;
+    }
+    if args.from_refs && args.api_only {
+        return Err("pack: --from-refs does not combine with --api-only".to_string());
     }
     if args.around > 0 && args.api_only {
         return Err("pack: --around does not combine with --api-only".to_string());
@@ -192,6 +217,8 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
             &path_filter,
             &cfg.security,
         )?
+    } else if args.from_refs {
+        pack_from_refs(&root, &args, &cfg, &path_filter)?
     } else if args.from_stdin {
         let mut stdin = String::new();
         io::stdin()
@@ -245,6 +272,66 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// `--from-refs`: pack the repository files (and lines) the text on stdin
+/// refers to. Mentions that name no file, or several, are warned about and
+/// listed as omitted; finding no file at all is an error.
+fn pack_from_refs(
+    root: &Path,
+    args: &PackArgs,
+    cfg: &PackCtxToml,
+    filter: &ctx_pack::pathfilter::PathFilter,
+) -> Result<PackSelection, String> {
+    let mut stdin = Vec::new();
+    io::stdin()
+        .read_to_end(&mut stdin)
+        .map_err(|err| format!("pack: read stdin: {err}"))?;
+    let text = String::from_utf8_lossy(&stdin);
+    let files = list_pack_paths(root, cfg)?;
+    let scan = ctx_pack::refs::scan(&text, &files, args.around);
+    if !args.no_warnings {
+        for miss in &scan.unresolved {
+            eprintln!(
+                "warning: --from-refs: {} (input line {}): {}",
+                miss.mention, miss.input_line, miss.reason
+            );
+        }
+    }
+    if scan.targets.is_empty() {
+        let hint = if scan.unresolved.is_empty() {
+            String::new()
+        } else {
+            format!(" ({} unresolved mention(s) above)", scan.unresolved.len())
+        };
+        return Err(format!(
+            "pack: --from-refs: the input names no file in {}{hint}",
+            root.display()
+        ));
+    }
+    let reasons: std::collections::HashMap<String, String> = scan
+        .targets
+        .iter()
+        .map(|target| (target.path.clone(), target.reason()))
+        .collect();
+    let (paths, excerpts) = split_pack_selection(root, &scan.specs());
+    let (mut files, mut skipped) =
+        read_pack_root(root, args, cfg, filter, Some(&paths), &excerpts, false)?;
+    for file in &mut files {
+        if let Some(reason) = reasons.get(&file.path) {
+            file.reason = if args.goal.is_empty() {
+                reason.clone()
+            } else {
+                format!("{reason}; {}", file.reason)
+            };
+        }
+    }
+    skipped.extend(
+        scan.unresolved
+            .into_iter()
+            .map(|miss| PackSkipped::new(miss.mention, miss.reason, 0)),
+    );
+    Ok((files, skipped))
 }
 
 /// Line-range excerpts cut the file's own text: they do not combine with

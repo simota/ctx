@@ -6,6 +6,7 @@
   // from the terminal and the MCP ctx_pack tool.
   import {
     packSelection,
+    findRefs,
     fetchMixes,
     fetchMix,
     createMix,
@@ -13,6 +14,7 @@
     type PackResponse,
     type PackFormat,
     type MixSummary,
+    type RefsResponse,
   } from '../lib/api';
   import { announce } from '../lib/announce.svelte';
   import { pinMany, markPinStale } from '../lib/pins.svelte';
@@ -29,6 +31,13 @@
   let pack = $state<PackResponse | null>(null);
   /** What the current `pack` was built from, for labels. */
   let packSource = $state('');
+
+  // "From text": paste a model reply / stack trace, find the files it cites.
+  let refsText = $state('');
+  let refsAround = $state(10);
+  let refsBusy = $state(false);
+  let refsError = $state<string | null>(null);
+  let refs = $state<RefsResponse | null>(null);
 
   let mixName = $state('');
   let saving = $state(false);
@@ -68,6 +77,46 @@
     } finally {
       packing = false;
     }
+  }
+
+  async function resolveRefs(): Promise<void> {
+    if (!refsText.trim() || refsBusy) return;
+    refsBusy = true;
+    refsError = null;
+    try {
+      const around = Math.max(0, Math.floor(Number(refsAround)) || 0);
+      refs = await findRefs(refsText, around);
+      const n = refs.targets.length;
+      const missed = refs.unresolved.length ? `, ${refs.unresolved.length} unresolved` : '';
+      announce(`Found ${n} referenced file${n === 1 ? '' : 's'}${missed}`);
+    } catch (e) {
+      refsError = message(e);
+      announce(`Finding references failed: ${refsError}`);
+    } finally {
+      refsBusy = false;
+    }
+  }
+
+  async function packRefs(): Promise<void> {
+    if (!refs || refs.targets.length === 0 || packing) return;
+    packing = true;
+    packError = null;
+    try {
+      const files = refs.targets.flatMap((t) => t.specs);
+      pack = await packSelection({ files, goal: goal.trim(), budget: budgetValue(), format });
+      packSource = 'referenced lines';
+      announce(summary(pack));
+    } catch (e) {
+      packError = message(e);
+      announce(`Pack failed: ${packError}`);
+    } finally {
+      packing = false;
+    }
+  }
+
+  function pinRefs(): void {
+    if (!refs) return;
+    announce(pinMany(refs.targets.map((t) => t.path)).message);
   }
 
   function summary(p: PackResponse): string {
@@ -236,6 +285,72 @@
     Files are packed in board order; the budget (tokens, 0 = unlimited) drops files that no longer fit.
   </p>
 
+  <details class="refs">
+    <summary>From a reply or stack trace</summary>
+    <form
+      class="refs-form"
+      onsubmit={(e) => {
+        e.preventDefault();
+        void resolveRefs();
+      }}
+    >
+      <label class="field">
+        <span class="label">Text that mentions files</span>
+        <textarea
+          rows="5"
+          maxlength="1000000"
+          placeholder={'Paste a model reply, stack trace or review comment — e.g. "the bug is in src/store.rs:120-180" or "at load (src/api/user.ts:42:7)"'}
+          bind:value={refsText}
+        ></textarea>
+      </label>
+      <div class="controls">
+        <label class="field">
+          <span class="label">Context lines</span>
+          <input type="number" min="0" max="1000" step="1" inputmode="numeric" aria-describedby="refs-hint" bind:value={refsAround} />
+        </label>
+        <button type="submit" disabled={!refsText.trim() || refsBusy}>
+          {refsBusy ? 'Finding…' : 'Find files'}
+        </button>
+      </div>
+      <p id="refs-hint" class="muted hint">
+        Paths, <code class="mono">file:line</code>, <code class="mono">#L10-L20</code> permalinks and unique file names are resolved against this repository; cited lines are packed with this many lines either side.
+      </p>
+    </form>
+    {#if refsError}
+      <p class="error" role="alert">{refsError}</p>
+    {/if}
+    {#if refs}
+      <div class="result" aria-live="polite">
+        {#if refs.targets.length === 0}
+          <p class="muted hint">No file in this repository is mentioned in that text.</p>
+        {:else}
+          <div class="result-head">
+            <strong>{refs.targets.length} referenced file{refs.targets.length === 1 ? '' : 's'}</strong>
+            <span class="result-actions">
+              <button type="button" class="primary" disabled={packing} onclick={packRefs}>Pack cited lines</button>
+              <button type="button" onclick={pinRefs}>Pin {refs.targets.length} file{refs.targets.length === 1 ? '' : 's'}</button>
+            </span>
+          </div>
+          <ul class="skipped" aria-label="Referenced files">
+            {#each refs.targets as t (t.path)}
+              <li>
+                <span class="mono">{t.path}</span>
+                <span class="muted">— {t.lines ? `lines ${t.lines}` : 'whole file'}; {t.reason}</span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+        {#if refs.unresolved.length > 0}
+          <ul class="skipped" aria-label="Unresolved mentions">
+            {#each refs.unresolved as u (u.mention)}
+              <li><span class="mono">{u.mention}</span> <span class="muted">— {u.reason} (line {u.line})</span></li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/if}
+  </details>
+
   {#if packError}
     <p class="error" role="alert">{packError}</p>
   {/if}
@@ -372,7 +487,8 @@
     color: var(--ctx-fg-dim);
   }
   input,
-  select {
+  select,
+  textarea {
     border: 1px solid var(--ctx-border);
     border-radius: 3px;
     background: var(--ctx-bg);
@@ -387,6 +503,7 @@
   }
   input:focus-visible,
   select:focus-visible,
+  textarea:focus-visible,
   pre:focus-visible,
   summary:focus-visible {
     outline: 2px solid var(--ctx-accent);
@@ -480,6 +597,23 @@
   summary {
     cursor: pointer;
     font-size: 12px;
+  }
+  textarea {
+    resize: vertical;
+    font-family: var(--ctx-font-mono, monospace);
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .refs {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .refs-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
   }
   .save {
     padding-top: 6px;
