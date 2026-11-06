@@ -29,6 +29,9 @@ pub(crate) struct PackArgs {
     pub(crate) explain: bool,
     pub(crate) preset: String,
     pub(crate) changed: bool,
+    /// `--base <REV>`: branch review — pack the files changed since the
+    /// merge base with REV, committed or not (implies `--changed`).
+    pub(crate) base: String,
     /// Also pack up to this many co-change companions of the selected files
     /// (`--companions[=N]`); 0 = off.
     pub(crate) companions: usize,
@@ -112,6 +115,7 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
     let mut explain = false;
     let mut preset = String::new();
     let mut changed = false;
+    let mut base = String::new();
     let mut companions = 0usize;
     let mut api_only = false;
     let mut layout = "sequential".to_string();
@@ -231,6 +235,13 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
             preset_changed = true;
         } else if arg == OsStr::new("--changed") {
             changed = true;
+        } else if let Some(value) = flag_value(arg, "--base") {
+            base = value.to_string_lossy().into_owned();
+            changed = true;
+        } else if arg == OsStr::new("--base") {
+            i += 1;
+            base = args.get(i)?.to_string_lossy().into_owned();
+            changed = true;
         } else if arg == OsStr::new("--companions") {
             companions = DEFAULT_PACK_COMPANIONS;
         } else if let Some(value) = flag_value(arg, "--companions") {
@@ -329,6 +340,7 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
         explain,
         preset,
         changed,
+        base,
         companions,
         api_only,
         layout,

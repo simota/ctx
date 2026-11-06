@@ -1298,6 +1298,182 @@ pub fn changed_paths(dir: impl AsRef<Path>) -> Result<std::collections::BTreeSet
     Ok(changed)
 }
 
+/// One file a branch touches: changed since the merge base with the review
+/// base, in commits and/or in the work tree.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct BranchChange {
+    /// Work-tree-relative path (`/`-separated). A rename reports its
+    /// destination; a deleted file is listed with `deleted` set.
+    pub path: String,
+    /// Lines added / removed from the merge base to the work tree (both zero
+    /// for binary and untracked files).
+    pub additions: u32,
+    pub deletions: u32,
+    /// Changed by a commit between the merge base and `HEAD`.
+    pub committed: bool,
+    /// Staged, unstaged or untracked in the work tree.
+    pub uncommitted: bool,
+    /// Gone from the work tree.
+    pub deleted: bool,
+}
+
+/// Every file a branch changes relative to `base`, for a review pack.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct BranchChanges {
+    /// The revision as the caller spelled it.
+    pub base: String,
+    /// Full object id of the merge base of `base` and `HEAD`.
+    pub merge_base: String,
+    /// Sorted by path.
+    pub files: Vec<BranchChange>,
+}
+
+/// Files changed on the current branch relative to `base`: everything that
+/// differs between the merge base of `base` and `HEAD` and the work tree
+/// (committed on the branch, staged, unstaged), plus untracked files —
+/// i.e. what a pull request from this work tree would contain, including
+/// work not yet committed. `base` is any revision git understands
+/// (`main`, `origin/main`, `HEAD~3`, a hash); one that looks like an
+/// option is refused. Ignored files are not listed.
+pub fn branch_changes(dir: impl AsRef<Path>, base: &str) -> Result<BranchChanges> {
+    let dir = dir.as_ref();
+    let base_trimmed = base.trim();
+    if base_trimmed.is_empty() {
+        return Err(GitError::new("base is required"));
+    }
+    reject_option_like(base_trimmed)?;
+    let resolved = git_worktree_output(
+        dir,
+        &[
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            "--end-of-options",
+            &format!("{base_trimmed}^{{commit}}"),
+        ],
+    )
+    .ok()
+    .map(|out| String::from_utf8_lossy(&out).trim().to_string())
+    .filter(|oid| !oid.is_empty())
+    .ok_or_else(|| GitError::new(format!("cannot resolve base {base_trimmed:?}")))?;
+    let merge_base =
+        git_worktree_output(dir, &["merge-base", &resolved, "HEAD"]).map_err(|err| {
+            GitError::new(format!(
+                "no merge base between {base_trimmed:?} and HEAD: {err}"
+            ))
+        })?;
+    let merge_base = String::from_utf8_lossy(&merge_base).trim().to_string();
+    if merge_base.is_empty() {
+        return Err(GitError::new(format!(
+            "no merge base between {base_trimmed:?} and HEAD"
+        )));
+    }
+
+    // Merge base → work tree: committed, staged and unstaged edits together.
+    let numstat = git_worktree_output(
+        dir,
+        &[
+            "-c",
+            "core.quotepath=false",
+            "diff",
+            "-z",
+            "--numstat",
+            "--no-renames",
+            "--no-relative",
+            "--no-ext-diff",
+            "--no-textconv",
+            &merge_base,
+            "--",
+        ],
+    )?;
+    let stats = parse_numstat_z(&numstat);
+    let committed_out = git_worktree_output(
+        dir,
+        &[
+            "-c",
+            "core.quotepath=false",
+            "diff",
+            "-z",
+            "--name-only",
+            "--no-renames",
+            "--no-relative",
+            &merge_base,
+            "HEAD",
+            "--",
+        ],
+    )?;
+    let committed: std::collections::BTreeSet<String> = committed_out
+        .split(|b| *b == 0)
+        .filter(|path| !path.is_empty())
+        .map(|path| String::from_utf8_lossy(path).into_owned())
+        .collect();
+    let uncommitted = changed_paths(dir)?;
+    let top = show_toplevel(dir)?;
+    let untracked = git_worktree_output(
+        &top,
+        &[
+            "-c",
+            "core.quotepath=false",
+            "ls-files",
+            "-z",
+            "--others",
+            "--exclude-standard",
+            "--full-name",
+        ],
+    )?;
+
+    // Only net changes count: a file edited on the branch and restored in
+    // the work tree has nothing to review, so it is absent from `stats`.
+    let mut paths: std::collections::BTreeSet<String> = stats.keys().cloned().collect();
+    paths.extend(
+        untracked
+            .split(|b| *b == 0)
+            .filter(|path| !path.is_empty())
+            .map(|path| String::from_utf8_lossy(path).into_owned()),
+    );
+    let files = paths
+        .into_iter()
+        .map(|path| {
+            let (additions, deletions, _) = stats.get(&path).copied().unwrap_or((0, 0, false));
+            let deleted = fs::symlink_metadata(top.join(&path)).is_err();
+            BranchChange {
+                additions,
+                deletions,
+                committed: committed.contains(&path),
+                uncommitted: uncommitted.contains(&path),
+                deleted,
+                path,
+            }
+        })
+        .collect();
+    Ok(BranchChanges {
+        base: base_trimmed.to_string(),
+        merge_base,
+        files,
+    })
+}
+
+impl BranchChange {
+    /// Human-readable selection reason for a pack, e.g.
+    /// `changed vs main (+12 −3, committed + uncommitted)`.
+    pub fn describe(&self, base: &str) -> String {
+        let state = match (self.committed, self.uncommitted) {
+            (true, true) => "committed + uncommitted",
+            (true, false) => "committed",
+            (false, true) => "uncommitted",
+            (false, false) => "net change",
+        };
+        if self.additions == 0 && self.deletions == 0 {
+            format!("changed vs {base} ({state})")
+        } else {
+            format!(
+                "changed vs {base} (+{} -{}, {state})",
+                self.additions, self.deletions
+            )
+        }
+    }
+}
+
 pub fn file_log(
     repo_root: impl AsRef<Path>,
     slash_path: &str,
@@ -2912,6 +3088,68 @@ mod tests {
         assert_eq!(changed, vec!["a.rs", "sub/new.rs"]);
         assert_eq!(show_prefix(root.join("sub")).expect("prefix"), "sub/");
         assert_eq!(show_prefix(&root).expect("prefix"), "");
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn branch_changes_lists_committed_uncommitted_and_untracked_since_merge_base() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(root.join("sub")).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        fs::write(root.join("keep.rs"), "keep\n").expect("write keep");
+        fs::write(root.join("gone.rs"), "gone\n").expect("write gone");
+        fs::write(root.join("restored.rs"), "same\n").expect("write restored");
+        fs::write(root.join(".gitignore"), "ignored.log\n").expect("write ignore");
+        commit_all(&root, "init", "2020-01-02T03:04:05+00:00");
+
+        git(&root, &["checkout", "-q", "-b", "feature"]);
+        fs::write(root.join("sub/feature.rs"), "one\ntwo\n").expect("write feature");
+        fs::write(root.join("restored.rs"), "edited\n").expect("edit restored");
+        fs::remove_file(root.join("gone.rs")).expect("remove gone");
+        commit_all(&root, "feature", "2020-02-03T04:05:06+00:00");
+        // main moves on: its own change is not part of the branch.
+        git(&root, &["checkout", "-q", "main"]);
+        fs::write(root.join("main_only.rs"), "main\n").expect("write main");
+        commit_all(&root, "main advance", "2020-03-04T05:06:07+00:00");
+        git(&root, &["checkout", "-q", "feature"]);
+        // Work-tree state on top of the branch commits.
+        fs::write(root.join("keep.rs"), "keep\nmore\n").expect("edit keep");
+        fs::write(root.join("restored.rs"), "same\n").expect("restore");
+        fs::write(root.join("sub/new.rs"), "n\n").expect("untracked");
+        fs::write(root.join("ignored.log"), "x\n").expect("ignored");
+
+        let changes = branch_changes(root.join("sub"), "main").expect("branch changes");
+        assert_eq!(changes.base, "main");
+        assert_eq!(changes.merge_base.len(), 40);
+        let paths: Vec<&str> = changes.files.iter().map(|f| f.path.as_str()).collect();
+        assert_eq!(
+            paths,
+            vec!["gone.rs", "keep.rs", "sub/feature.rs", "sub/new.rs"]
+        );
+        let by = |p: &str| changes.files.iter().find(|f| f.path == p).unwrap().clone();
+        assert!(by("gone.rs").deleted && by("gone.rs").committed);
+        let keep = by("keep.rs");
+        assert!(keep.uncommitted && !keep.committed);
+        assert_eq!((keep.additions, keep.deletions), (1, 0));
+        let feature = by("sub/feature.rs");
+        assert!(feature.committed && !feature.uncommitted && !feature.deleted);
+        assert_eq!(
+            feature.describe("main"),
+            "changed vs main (+2 -0, committed)"
+        );
+        assert!(by("sub/new.rs").uncommitted);
+        assert_eq!(
+            by("sub/new.rs").describe("main"),
+            "changed vs main (uncommitted)"
+        );
+
+        assert!(branch_changes(&root, "--output=/tmp/x").is_err());
+        let err = branch_changes(&root, "no-such-branch").unwrap_err();
+        assert!(err.to_string().contains("cannot resolve base"), "{err}");
 
         let _ = fs::remove_dir_all(root);
     }
