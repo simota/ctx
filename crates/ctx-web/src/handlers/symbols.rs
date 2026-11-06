@@ -202,9 +202,6 @@ fn handle_definition_sync(state: AppState, params: DefinitionParams) -> Response
             let mut corpus: Vec<ctx_symbols::FileSymbols> = Vec::new();
             let mut meta_index: HashMap<String, FileMeta> = HashMap::new();
             collect_definition_corpus(&root_path, root_str, &mut corpus, &mut meta_index);
-            // The build parsed every file on the rayon pool (see
-            // `run_parallel`); only the cached corpus outlives it.
-            crate::blocking::release_freed_memory();
             let corpus = Arc::new(corpus);
             let meta_index = Arc::new(meta_index);
             if let Ok(mut guard) = corpus_cache().write() {
@@ -304,7 +301,7 @@ fn collect_symbols_from_dir(
         .into_par_iter()
         .filter_map(|path| {
             // Go skips on errE != nil || len(syms) == 0.
-            match ctx_symbols::extract(&path) {
+            match ctx_symbols::extract_on_worker(&path) {
                 Ok(syms) if !syms.is_empty() => Some((path, syms)),
                 _ => None,
             }
@@ -431,38 +428,16 @@ fn collect_definition_corpus(
     corpus: &mut Vec<ctx_symbols::FileSymbols>,
     meta_index: &mut HashMap<String, FileMeta>,
 ) {
-    // List the files sequentially (walk order fixes the corpus order), then
-    // stat and parse them in parallel; the indexed collect keeps that order.
-    let mut paths = Vec::new();
-    list_definition_files(root_path, &mut paths);
-    let built: Vec<(String, FileMeta, Vec<ctx_symbols::Symbol>)> = paths
-        .into_par_iter()
-        .map(|path| {
-            let rel_key = dotted_relative_to_root(root_str, &path);
-            // Meta index entry: role + token estimate from file size.
-            let file_size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-            let meta = FileMeta {
-                role: crate::handlers::role::infer_role(&rel_key),
-                tokens: ctx_tokens::estimate_by_size(file_size as i64),
-            };
-            let syms = ctx_symbols::extract(&path).unwrap_or_default();
-            (rel_key, meta, syms)
-        })
-        .collect();
-    for (rel_key, meta, syms) in built {
-        meta_index.insert(rel_key.clone(), meta);
-        // Symbol corpus: files without symbols (or that failed) are skipped.
-        if !syms.is_empty() {
-            corpus.push(ctx_symbols::FileSymbols {
-                path: rel_key,
-                symbols: syms,
-            });
-        }
-    }
+    collect_definition_inner(root_path, root_str, root_path, corpus, meta_index);
 }
 
-/// The files [`collect_definition_corpus`] indexes, in walk order.
-fn list_definition_files(dir: &Path, out: &mut Vec<PathBuf>) {
+fn collect_definition_inner(
+    root_path: &Path,
+    root_str: &str,
+    dir: &Path,
+    corpus: &mut Vec<ctx_symbols::FileSymbols>,
+    meta_index: &mut HashMap<String, FileMeta>,
+) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
@@ -487,9 +462,31 @@ fn list_definition_files(dir: &Path, out: &mut Vec<PathBuf>) {
         }
 
         if is_dir {
-            list_definition_files(&path, out);
+            collect_definition_inner(root_path, root_str, &path, corpus, meta_index);
             continue;
         }
-        out.push(path);
+
+        let rel_key = dotted_relative_to_root(root_str, &path);
+
+        // Build meta index (role + token estimate from file size).
+        let file_size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        let role = crate::handlers::role::infer_role(&rel_key);
+        meta_index.insert(
+            rel_key.clone(),
+            FileMeta {
+                role,
+                tokens: ctx_tokens::estimate_by_size(file_size as i64),
+            },
+        );
+
+        // Build symbol corpus (skip if no symbols).
+        let syms = match ctx_symbols::extract(&path) {
+            Ok(s) if !s.is_empty() => s,
+            _ => continue,
+        };
+        corpus.push(ctx_symbols::FileSymbols {
+            path: rel_key,
+            symbols: syms,
+        });
     }
 }

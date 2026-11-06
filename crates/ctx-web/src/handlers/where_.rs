@@ -213,7 +213,7 @@ fn build_file_input(path: &Path, rel: String) -> Option<FileInput> {
     let body = std::fs::read_to_string(path).ok()?;
 
     // Parse the body just read: `extract` would stat and read the file again.
-    let symbols = ctx_symbols::extract_source(path, body.as_bytes())
+    let symbols = ctx_symbols::extract_source_on_worker(path, body.as_bytes())
         .into_iter()
         .map(|sym| SymbolInput {
             name: sym.name,

@@ -516,8 +516,8 @@ impl Server {
             args.path = ".".to_string();
         }
         let root = self.resolve_path(&args.path)?;
-        let entries =
-            collect_symbol_entries(&root, &self.walk_boundary(&root)).map_err(tool_error)?;
+        let entries = collect_symbol_entries_parallel(&root, &self.walk_boundary(&root))
+            .map_err(tool_error)?;
         let (offset, size) = resolve_pagination(args.page_size, &args.cursor)?;
         let (page, next_offset) = apply_page_window(&entries, offset, size);
 

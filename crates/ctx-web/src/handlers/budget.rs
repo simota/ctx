@@ -34,7 +34,6 @@ use axum::extract::rejection::QueryRejection;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
-use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::handlers::file::relative_to_root;
@@ -87,7 +86,7 @@ pub async fn handle(
         Ok(q) => q,
         Err(e) => return response::bad_query(e),
     };
-    crate::blocking::run_parallel(move || handle_sync(state, params)).await
+    crate::blocking::run(move || handle_sync(state, params)).await
 }
 
 fn handle_sync(state: AppState, params: BudgetParams) -> Response {
@@ -111,10 +110,9 @@ fn handle_sync(state: AppState, params: BudgetParams) -> Response {
     raw_files.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
 
     // Count tokens for each file (mirrors countTokens + tokenCount in Go).
-    // Each count reads only its own file, so they run in parallel.
-    raw_files.par_iter_mut().for_each(|fi| {
+    for fi in &mut raw_files {
         fi.tokens = count_tokens_for_file(&fi.abs_path, fi.size, fi.is_regular);
-    });
+    }
 
     // Budget planning (mirrors internal/budget/budget.go:Plan).
     let budget = params.budget;

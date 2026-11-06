@@ -195,6 +195,87 @@ pub fn extract_source(path: impl AsRef<Path>, source: &[u8]) -> Vec<Symbol> {
     }
 }
 
+/// Sources larger than this parse alone on a walk worker (see
+/// [`extract_on_worker`]) and get their freed parse memory handed back by
+/// [`release_memory_after_large_parse`].
+const LARGE_PARSE_BYTES: u64 = 64 * 1024;
+
+/// Call after parsing a `len`-byte file on a worker thread of a parallel
+/// walk. glibc gives each thread its own malloc arena, and an arena keeps
+/// its high-water mark after the (many times source-sized) parse tree is
+/// freed, so without this every worker that ever met a large file retained
+/// that much memory and peak RSS rose above a sequential walk. Only large
+/// files (rare) trigger [`release_freed_memory`].
+pub fn release_memory_after_large_parse(len: u64) {
+    if len > LARGE_PARSE_BYTES {
+        release_freed_memory();
+    }
+}
+
+/// Hand already-freed heap memory back to the OS (glibc `malloc_trim`,
+/// which trims every thread's arena) — for after work that allocated on
+/// rayon workers, whose arenas otherwise keep their high-water mark. Costs
+/// a few milliseconds on a large heap, so call it after heavy work only.
+/// A no-op on other allocators.
+pub fn release_freed_memory() {
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    // SAFETY: malloc_trim only returns already-freed memory to the OS and is
+    // thread-safe (it locks each arena it trims).
+    unsafe {
+        libc::malloc_trim(0);
+    }
+}
+
+/// [`extract`] for a worker thread of a parallel walk, keeping the walk's
+/// peak memory at the sequential walk's. A parse tree is many times the
+/// size of its source, so large (`> LARGE_PARSE_BYTES`) files parse one at a
+/// time — small ones stay parallel — and each large parse's freed memory is
+/// handed back with [`release_memory_after_large_parse`] before the next
+/// large parse starts.
+pub fn extract_on_worker(path: impl AsRef<Path>) -> std::io::Result<Vec<Symbol>> {
+    let path = path.as_ref();
+
+    let meta = std::fs::metadata(path)?;
+    if meta.len() > MAX_PARSE_BYTES {
+        return Ok(Vec::new());
+    }
+    let spec = match lang_spec_for_path(path) {
+        Some(spec) => spec,
+        None => return Ok(Vec::new()),
+    };
+    let source = std::fs::read(path)?;
+    Ok(parse_symbols_on_worker(&spec, &source))
+}
+
+/// [`extract_source`] for a worker thread of a parallel walk; see
+/// [`extract_on_worker`].
+pub fn extract_source_on_worker(path: impl AsRef<Path>, source: &[u8]) -> Vec<Symbol> {
+    if source.len() as u64 > MAX_PARSE_BYTES {
+        return Vec::new();
+    }
+    match lang_spec_for_path(path.as_ref()) {
+        Some(spec) => parse_symbols_on_worker(&spec, source),
+        None => Vec::new(),
+    }
+}
+
+fn parse_symbols_on_worker(spec: &LangSpec, source: &[u8]) -> Vec<Symbol> {
+    static LARGE_PARSE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    let len = source.len() as u64;
+    if len <= LARGE_PARSE_BYTES {
+        return parse_symbols(spec, source);
+    }
+    // The lock guards no data, so a parse that panicked leaves nothing to
+    // repair: a poisoned lock is still usable.
+    let _one_large_parse = LARGE_PARSE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let symbols = parse_symbols(spec, source);
+    release_memory_after_large_parse(len);
+    symbols
+}
+
 fn parse_symbols(spec: &LangSpec, source: &[u8]) -> Vec<Symbol> {
     let mut parser = Parser::new();
     // set_language only fails on ABI mismatch — impossible for grammars we
@@ -299,4 +380,61 @@ fn kind_for<'a>(kinds: &'a [(&'a str, &'a str)], node_type: &str) -> Option<&'a 
         .iter()
         .find(|(ty, _)| *ty == node_type)
         .map(|(_, kind)| *kind)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A Rust source of roughly `items` functions (each ~40 bytes).
+    fn rust_source(items: usize) -> String {
+        (0..items)
+            .map(|i| format!("pub fn item_{i}(x: u32) -> u32 {{ x + {i} }}\n"))
+            .collect()
+    }
+
+    #[test]
+    fn worker_extraction_matches_plain_extraction() {
+        let dir = std::env::temp_dir().join(format!("ctx-symbols-worker-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // Small, large (> LARGE_PARSE_BYTES, parsed under the lock) and over
+        // the MAX_PARSE_BYTES cap; plus an unsupported extension.
+        let cases = [
+            ("small.rs", rust_source(10)),
+            ("large.rs", rust_source(3_000)),
+            ("huge.rs", rust_source(20_000)),
+            ("notes.txt", rust_source(10)),
+        ];
+        assert!(cases[1].1.len() as u64 > LARGE_PARSE_BYTES);
+        assert!(cases[2].1.len() as u64 > MAX_PARSE_BYTES);
+        for (name, body) in &cases {
+            std::fs::write(dir.join(name), body).unwrap();
+        }
+
+        // Many threads at once, as on a rayon pool: every call must still
+        // return what the plain extractor does.
+        std::thread::scope(|scope| {
+            for _ in 0..4 {
+                scope.spawn(|| {
+                    for _ in 0..3 {
+                        for (name, body) in &cases {
+                            let path = dir.join(name);
+                            let expected = extract(&path).unwrap();
+                            assert_eq!(extract_on_worker(&path).unwrap(), expected, "{name}");
+                            assert_eq!(
+                                extract_source_on_worker(&path, body.as_bytes()),
+                                expected,
+                                "{name}"
+                            );
+                        }
+                    }
+                });
+            }
+        });
+        assert_eq!(extract(dir.join("large.rs")).unwrap().len(), 3_000);
+        assert!(extract(dir.join("huge.rs")).unwrap().is_empty());
+        assert!(extract_on_worker(dir.join("missing.rs")).is_err());
+
+        let _ = std::fs::remove_dir_all(dir);
+    }
 }

@@ -44,15 +44,8 @@ where
     .await
 }
 
-/// Return already-freed heap memory to the OS (glibc `malloc_trim`, which
-/// trims every arena). A no-op on other allocators. Call it after work that
-/// allocated heavily on the rayon pool, not on cheap paths: it costs a few
-/// milliseconds on a large heap.
+/// Return already-freed heap memory to the OS; see
+/// [`ctx_symbols::release_freed_memory`].
 pub fn release_freed_memory() {
-    #[cfg(all(target_os = "linux", target_env = "gnu"))]
-    // SAFETY: malloc_trim only returns already-freed memory to the OS and is
-    // thread-safe (it locks each arena it trims).
-    unsafe {
-        libc::malloc_trim(0);
-    }
+    ctx_symbols::release_freed_memory();
 }
