@@ -84,6 +84,7 @@ ctx where "session login" --format json | ctx pack --from-where --budget 30000 -
 ```
 
 `ctx pack` は既定で末尾に `ctx:contract` manifest を埋め込みます。
+不要な場合は `--no-contract` を指定します。
 
 `--companions[=N]` を付けると、選んだファイル（`--changed` / `--from-where` / `--from-stdin` / `--from-mix`）と**過去のコミットで一緒に変更されてきたファイル**（テスト、スキーマ、設定など）を最大 N 件（既定 5）追加します。
 companion は選んだファイルの後ろに置かれ、予算はまず選んだファイルに使われます。
@@ -91,7 +92,22 @@ companion は選んだファイルの後ろに置かれ、予算はまず選ん�
 ```bash
 ctx pack --changed --companions --budget 30000
 ```
-不要な場合は `--no-contract` を指定します。
+
+#### 範囲を絞る・予算に収まらないファイルを扱う
+
+```bash
+ctx pack --include 'crates/ctx-web/**' --exclude tests --goal "routing"
+ctx pack --include '*.{rs,toml}' --exclude '*_test.rs,benches'
+ctx pack --goal "session expiry" --budget 20000 --overflow signatures
+```
+
+`--include` / `--exclude` は pack 対象のパスを glob で絞ります（繰り返し指定・カンマ区切り可、`--exclude` が優先）。
+`*` はパスの 1 階層内、`**` は任意の階層、`{a,b}` は選択肢に一致し、`/` を含まないパターン（`*.rs`、`tests`）はどの階層のファイル名・ディレクトリ名にも一致します。ディレクトリに一致したパターンはその配下すべてを対象にします。
+`--from-stdin` / `--from-mix` / `--from-where` で明示したファイルが除外された場合は、その旨が記録されます。
+
+pack は**入れなかったファイルも記録します**。予算超過・見つからない・フィルタで除外されたファイルは Markdown の `## Omitted files`（plain は `-` 行、JSON は `skipped`、`--snapshot` の manifest は `skipped`）に理由付きで並び、予算超過分をすべて入れるのに必要な `--budget` の目安も表示します。goal に一致しなかったファイルは件数だけを示します。
+
+`--overflow signatures` を付けると、関連度は高いが予算に入りきらないファイルを捨てる代わりに、その**宣言行（関数・型などのシグネチャ）を元の行番号付きで**入れます（入りきる場合のみ）。大きな中核ファイルの API を見せたまま予算を守れ、LLM は必要な箇所をパスと行番号で指定して追加で要求できます。既定は `--overflow drop`（従来通り除外）です。
 
 ### 4. 一緒に変わるファイルを知る
 
@@ -187,9 +203,10 @@ Claude Code や Cursor などの MCP client から、context 生成や検索を 
 }
 ```
 
-提供する tool: `ctx_pack`（`changed` / `companions` / `files` / `mix` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_roots_list`。
+提供する tool: `ctx_pack`（`changed` / `companions` / `files` / `mix` / `include` / `exclude` / `overflow` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_roots_list`。
 編集前に `ctx_cochange {"anchor":"src/server.rs"}` で一緒に直すべきファイルを確認し、`ctx_pack {"changed":true,"companions":5}` で変更とその companion をまとめて渡す、といった使い方ができます。
 `ctx_where` で見つけたファイルだけを渡すには `ctx_pack {"files":["src/a.rs","src/b.rs"]}`（指定順に pack し、budget 超過・root 外・存在しないファイルは skipped として報告）、保存済み mix は `ctx_pack {"mix":"auth-review"}` で pack できます。
+ディレクトリ walk は `ctx_pack {"include":["src/**/*.rs"],"exclude":["tests"],"overflow":"signatures"}` のように CLI と同じ glob で絞り、予算に入らない関連ファイルをシグネチャだけで渡せます。
 
 既定では server を起動した root 配下だけにファイルアクセスを制限します。
 複数 root を扱う場合は、意図を確認したうえで `--allow-outside-root` を使ってください。
