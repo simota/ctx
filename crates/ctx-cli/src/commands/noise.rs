@@ -4,10 +4,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use rayon::prelude::*;
-
-use crate::commands::map::estimate_where_tokens;
-use crate::commands::where_cmd::where_files;
+use crate::commands::where_cmd::{where_file_stats_with, WalkIgnoreOptions};
 use crate::common::*;
 use serde::Serialize;
 
@@ -136,23 +133,21 @@ pub(crate) fn inspect_noise(
     display_root: &str,
     top: usize,
 ) -> Result<NoiseResult, String> {
-    let files = where_files(root)?;
-    // Token counting dominates and is independent per file: count in
-    // parallel up front (indexed collect keeps the order), then classify
-    // sequentially exactly as before.
-    let file_tokens: Vec<Option<i64>> = files
-        .par_iter()
-        .map(|fi| (!fi.is_dir).then(|| estimate_where_tokens(root, fi)))
-        .collect();
+    // The where walk's files, reduced to what classification reads. The
+    // symbol count only feeds the low-density rule, so only the files that
+    // rule can apply to are parsed for symbols (see noise_reads_symbols).
+    let files = where_file_stats_with(
+        root,
+        &WalkIgnoreOptions::default_where(),
+        noise_reads_symbols,
+    )?;
     let mut candidates = Vec::new();
     let mut total_repo_tokens = 0_i64;
-    for (fi, tokens) in files.into_iter().zip(file_tokens) {
-        let Some(tokens) = tokens else {
-            continue;
-        };
+    for fi in files {
+        let tokens = fi.tokens;
         total_repo_tokens += tokens;
-        let size: i64 = fi.lines.iter().map(|line| line.len() as i64 + 1).sum();
-        let Some(reason) = classify_noise(&fi.path, size, fi.symbols.len()) else {
+        let size = fi.line_bytes;
+        let Some(reason) = classify_noise(&fi.path, size, fi.symbols) else {
             continue;
         };
         candidates.push(NoiseCandidate {
@@ -183,14 +178,37 @@ pub(crate) fn inspect_noise(
     })
 }
 
-pub(crate) fn classify_noise(path: &str, size: i64, symbols: usize) -> Option<&'static str> {
-    let slash = path.replace('\\', "/");
-    let base = slash.rsplit('/').next().unwrap_or(&slash);
-    let ext = Path::new(base)
+/// Lowercased extension with its dot (".go"), or "" — as classify_noise sees
+/// a path.
+fn noise_ext(base: &str) -> String {
+    Path::new(base)
         .extension()
         .and_then(OsStr::to_str)
         .map(|s| format!(".{}", s.to_ascii_lowercase()))
-        .unwrap_or_default();
+        .unwrap_or_default()
+}
+
+/// The low-density rule's preconditions: a source extension and at least
+/// 10 KiB. Only then does classify_noise read the symbol count.
+fn low_density_applies(ext: &str, size: i64) -> bool {
+    matches!(
+        ext,
+        ".go" | ".ts" | ".tsx" | ".js" | ".jsx" | ".mjs" | ".py"
+    ) && size >= 10 * 1024
+}
+
+/// Whether classify_noise(path, size, _) can depend on the symbol count:
+/// the walk extracts symbols for exactly these files.
+pub(crate) fn noise_reads_symbols(path: &str, size: i64) -> bool {
+    let slash = path.replace('\\', "/");
+    let base = slash.rsplit('/').next().unwrap_or(&slash);
+    low_density_applies(&noise_ext(base), size)
+}
+
+pub(crate) fn classify_noise(path: &str, size: i64, symbols: usize) -> Option<&'static str> {
+    let slash = path.replace('\\', "/");
+    let base = slash.rsplit('/').next().unwrap_or(&slash);
+    let ext = noise_ext(base);
     for suffix in [
         ".pb.go",
         ".pb.ts",
@@ -258,12 +276,7 @@ pub(crate) fn classify_noise(path: &str, size: i64, symbols: usize) -> Option<&'
     if ext == ".json" && size >= 50 * 1024 {
         return Some("huge-json");
     }
-    if matches!(
-        ext.as_str(),
-        ".go" | ".ts" | ".tsx" | ".js" | ".jsx" | ".mjs" | ".py"
-    ) && size >= 10 * 1024
-        && (symbols as f64 / (size as f64 / 1024.0)) < 0.5
-    {
+    if low_density_applies(&ext, size) && (symbols as f64 / (size as f64 / 1024.0)) < 0.5 {
         return Some("low-density");
     }
     None
@@ -399,4 +412,47 @@ pub(crate) fn aggregate_noise_globs(cands: &[&NoiseCandidate]) -> Vec<String> {
 
     lines.sort();
     lines
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The walk skips symbol extraction exactly where noise_reads_symbols is
+    /// false, so there the classification must not depend on the count.
+    #[test]
+    fn classification_reads_symbols_only_where_the_walk_extracts_them() {
+        let paths = [
+            "main.go",
+            "web/app.TSX",
+            "lib/util.js",
+            "a/b.jsx",
+            "m.mjs",
+            "pkg/mod.py",
+            "src/lib.rs",
+            "README.md",
+            "data.json",
+            "dist/bundle.js",
+            "x.pb.go",
+            "fixtures/big.py",
+            "dir\\win.go",
+            "noext",
+        ];
+        for path in paths {
+            for size in [0, 1024, 10 * 1024 - 1, 10 * 1024, 64 * 1024, 1 << 20] {
+                let sparse = classify_noise(path, size, 0);
+                let dense = classify_noise(path, size, 1_000_000);
+                if !noise_reads_symbols(path, size) {
+                    assert_eq!(sparse, dense, "{path} {size}");
+                }
+            }
+        }
+        assert_eq!(
+            classify_noise("pkg/mod.py", 10 * 1024, 0),
+            Some("low-density")
+        );
+        assert!(noise_reads_symbols("pkg/mod.py", 10 * 1024));
+        assert!(!noise_reads_symbols("pkg/mod.py", 10 * 1024 - 1));
+        assert!(!noise_reads_symbols("src/lib.rs", 1 << 20));
+    }
 }
