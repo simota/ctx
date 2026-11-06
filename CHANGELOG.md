@@ -8,6 +8,23 @@ and this project does not yet follow strict semver — see release notes per tag
 ## [Unreleased]
 
 ### Added
+- `ctx pack` records what it left out. Files dropped for the budget, listed
+  files that could not be read and files removed by `--include`/`--exclude`
+  are listed with their reason in a Markdown `## Omitted files` section
+  (plain: `-` lines; JSON: the `skipped` array, which was always empty;
+  `--snapshot` manifests: `skipped`), with the `--budget` that would fit
+  every budget-dropped file. Files below the relevance cut-off are counted.
+  Output is unchanged when nothing was left out.
+- `ctx pack --include <GLOB>` / `--exclude <GLOB>` (repeatable,
+  comma-separated; `*`, `**`, `?`, `{a,b}`; a pattern without `/` matches a
+  name at any depth, a directory pattern its subtree) scope a pack to part
+  of the repository without a `.ctxignore` edit or a mix. MCP `ctx_pack`
+  takes the same `include` / `exclude` arrays.
+- `ctx pack --overflow signatures` (MCP `ctx_pack` `overflow`): a relevant
+  file that does not fit the remaining budget is packed as its declaration
+  lines with their line numbers, marked "signatures only", instead of being
+  dropped — when the digest fits. Works for every language the symbol
+  extractor knows (the existing `--api-only` covers Go/JS/TS/Python only).
 - `ctx mix` (`save` / `list` / `show` / `add` / `drop` / `set` / `rm`):
   create and edit saved file selections ("mixes") — an ordered file list
   plus goal and budget. `ctx pack --from-mix` could read recipes, but

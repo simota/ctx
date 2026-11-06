@@ -18,6 +18,11 @@ Selection:
       --since <WHEN>          Only files changed after a date or duration (7d, 2w, 2026-01-01)
       --until <WHEN>          Only files changed before a date or duration
       --use-mtime             Use file mtime instead of git commit time for --since/--until
+      --include <GLOB>        Only pack matching paths (repeatable or comma-separated;
+                              `*.rs`, `src/**/*.ts`, `crates/web`, `*.{rs,toml}`)
+      --exclude <GLOB>        Never pack matching paths (same syntax; wins over --include)
+      --overflow <MODE>       Relevant file over budget: drop (default) or signatures
+                              (pack its declaration lines with line numbers instead)
       --api-only              Keep public API signatures only
       --from-where            Read `ctx where --format json` results from stdin
       --from-stdin            Read paths (one per line) from stdin
@@ -44,6 +49,7 @@ Snapshots:
 Examples:
   ctx pack . --goal \"debug session expiry\" --budget 30000 --out context.md
   ctx pack --changed --companions
+  ctx pack --include 'crates/ctx-web/**' --exclude tests --goal \"routing\" --overflow signatures
   ctx where \"session login\" --format json | ctx pack --from-where --companions=3",
         ),
         "where" => (

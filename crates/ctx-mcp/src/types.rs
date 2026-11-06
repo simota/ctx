@@ -58,6 +58,16 @@ pub(crate) struct PackArgs {
     /// A saved mix (id or name) to pack.
     #[serde(default)]
     pub(crate) mix: String,
+    /// Path globs: pack only matching files.
+    #[serde(default)]
+    pub(crate) include: Vec<String>,
+    /// Path globs: never pack matching files.
+    #[serde(default)]
+    pub(crate) exclude: Vec<String>,
+    /// `drop` (default) or `signatures`: what happens to a relevant file
+    /// that does not fit the budget.
+    #[serde(default)]
+    pub(crate) overflow: String,
 }
 
 #[derive(Deserialize)]
@@ -213,6 +223,8 @@ pub(crate) struct PackCandidate {
     pub(crate) score: i64,
     pub(crate) relevance: String,
     pub(crate) reason: String,
+    /// Signature digest packed instead of the full file (overflow=signatures).
+    pub(crate) digest: Option<String>,
 }
 
 #[derive(Clone)]

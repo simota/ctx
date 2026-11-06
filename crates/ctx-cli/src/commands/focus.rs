@@ -206,6 +206,7 @@ pub(crate) fn focus_command(args: FocusArgs) -> Result<(), FocusError> {
         let scored = ctx_pack::relevance::score_relevance_with_ctx(&pack_input, &ctx, tokens);
         let symbols: Vec<String> = input.symbols.iter().map(|sym| sym.name.clone()).collect();
         included.push(NativePackFile {
+            signatures_only: false,
             path: input.path.clone(),
             abs_path: abs_path.to_string_lossy().into_owned(),
             content,
@@ -317,6 +318,9 @@ pub(crate) fn build_focus_pack_args(args: &FocusArgs, budget: i64) -> PackArgs {
         api_only: false,
         layout: "sequential".to_string(),
         from_mix: String::new(),
+        include: Vec::new(),
+        exclude: Vec::new(),
+        overflow: "drop".to_string(),
         why_paths: Vec::new(),
         snapshot_id: String::new(),
         since_snapshot: String::new(),

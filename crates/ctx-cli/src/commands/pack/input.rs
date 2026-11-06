@@ -7,15 +7,44 @@ use super::*;
 use crate::commands::where_cmd::extract_where_symbols;
 use crate::common::SecurityToml;
 
+/// Files a pack read plus the candidates it left out (and why).
+pub(crate) type PackSelection = (Vec<NativePackFile>, Vec<PackSkipped>);
+
+pub(crate) use ctx_pack::assemble::SkippedFile as PackSkipped;
+
+/// Reason recorded for an explicitly selected file that `--include` /
+/// `--exclude` filtered out.
+const REASON_FILTERED: &str = "excluded by --include/--exclude";
+
+/// When `overflow` is `signatures`, the signature digest standing in for a
+/// file whose full text (`body`, `full_tokens`) does not fit, if it has one.
+fn overflow_digest(
+    args: &PackArgs,
+    rel: &str,
+    body: &str,
+    symbol_lines: &[i64],
+    full_tokens: i64,
+) -> Option<(String, i64)> {
+    if args.overflow != "signatures" {
+        return None;
+    }
+    let digest = ctx_pack::signatures::signature_digest(rel, body, symbol_lines, full_tokens)?;
+    let tokens = estimate_text_tokens(&digest);
+    Some((digest, tokens))
+}
+
 pub(crate) fn read_pack_paths_ordered(
     root: &Path,
     paths: &[String],
     reasons: &std::collections::HashMap<String, String>,
-    budget: i64,
-    quiet: bool,
+    args: &PackArgs,
+    filter: &ctx_pack::pathfilter::PathFilter,
     security: &SecurityToml,
-) -> Result<Vec<NativePackFile>, String> {
+) -> Result<PackSelection, String> {
+    let budget = args.budget;
+    let quiet = args.no_warnings;
     let mut files = Vec::new();
+    let mut skipped = Vec::new();
     let mut used = 0_i64;
     let canonical_root = crate::common::canonical_walk_root(root);
     for path in paths {
@@ -28,6 +57,10 @@ pub(crate) fn read_pack_paths_ordered(
             Ok(path) => path.to_string_lossy().replace('\\', "/"),
             Err(_) => clean.clone(),
         };
+        if !filter.allows(&rel) {
+            skipped.push(PackSkipped::new(rel, REASON_FILTERED, 0));
+            continue;
+        }
         // The where JSON may be hand-written or saved: like the walker, read
         // only regular files inside the repository (no absolute or `..`
         // escapes, no links leaving it, no FIFOs).
@@ -40,21 +73,37 @@ pub(crate) fn read_pack_paths_ordered(
                 if !quiet {
                     eprintln!("warning: --from-where: path not found or excluded: {clean}");
                 }
+                skipped.push(PackSkipped::new(clean, "not found or excluded", 0));
                 continue;
             }
         };
         redact_pack_body(&abs.to_string_lossy(), &mut body, security);
-        let tokens = estimate_text_tokens(&body);
+        let mut tokens = estimate_text_tokens(&body);
+        let lines: Vec<&str> = body.lines().collect();
+        let where_symbols = extract_where_symbols(&rel, &lines);
+        let mut signatures_only = false;
         if used + tokens > budget {
-            continue;
+            let symbol_lines: Vec<i64> = where_symbols.iter().map(|sym| sym.line).collect();
+            match overflow_digest(args, &rel, &body, &symbol_lines, tokens) {
+                Some((digest, digest_tokens)) if used + digest_tokens <= budget => {
+                    body = digest;
+                    tokens = digest_tokens;
+                    signatures_only = true;
+                }
+                _ => {
+                    skipped.push(PackSkipped::new(
+                        rel,
+                        ctx_pack::assemble::REASON_BUDGET,
+                        tokens,
+                    ));
+                    continue;
+                }
+            }
         }
         used += tokens;
-        let lines: Vec<&str> = body.lines().collect();
-        let symbols = extract_where_symbols(&rel, &lines)
-            .into_iter()
-            .map(|sym| sym.name)
-            .collect();
+        let symbols = where_symbols.into_iter().map(|sym| sym.name).collect();
         files.push(NativePackFile {
+            signatures_only,
             path: rel,
             abs_path: abs.to_string_lossy().into_owned(),
             content: body,
@@ -68,16 +117,17 @@ pub(crate) fn read_pack_paths_ordered(
             symbols,
         });
     }
-    Ok(files)
+    Ok((files, skipped))
 }
 
 pub(crate) fn read_pack_root(
     root: &Path,
     args: &PackArgs,
     cfg: &PackCtxToml,
+    filter: &ctx_pack::pathfilter::PathFilter,
     only_paths: Option<&[String]>,
     respect_ctxignore: bool,
-) -> Result<Vec<NativePackFile>, String> {
+) -> Result<PackSelection, String> {
     let mut inputs = Vec::new();
     let base = if root.is_file() {
         root.parent().unwrap_or_else(|| Path::new("."))
@@ -86,8 +136,29 @@ pub(crate) fn read_pack_root(
     };
     let ignore = PackIgnore::load(base, &cfg.ignore.patterns, respect_ctxignore);
     collect_pack_inputs(base, root, &ignore, &mut inputs)?;
-    // Companions are drawn from every walked (non-ignored) file, before the
-    // seed filters below narrow `inputs` down.
+    let mut skipped = Vec::new();
+    // An explicit selection names files the walk did not find (missing,
+    // ignored, binary) or that the path filter removes: record both.
+    if let Some(paths) = only_paths {
+        let walked: std::collections::BTreeSet<&str> =
+            inputs.iter().map(|input| input.path.as_str()).collect();
+        let mut seen = std::collections::BTreeSet::new();
+        for path in paths.iter().map(|path| clean_pack_input_path(path)) {
+            if path.is_empty() || !seen.insert(path.clone()) {
+                continue;
+            }
+            if !walked.contains(path.as_str()) {
+                skipped.push(PackSkipped::new(path, "not found or ignored", 0));
+            } else if !filter.allows(&path) {
+                skipped.push(PackSkipped::new(path, REASON_FILTERED, 0));
+            }
+        }
+    }
+    if !filter.is_empty() {
+        inputs.retain(|input| filter.allows(&input.path));
+    }
+    // Companions are drawn from every walked (non-ignored, in-scope) file,
+    // before the seed filters below narrow `inputs` down.
     let all_inputs = (args.companions > 0).then(|| inputs.clone());
     apply_pack_time_filters(base, &mut inputs, args)?;
     if args.changed {
@@ -111,7 +182,7 @@ pub(crate) fn read_pack_root(
         Vec::new()
     };
     let mut scored = Vec::new();
-    let mut skipped = Vec::new();
+    let mut irrelevant = Vec::new();
     for input in inputs {
         let mut result = ctx_pack::relevance::score_relevance_with_ctx(&input, &ctx, input.tokens);
         if result.tier.is_empty() && only_paths.is_some() {
@@ -122,7 +193,7 @@ pub(crate) fn read_pack_root(
             result.reason = "selected explicitly".to_string();
         }
         if result.tier.is_empty() {
-            skipped.push((input.path, result.reason));
+            irrelevant.push(PackSkipped::new(input.path, result.reason, 0));
         } else {
             scored.push((input, result));
         }
@@ -162,27 +233,56 @@ pub(crate) fn read_pack_root(
             added += 1;
         }
     }
-    skipped.sort_by(|a, b| a.0.cmp(&b.0));
+    irrelevant.sort_by(|a, b| a.path.cmp(&b.path));
 
     let mut files = Vec::new();
     let mut used = 0_i64;
     for (input, result) in scored {
-        if args.budget > 0 && used + input.tokens > args.budget {
-            if !args.no_warnings {
-                eprintln!("warning: pack: skipped {}: budget exceeded", input.path);
-            }
-            continue;
-        }
-        let body = read_native_pack_content(&input.path, &input.abs_path, args, cfg)?;
-        let tokens = estimate_text_tokens(&body);
         let symbols = input
             .metadata
             .symbols
             .iter()
             .map(|sym| sym.name.clone())
             .collect();
+        if args.budget > 0 && used + input.tokens > args.budget {
+            let digest = if args.overflow == "signatures" {
+                let body = read_native_pack_content(&input.path, &input.abs_path, args, cfg)?;
+                let lines: Vec<i64> = input.metadata.symbols.iter().map(|sym| sym.line).collect();
+                overflow_digest(args, &input.path, &body, &lines, input.tokens)
+                    .filter(|(_, tokens)| used + tokens <= args.budget)
+            } else {
+                None
+            };
+            let Some((digest, tokens)) = digest else {
+                if !args.no_warnings {
+                    eprintln!("warning: pack: skipped {}: budget exceeded", input.path);
+                }
+                skipped.push(PackSkipped::new(
+                    input.path,
+                    ctx_pack::assemble::REASON_BUDGET,
+                    input.tokens,
+                ));
+                continue;
+            };
+            used += tokens;
+            files.push(NativePackFile {
+                signatures_only: true,
+                path: input.path,
+                abs_path: input.abs_path,
+                content: digest,
+                tokens,
+                score: result.score,
+                relevance: result.tier,
+                reason: result.reason,
+                symbols,
+            });
+            continue;
+        }
+        let body = read_native_pack_content(&input.path, &input.abs_path, args, cfg)?;
+        let tokens = estimate_text_tokens(&body);
         used += tokens;
         files.push(NativePackFile {
+            signatures_only: false,
             path: input.path,
             abs_path: input.abs_path,
             content: body,
@@ -193,7 +293,8 @@ pub(crate) fn read_pack_root(
             symbols,
         });
     }
-    Ok(files)
+    skipped.extend(irrelevant);
+    Ok((files, skipped))
 }
 
 pub(crate) fn apply_pack_time_filters(
@@ -525,15 +626,17 @@ mod tests {
         let root = root.to_path_buf();
         let paths = paths.to_vec();
         finishes_within(30, move || {
+            let args = parse_pack_args(&["pack".into(), "--no-warnings".into()]).unwrap();
             read_pack_paths_ordered(
                 &root,
                 &paths,
                 &Default::default(),
-                10_000,
-                true,
+                &args,
+                &Default::default(),
                 &SecurityToml::default(),
             )
             .unwrap()
+            .0
             .into_iter()
             .map(|file| file.path)
             .collect()

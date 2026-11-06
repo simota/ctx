@@ -16,6 +16,16 @@ pub(crate) fn render_native_pack(
     files: &[NativePackFile],
     replay_header: Option<&NativeReplayHeader>,
 ) -> Result<String, String> {
+    render_native_pack_with_skipped(args, files, &[], replay_header)
+}
+
+/// [`render_native_pack`] that also records the files the pack left out.
+pub(crate) fn render_native_pack_with_skipped(
+    args: &PackArgs,
+    files: &[NativePackFile],
+    skipped: &[ctx_pack::assemble::SkippedFile],
+    replay_header: Option<&NativeReplayHeader>,
+) -> Result<String, String> {
     let opts = ctx_pack::assemble::RenderOptions {
         format: args.format.clone(),
         goal: args.goal.clone(),
@@ -28,5 +38,5 @@ pub(crate) fn render_native_pack(
         // CLI flag is --no-contract; the library option is positive.
         contract: !args.no_contract,
     };
-    ctx_pack::assemble::render(&opts, files, replay_header)
+    ctx_pack::assemble::render_with_skipped(&opts, files, skipped, replay_header)
 }

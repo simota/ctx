@@ -88,6 +88,35 @@ struct PackJsonFile {
 struct PackJsonSkipped {
     path: String,
     reason: String,
+    #[serde(skip_serializing_if = "is_zero_i64")]
+    tokens: i64,
+}
+
+/// A candidate file the pack left out, with why (`budget exceeded`, a
+/// relevance reason, `not found or excluded`, ...). `tokens` is the file's
+/// estimate when known (budget drops), else 0.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SkippedFile {
+    pub path: String,
+    pub reason: String,
+    pub tokens: i64,
+}
+
+/// The reason recorded for a relevant file that did not fit the budget.
+pub const REASON_BUDGET: &str = "budget exceeded";
+
+impl SkippedFile {
+    pub fn new(path: impl Into<String>, reason: impl Into<String>, tokens: i64) -> Self {
+        SkippedFile {
+            path: path.into(),
+            reason: reason.into(),
+            tokens,
+        }
+    }
+
+    pub fn is_budget(&self) -> bool {
+        self.reason == REASON_BUDGET
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -121,6 +150,10 @@ pub struct PackFile {
     pub relevance: String,
     pub reason: String,
     pub symbols: Vec<String>,
+    /// True when `content` is a signature digest standing in for a file
+    /// that did not fit the budget in full (`ctx pack --overflow
+    /// signatures`).
+    pub signatures_only: bool,
 }
 
 /// Render a pack in the requested format, optionally embedding a
@@ -129,6 +162,19 @@ pub struct PackFile {
 pub fn render(
     opts: &RenderOptions,
     files: &[PackFile],
+    replay_header: Option<&ReplayHeader>,
+) -> Result<String, String> {
+    render_with_skipped(opts, files, &[], replay_header)
+}
+
+/// [`render`], also recording the candidate files the pack left out:
+/// JSON fills `skipped`, Markdown (unless `no_metadata`) gains an
+/// "Omitted files" section and the plain summary lists them with `-`.
+/// With an empty `skipped` the output is identical to [`render`].
+pub fn render_with_skipped(
+    opts: &RenderOptions,
+    files: &[PackFile],
+    skipped: &[SkippedFile],
     replay_header: Option<&ReplayHeader>,
 ) -> Result<String, String> {
     let mut out: String = match opts.format.as_str() {
@@ -151,7 +197,14 @@ pub fn render(
                         reason: file.reason.clone(),
                     })
                     .collect(),
-                skipped: Vec::new(),
+                skipped: skipped
+                    .iter()
+                    .map(|file| PackJsonSkipped {
+                        path: file.path.clone(),
+                        reason: file.reason.clone(),
+                        tokens: file.tokens,
+                    })
+                    .collect(),
                 warnings: Vec::new(),
             };
             let mut out = serde_json::to_string_pretty(&payload).map_err(|err| err.to_string())?;
@@ -179,8 +232,16 @@ pub fn render(
                     files.len()
                 ));
                 for file in files {
-                    out.push_str(&format!("+ {}  ({} tokens)\n", file.path, file.tokens));
+                    if file.signatures_only {
+                        out.push_str(&format!(
+                            "+ {}  ({} tokens, signatures only)\n",
+                            file.path, file.tokens
+                        ));
+                    } else {
+                        out.push_str(&format!("+ {}  ({} tokens)\n", file.path, file.tokens));
+                    }
                 }
+                append_plain_omitted(&mut out, skipped);
                 // No trailing blank line — mirrors Go's packPlain which ends with the
                 // last "+ path  (N tokens)\n" and no additional fmt.Fprintln(w).
             }
@@ -235,15 +296,21 @@ pub fn render(
                     files.iter().map(|file| file.tokens).sum::<i64>()
                 ));
                 for file in files {
+                    let note = if file.signatures_only {
+                        ", signatures only"
+                    } else {
+                        ""
+                    };
                     if opts.explain && !file.reason.is_empty() {
                         out.push_str(&format!(
-                            "- {} ({} tokens) - {}\n",
+                            "- {} ({} tokens{note}) - {}\n",
                             file.path, file.tokens, file.reason
                         ));
                     } else {
-                        out.push_str(&format!("- {} ({} tokens)\n", file.path, file.tokens));
+                        out.push_str(&format!("- {} ({} tokens{note})\n", file.path, file.tokens));
                     }
                 }
+                append_markdown_omitted(&mut out, files, skipped);
                 out.push_str("\n---\n\n");
             }
             // Mirror Go's packMarkdown (NoMetadata=true) + writeFileContent:
@@ -306,6 +373,95 @@ pub fn render(
         _ => {}
     }
     Ok(out)
+}
+
+/// Files listed one by one in the Markdown "Omitted files" section before
+/// the rest are summarised in a single line.
+const OMITTED_LIST_LIMIT: usize = 50;
+
+/// Skipped files that are worth naming individually: budget drops,
+/// selections that could not be read or were filtered out. Files that only
+/// scored below the relevance cut-off are counted, not listed (with a goal
+/// that is most of the repository).
+fn is_listed_omission(file: &SkippedFile) -> bool {
+    !matches!(
+        file.reason.as_str(),
+        "outside goal scope" | "low relevance" | "generated" | "binary file"
+    )
+}
+
+fn append_markdown_omitted(out: &mut String, files: &[PackFile], skipped: &[SkippedFile]) {
+    if skipped.is_empty() {
+        return;
+    }
+    out.push_str(&format!(
+        "\n## Omitted files ({})\n\n",
+        count_noun(skipped.len(), "file", "files")
+    ));
+    let listed: Vec<&SkippedFile> = skipped.iter().filter(|f| is_listed_omission(f)).collect();
+    for file in listed.iter().take(OMITTED_LIST_LIMIT) {
+        if file.tokens > 0 {
+            out.push_str(&format!(
+                "- {} ({} tokens) - {}\n",
+                file.path, file.tokens, file.reason
+            ));
+        } else {
+            out.push_str(&format!("- {} - {}\n", file.path, file.reason));
+        }
+    }
+    if listed.len() > OMITTED_LIST_LIMIT {
+        out.push_str(&format!(
+            "- ... and {} more\n",
+            listed.len() - OMITTED_LIST_LIMIT
+        ));
+    }
+    let unlisted = skipped.len() - listed.len();
+    if unlisted > 0 {
+        out.push_str(&format!("- {}\n", below_cutoff(unlisted)));
+    }
+    let dropped: i64 = skipped
+        .iter()
+        .filter(|f| f.is_budget())
+        .map(|f| f.tokens)
+        .sum();
+    if dropped > 0 {
+        let used: i64 = files.iter().map(|file| file.tokens).sum();
+        out.push_str(&format!(
+            "\nIncluding every budget-exceeded file needs about {} tokens (`--budget {}`).\n",
+            used + dropped,
+            used + dropped
+        ));
+    }
+}
+
+fn count_noun(n: usize, one: &str, many: &str) -> String {
+    format!("{n} {}", if n == 1 { one } else { many })
+}
+
+fn below_cutoff(n: usize) -> String {
+    format!(
+        "{} scored below the relevance cut-off",
+        count_noun(n, "other file", "other files")
+    )
+}
+
+fn append_plain_omitted(out: &mut String, skipped: &[SkippedFile]) {
+    let mut unlisted = 0;
+    for file in skipped {
+        if !is_listed_omission(file) {
+            unlisted += 1;
+        } else if file.tokens > 0 {
+            out.push_str(&format!(
+                "- {}  ({} tokens, {})\n",
+                file.path, file.tokens, file.reason
+            ));
+        } else {
+            out.push_str(&format!("- {}  ({})\n", file.path, file.reason));
+        }
+    }
+    if unlisted > 0 {
+        out.push_str(&format!("- {}\n", below_cutoff(unlisted)));
+    }
 }
 
 pub fn append_replay_header(out: &mut String, replay_header: Option<&ReplayHeader>) {
@@ -460,6 +616,7 @@ pub fn pack_markdown(inputs: &[FileInput], goal: &str, budget: i64) -> Result<St
         }
         used += tokens;
         files.push(PackFile {
+            signatures_only: false,
             path: input.path.clone(),
             abs_path: input.abs_path.clone(),
             content,
@@ -552,6 +709,7 @@ mod tests {
 
     fn pack_file(path: &str, content: &str, tokens: i64) -> PackFile {
         PackFile {
+            signatures_only: false,
             path: path.to_string(),
             abs_path: String::new(),
             content: content.to_string(),
@@ -694,5 +852,87 @@ mod tests {
         assert!(out.contains("### a.rs\n"), "small file kept: {out}");
         assert!(!out.contains("zz_big.rs"), "big file dropped: {out}");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn omissions() -> Vec<SkippedFile> {
+        vec![
+            SkippedFile::new("big.rs", REASON_BUDGET, 900),
+            SkippedFile::new("gone.rs", "not found or ignored", 0),
+            SkippedFile::new("README.md", "outside goal scope", 0),
+            SkippedFile::new("x.png", "binary file", 0),
+        ]
+    }
+
+    #[test]
+    fn markdown_records_omitted_files_and_the_budget_they_need() {
+        let opts = RenderOptions {
+            budget: 100,
+            ..RenderOptions::default()
+        };
+        let files = vec![pack_file("a.rs", "fn a() {}\n", 10)];
+        let out = render_with_skipped(&opts, &files, &omissions(), None).unwrap();
+        let section = out
+            .split("## Omitted files (4 files)\n\n")
+            .nth(1)
+            .expect("omitted section")
+            .split("\n---\n")
+            .next()
+            .unwrap();
+        assert_eq!(
+            section,
+            "- big.rs (900 tokens) - budget exceeded\n\
+             - gone.rs - not found or ignored\n\
+             - 2 other files scored below the relevance cut-off\n\
+             \nIncluding every budget-exceeded file needs about 910 tokens (`--budget 910`).\n"
+        );
+    }
+
+    #[test]
+    fn render_without_omissions_is_unchanged() {
+        let opts = RenderOptions::default();
+        let files = vec![pack_file("a.rs", "fn a() {}\n", 10)];
+        let plain = render(&opts, &files, None).unwrap();
+        let with = render_with_skipped(&opts, &files, &[], None).unwrap();
+        // Only the Generated timestamp may differ between the two renders.
+        let strip = |s: &str| {
+            s.lines()
+                .filter(|l| !l.starts_with("**Generated**"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        assert_eq!(strip(&plain), strip(&with));
+        assert!(!with.contains("Omitted"));
+    }
+
+    #[test]
+    fn json_and_plain_list_skipped_files() {
+        let files = vec![pack_file("a.rs", "fn a() {}\n", 10)];
+        let json_opts = RenderOptions {
+            format: "json".to_string(),
+            ..RenderOptions::default()
+        };
+        let out = render_with_skipped(&json_opts, &files, &omissions(), None).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["skipped"].as_array().unwrap().len(), 4);
+        assert_eq!(v["skipped"][0]["tokens"], 900);
+        assert!(v["skipped"][1].get("tokens").is_none());
+        let plain_opts = RenderOptions {
+            format: "plain".to_string(),
+            ..RenderOptions::default()
+        };
+        let out = render_with_skipped(&plain_opts, &files, &omissions(), None).unwrap();
+        assert!(out.ends_with(
+            "+ a.rs  (10 tokens)\n- big.rs  (900 tokens, budget exceeded)\n\
+             - gone.rs  (not found or ignored)\n\
+             - 2 other files scored below the relevance cut-off\n"
+        ));
+    }
+
+    #[test]
+    fn signatures_only_files_are_marked_in_the_file_list() {
+        let mut file = pack_file("big.rs", "1: fn a()\n", 5);
+        file.signatures_only = true;
+        let out = render(&RenderOptions::default(), &[file], None).unwrap();
+        assert!(out.contains("- big.rs (5 tokens, signatures only)\n"));
     }
 }
