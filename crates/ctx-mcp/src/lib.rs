@@ -47,6 +47,12 @@ const MAX_COMPANIONS: i64 = 50;
 const MAX_PACK_FILES: usize = 1_000;
 /// Upper bound on `ctx_pack` `include` / `exclude` patterns (each).
 const MAX_PACK_PATTERNS: usize = 64;
+/// Upper bound on `ctx_pack` `refs` text.
+const MAX_REFS_LEN: usize = 256 * 1024;
+/// Upper bound on `ctx_pack` `around`.
+const MAX_AROUND: i64 = 1_000;
+/// `ctx_pack` `around` when `refs` is given without one.
+const DEFAULT_REFS_AROUND: usize = 10;
 /// Upper bound on a `ctx_pack` `mix` reference (id or name).
 const MAX_MIX_REF_LEN: usize = 200;
 

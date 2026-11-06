@@ -178,6 +178,34 @@ impl Server {
                 "use \"drop\" or \"signatures\"",
             );
         }
+        validate_len("refs", &args.refs, MAX_REFS_LEN)?;
+        if let Some(around) = args.around {
+            if args.refs.trim().is_empty() {
+                return invalid_params_with_hint(
+                    "around applies to refs only",
+                    "e.g. {\"refs\":\"at load (src/api/user.ts:42:7)\",\"around\":20}",
+                );
+            }
+            if !(0..=MAX_AROUND).contains(&around) {
+                return invalid_params_with_hint(
+                    &format!("around must be between 0 and {MAX_AROUND}"),
+                    "suggested: 10",
+                );
+            }
+        }
+        if !args.refs.trim().is_empty()
+            && (!args.files.is_empty()
+                || !args.mix.trim().is_empty()
+                || args.changed
+                || args.companions > 0
+                || !args.include.is_empty()
+                || !args.exclude.is_empty())
+        {
+            return invalid_params_with_hint(
+                "refs cannot be combined with files, mix, changed, base, companions, include or exclude",
+                "pass the text alone: {\"refs\":\"<stack trace or reply>\"}",
+            );
+        }
         let selection = !args.files.is_empty() || !args.mix.trim().is_empty();
         if !args.files.is_empty() && !args.mix.trim().is_empty() {
             return invalid_params_with_hint(
@@ -206,14 +234,61 @@ impl Server {
         Ok(args)
     }
 
+    /// `ctx_pack` with `refs`: resolve the files (and lines) the text cites
+    /// under `root`, pack them as an explicit selection, and say which
+    /// mentions matched no file or several.
+    fn run_pack_refs(
+        &self,
+        root: &std::path::Path,
+        args: &mut PackArgs,
+        explicit_budget: bool,
+    ) -> Result<String, RpcError> {
+        let listed = collect_pack_files(root, &self.walk_boundary(root)).map_err(tool_error)?;
+        let paths: Vec<String> = listed.into_iter().map(|file| file.path).collect();
+        let around = args
+            .around
+            .map_or(DEFAULT_REFS_AROUND, |around| around as usize);
+        let scan = ctx_pack::refs::scan(&args.refs, &paths, around);
+        let unresolved: Vec<String> = scan
+            .unresolved
+            .iter()
+            .map(|miss| {
+                format!(
+                    "{} (input line {}): {}",
+                    miss.mention, miss.input_line, miss.reason
+                )
+            })
+            .collect();
+        if scan.targets.is_empty() {
+            let mut msg =
+                "ctx_pack: refs names no file under this root (expected paths such as src/a.rs:40, a.ts:12:5 or unique file names)".to_string();
+            for line in &unresolved {
+                msg.push_str(&format!("\n- {line}"));
+            }
+            return Err(tool_error(msg));
+        }
+        args.files = scan.specs();
+        let mut out = run_pack_selection(root, args, explicit_budget)?;
+        if !unresolved.is_empty() && args.format != "json" {
+            out.push_str("\n## Unresolved references\n");
+            for line in &unresolved {
+                out.push_str(&format!("- {line}\n"));
+            }
+        }
+        Ok(out)
+    }
+
     pub(crate) fn run_pack(&self, raw: Option<&RawValue>) -> Result<String, RpcError> {
         // A budget of 0 means "default" for the walk, so remember whether the
         // caller set one before parse_pack_args fills it in.
         let explicit_budget = raw
             .and_then(|raw| serde_json::from_str::<Value>(raw.get()).ok())
             .is_some_and(|v| v.get("budget").is_some_and(|b| b.as_i64().unwrap_or(0) > 0));
-        let args = self.parse_pack_args(raw)?;
+        let mut args = self.parse_pack_args(raw)?;
         let root = self.resolve_path(&args.path)?;
+        if !args.refs.trim().is_empty() {
+            return self.run_pack_refs(&root, &mut args, explicit_budget);
+        }
         if !args.files.is_empty() || !args.mix.trim().is_empty() {
             return run_pack_selection(&root, &args, explicit_budget);
         }
