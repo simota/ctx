@@ -5,6 +5,7 @@
     fetchBranches,
     fetchChangedFiles,
     fetchFileCommitDiff,
+    fetchTree,
     fetchWorktrees,
     type BranchEntry,
     type ChangedFileEntry,
@@ -17,6 +18,9 @@
   import { navigate, route, toFileHash, toGitReviewHash } from '../lib/router.svelte';
   import { view, toggleDiffContextOnly } from '../lib/view.svelte';
   import hljs from '../lib/highlight';
+  import { announce } from '../lib/announce.svelte';
+  import { repo, setRepoRoot } from '../lib/repo.svelte';
+  import { ensurePinsRoot, pinMany } from '../lib/pins.svelte';
 
   let branches = $state<BranchEntry[]>([]);
   let worktrees = $state<WorktreeEntry[]>([]);
@@ -245,6 +249,37 @@
   }
 
   let files = $derived(manifest?.files ?? []);
+  // Files that still exist at head: the ones a context pack can read.
+  let packable = $derived(files.filter((f) => canOpenFile(f)));
+  let pinMessage = $state('');
+
+  // Seed the pinned board (and from there a context pack or saved mix) with
+  // the range's changed files — the browser twin of `ctx pack --base <ref>`.
+  // Pins pack the served work tree, so the contents match `head` when it is
+  // the checked-out branch.
+  async function pinChanged(): Promise<void> {
+    const paths = packable.map((f) => f.path);
+    if (paths.length === 0) return;
+    if (!repo.root) {
+      try {
+        setRepoRoot((await fetchTree({ depth: 1 })).abs_root);
+      } catch (e: unknown) {
+        pinMessage = `Could not load the repository root: ${e instanceof Error ? e.message : String(e)}`;
+        announce(pinMessage);
+        return;
+      }
+    }
+    ensurePinsRoot(repo.root);
+    const result = pinMany(paths);
+    pinMessage = result.message;
+    announce(result.message);
+  }
+
+  $effect(() => {
+    // A new range starts without a stale "Pinned N files" status.
+    void manifest;
+    pinMessage = '';
+  });
   let allOpen = $derived(files.length > 0 && files.every((f) => openDiff.has(f.path)));
 
   function toggleAll(): void {
@@ -402,8 +437,24 @@
             <input type="checkbox" bind:checked={wrap} />
             <span>Wrap</span>
           </label>
+          {#if packable.length > 0}
+            <button
+              type="button"
+              class="all-toggle"
+              title="Pin the changed files (deleted ones excluded) so the pinned board can pack them for an LLM. Contents come from the work tree."
+              onclick={pinChanged}
+            >Pin {packable.length} changed file{packable.length === 1 ? '' : 's'}</button>
+          {/if}
         </div>
       </div>
+      {#if pinMessage}
+        <p class="muted note pin-status" role="status">
+          {pinMessage} <a href="#/pins">Open pinned board to pack them</a>
+          {#if manifest.mode === 'merge-base'}
+            · CLI: <code class="mono">ctx pack --base {manifest.requested_base}</code>
+          {/if}
+        </p>
+      {/if}
       <ul class="files" role="list">
         {#each files as f (f.path)}
           <li class="file" data-range-diff-target>
