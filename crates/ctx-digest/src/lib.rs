@@ -11,6 +11,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
 use std::process::Command;
 
+use rayon::prelude::*;
 use serde::Serialize;
 
 /// Maximum number of files for which token/symbol deltas are computed.
@@ -144,12 +145,22 @@ pub fn generate(opts: DigestOptions<'_>) -> Result<DigestBrief, String> {
     let mut path_deltas: HashMap<String, (i64, i64)> = HashMap::new();
     let can_compute_delta = since_ref != "N/A" && !since_ref.is_empty();
     if can_compute_delta {
-        for path in all_paths.iter().take(MAX_DELTA_FILES) {
-            let old_content = show_content(opts.root, &since_ref, path).unwrap_or_default();
-            let new_content = show_content(opts.root, &head_ref, path).unwrap_or_default();
-            let td = ctx_tokens::count_str(&new_content) - ctx_tokens::count_str(&old_content);
-            let sd = count(opts.count_symbols, path, &new_content)
-                - count(opts.count_symbols, path, &old_content);
+        // Each path's delta (two `git show` processes plus token and symbol
+        // counts) is independent, so they are computed in parallel; the
+        // integer totals do not depend on the order they are summed in.
+        let delta_paths = &all_paths[..all_paths.len().min(MAX_DELTA_FILES)];
+        let deltas: Vec<(i64, i64)> = delta_paths
+            .par_iter()
+            .map(|path| {
+                let old_content = show_content(opts.root, &since_ref, path).unwrap_or_default();
+                let new_content = show_content(opts.root, &head_ref, path).unwrap_or_default();
+                let td = ctx_tokens::count_str(&new_content) - ctx_tokens::count_str(&old_content);
+                let sd = count(opts.count_symbols, path, &new_content)
+                    - count(opts.count_symbols, path, &old_content);
+                (td, sd)
+            })
+            .collect();
+        for (path, (td, sd)) in delta_paths.iter().zip(deltas) {
             total_token_delta += td;
             total_symbol_delta += sd;
             path_deltas.insert(path.clone(), (td, sd));
