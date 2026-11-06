@@ -593,10 +593,11 @@ pub fn changed_files_between(
     let git_dir = git_dir(repo_root.as_ref());
     let requested_base = base.to_string();
     let requested_head = head.to_string();
-    let base_oid = resolve_commit_revision(&git_dir, base, "base")?
+    let mut objects = ObjectReader::new(&git_dir);
+    let base_oid = resolve_commit_revision(&mut objects, base, "base")?
         .ok_or_else(|| GitError::new("base has no commit"))?
         .oid;
-    let head_oid = resolve_commit_revision(&git_dir, head, "head")?
+    let head_oid = resolve_commit_revision(&mut objects, head, "head")?
         .ok_or_else(|| GitError::new("head has no commit"))?
         .oid;
     let (effective_base, merge_base) = match mode {
@@ -1303,30 +1304,37 @@ pub fn file_log(
     limit: usize,
 ) -> Result<(Vec<FileLogEntry>, bool)> {
     let git_dir = git_dir(repo_root.as_ref());
-    let Some(mut commit_oid) = read_head_oid(&git_dir)? else {
+    let Some(head) = read_head_oid(&git_dir)? else {
         return Ok((Vec::new(), false));
     };
+    let mut objects = ObjectReader::new(&git_dir);
 
+    // Each step compares a commit's blob for the path against its first
+    // parent's; that parent (and its blob) is the next step's commit, so it is
+    // carried over instead of being read and looked up a second time.
     let mut entries = Vec::with_capacity(limit.saturating_add(1));
+    let mut commit = read_commit(&mut objects, &head)?;
+    let mut current_blob = tree_lookup_blob(&mut objects, &commit.tree, slash_path)?;
     while entries.len() < limit.saturating_add(1) {
-        let commit = read_commit(&git_dir, &commit_oid)?;
-        let current_blob = tree_lookup_blob(&git_dir, &commit.tree, slash_path)?;
-        let parent_blob = match commit.parents.first() {
+        let parent = match commit.parents.first() {
             Some(parent) => {
-                let parent_commit = read_commit(&git_dir, parent)?;
-                tree_lookup_blob(&git_dir, &parent_commit.tree, slash_path)?
+                let parent_commit = read_commit(&mut objects, parent)?;
+                let parent_blob = tree_lookup_blob(&mut objects, &parent_commit.tree, slash_path)?;
+                Some((parent_commit, parent_blob))
             }
             None => None,
         };
+        let parent_blob = parent.as_ref().and_then(|(_, blob)| blob.clone());
 
         if current_blob != parent_blob {
             entries.push(commit_to_entry(&commit));
         }
 
-        let Some(parent) = commit.parents.first() else {
+        let Some((parent_commit, parent_blob)) = parent else {
             break;
         };
-        commit_oid = parent.clone();
+        commit = parent_commit;
+        current_blob = parent_blob;
     }
 
     let truncated = entries.len() > limit;
@@ -1417,7 +1425,8 @@ pub fn worktree_diff(repo_root: impl AsRef<Path>, slash_path: &str) -> Result<Wo
 
     let repo_root = repo_root.as_ref();
     let git_dir = git_dir(repo_root);
-    let (before_content, before_binary, before_exists) = read_head_file(&git_dir, slash_path)?;
+    let (before_content, before_binary, before_exists) =
+        read_head_file(&mut ObjectReader::new(&git_dir), slash_path)?;
     let full_path = repo_root.join(slash_path.replace('/', std::path::MAIN_SEPARATOR_STR));
     let (after_content, after_binary, after_exists) = read_worktree_file(&full_path)?;
 
@@ -1466,14 +1475,15 @@ pub fn commit_diff(
     slash_path: &str,
 ) -> Result<WorktreeFileDiff> {
     let git_dir = git_dir(repo_root.as_ref());
-    let from_commit = resolve_commit_revision(&git_dir, from_rev, "from")?;
-    let to_commit = resolve_commit_revision(&git_dir, to_rev, "to")?;
+    let mut objects = ObjectReader::new(&git_dir);
+    let from_commit = resolve_commit_revision(&mut objects, from_rev, "from")?;
+    let to_commit = resolve_commit_revision(&mut objects, to_rev, "to")?;
     let (before_content, before_binary, before_exists) = match from_commit {
-        Some(commit) => file_content_at_commit(&git_dir, &commit, slash_path)?,
+        Some(commit) => file_content_at_commit(&mut objects, &commit, slash_path)?,
         None => (Vec::new(), false, false),
     };
     let (after_content, after_binary, after_exists) = match to_commit {
-        Some(commit) => file_content_at_commit(&git_dir, &commit, slash_path)?,
+        Some(commit) => file_content_at_commit(&mut objects, &commit, slash_path)?,
         None => (Vec::new(), false, false),
     };
 
@@ -1515,23 +1525,28 @@ pub fn commit_diff(
     Ok(result)
 }
 
-fn resolve_commit_revision(git_dir: &Path, rev: &str, label: &str) -> Result<Option<CommitInfo>> {
+fn resolve_commit_revision(
+    objects: &mut ObjectReader,
+    rev: &str,
+    label: &str,
+) -> Result<Option<CommitInfo>> {
+    let git_dir = objects.git_dir;
     if let Some(base_rev) = rev.strip_suffix('^') {
         let base_oid = resolve_revision(git_dir, base_rev)
             .map_err(|err| GitError::new(format!("cannot resolve {label}={rev:?}: {err}")))?;
-        let base_commit = read_commit(git_dir, &base_oid)
+        let base_commit = read_commit(objects, &base_oid)
             .map_err(|err| GitError::new(format!("cannot resolve {label}={rev:?}: {err}")))?;
         let Some(parent_oid) = base_commit.parents.first() else {
             return Ok(None);
         };
-        return read_commit(git_dir, parent_oid)
+        return read_commit(objects, parent_oid)
             .map(Some)
             .map_err(|err| GitError::new(format!("cannot resolve {label}={rev:?}: {err}")));
     }
 
     let oid = resolve_revision(git_dir, rev)
         .map_err(|err| GitError::new(format!("cannot resolve {label}={rev:?}: {err}")))?;
-    read_commit(git_dir, &oid)
+    read_commit(objects, &oid)
         .map(Some)
         .map_err(|err| GitError::new(format!("cannot resolve {label}={rev:?}: {err}")))
 }
@@ -1703,16 +1718,16 @@ fn read_ref(git_dir: &Path, reference: &str) -> Result<Option<String>> {
     Ok(Some(oid))
 }
 
-fn read_head_file(git_dir: &Path, slash_path: &str) -> Result<(Vec<u8>, bool, bool)> {
-    let Some(head) = read_head_oid(git_dir)? else {
+fn read_head_file(objects: &mut ObjectReader, slash_path: &str) -> Result<(Vec<u8>, bool, bool)> {
+    let Some(head) = read_head_oid(objects.git_dir)? else {
         return Ok((Vec::new(), false, false));
     };
-    let commit = read_object(git_dir, &head, "commit")?;
+    let commit = objects.read(&head, "commit")?;
     let tree = commit_tree_oid(&commit)?;
-    let Some(blob_oid) = tree_lookup_blob(git_dir, &tree, slash_path)? else {
+    let Some(blob_oid) = tree_lookup_blob(objects, &tree, slash_path)? else {
         return Ok((Vec::new(), false, false));
     };
-    let blob = read_object(git_dir, &blob_oid, "blob")?;
+    let blob = objects.read(&blob_oid, "blob")?;
     if blob.len() as u64 > MAX_WORKTREE_DIFF_BYTES || is_binary_bytes(&blob) {
         return Ok((Vec::new(), true, true));
     }
@@ -1720,14 +1735,14 @@ fn read_head_file(git_dir: &Path, slash_path: &str) -> Result<(Vec<u8>, bool, bo
 }
 
 fn file_content_at_commit(
-    git_dir: &Path,
+    objects: &mut ObjectReader,
     commit: &CommitInfo,
     slash_path: &str,
 ) -> Result<(Vec<u8>, bool, bool)> {
-    let Some(blob_oid) = tree_lookup_blob(git_dir, &commit.tree, slash_path)? else {
+    let Some(blob_oid) = tree_lookup_blob(objects, &commit.tree, slash_path)? else {
         return Ok((Vec::new(), false, false));
     };
-    let blob = read_object(git_dir, &blob_oid, "blob")?;
+    let blob = objects.read(&blob_oid, "blob")?;
     if blob.len() as u64 > MAX_WORKTREE_DIFF_BYTES || is_binary_bytes(&blob) {
         return Ok((Vec::new(), true, true));
     }
@@ -1811,8 +1826,8 @@ struct CommitInfo {
     message: String,
 }
 
-fn read_commit(git_dir: &Path, oid: &str) -> Result<CommitInfo> {
-    let data = read_object(git_dir, oid, "commit")?;
+fn read_commit(objects: &mut ObjectReader, oid: &str) -> Result<CommitInfo> {
+    let data = objects.read(oid, "commit")?;
     parse_commit(oid, &data)
 }
 
@@ -1898,19 +1913,171 @@ fn truncate_chars(s: &str, max: usize) -> String {
     s.chars().take(max).collect()
 }
 
-fn read_object(git_dir: &Path, oid: &str, expected_type: &str) -> Result<Vec<u8>> {
-    if oid.len() < 3 || !is_hex_prefix(oid) {
-        return Err(GitError::new("invalid object id"));
-    }
-    let object_path = git_dir.join("objects").join(&oid[..2]).join(&oid[2..]);
-    let compressed = match fs::read(object_path) {
-        Ok(compressed) => compressed,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            return read_object_via_git(git_dir, oid, expected_type);
+/// Reads git objects for one operation. Loose objects are inflated in
+/// process; any other object (packed, or named by an abbreviated id) is read
+/// through a single `git cat-file --batch` process, started on first need and
+/// reused for the rest of the operation, instead of two `git cat-file`
+/// processes per object. History walks read several objects per commit, and a
+/// cloned or gc'd repository keeps nearly all of them in packs.
+///
+/// The batch answers exactly what `git cat-file -t` + `git cat-file <type>`
+/// would for an object it finds. Anything else (a missing or ambiguous name,
+/// a batch process that cannot start or misbehaves) falls back to those two
+/// commands, so results and error messages are unchanged.
+struct ObjectReader<'a> {
+    git_dir: &'a Path,
+    batch: Option<CatFileBatch>,
+    batch_unavailable: bool,
+}
+
+impl<'a> ObjectReader<'a> {
+    fn new(git_dir: &'a Path) -> Self {
+        Self {
+            git_dir,
+            batch: None,
+            batch_unavailable: false,
         }
-        Err(err) => return Err(err.into()),
-    };
-    let decompressed = miniz_oxide::inflate::decompress_to_vec_zlib(&compressed)
+    }
+
+    fn read(&mut self, oid: &str, expected_type: &str) -> Result<Vec<u8>> {
+        if oid.len() < 3 || !is_hex_prefix(oid) {
+            return Err(GitError::new("invalid object id"));
+        }
+        let object_path = self.git_dir.join("objects").join(&oid[..2]).join(&oid[2..]);
+        match fs::read(object_path) {
+            Ok(compressed) => inflate_loose_object(&compressed, expected_type),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                if let Some(found) = self.read_via_batch(oid) {
+                    let (typ, data) = found;
+                    if typ != expected_type {
+                        return Err(GitError::new(format!(
+                            "expected {expected_type} object, got {typ}"
+                        )));
+                    }
+                    return Ok(data);
+                }
+                read_object_via_git(self.git_dir, oid, expected_type)
+            }
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    /// `(type, content)` of `oid` from the batch process, or `None` when the
+    /// batch did not find it (or is unusable) and the caller should ask git
+    /// directly.
+    fn read_via_batch(&mut self, oid: &str) -> Option<(String, Vec<u8>)> {
+        if self.batch_unavailable {
+            return None;
+        }
+        if self.batch.is_none() {
+            self.batch = CatFileBatch::spawn(self.git_dir);
+            if self.batch.is_none() {
+                self.batch_unavailable = true;
+                return None;
+            }
+        }
+        let batch = self.batch.as_mut()?;
+        match batch.read(oid) {
+            Ok(found) => found,
+            Err(_) => {
+                // The stream may be out of sync: never reuse it.
+                self.batch = None;
+                self.batch_unavailable = true;
+                None
+            }
+        }
+    }
+}
+
+/// A running `git cat-file --batch`. Dropping it closes stdin, which makes
+/// git exit, and reaps the process.
+struct CatFileBatch {
+    child: std::process::Child,
+    stdin: Option<std::process::ChildStdin>,
+    stdout: std::io::BufReader<std::process::ChildStdout>,
+}
+
+impl CatFileBatch {
+    fn spawn(git_dir: &Path) -> Option<Self> {
+        use std::process::Stdio;
+        let mut child = Command::new("git")
+            .arg("--git-dir")
+            .arg(git_dir)
+            .args(["cat-file", "--batch"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .ok()?;
+        let stdin = child.stdin.take();
+        let stdout = child.stdout.take();
+        match (stdin, stdout) {
+            (Some(stdin), Some(stdout)) => Some(Self {
+                child,
+                stdin: Some(stdin),
+                stdout: std::io::BufReader::new(stdout),
+            }),
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                None
+            }
+        }
+    }
+
+    /// `Ok(Some((type, content)))` for a found object, `Ok(None)` when git
+    /// reports the name missing or ambiguous, `Err` on any I/O or protocol
+    /// problem.
+    fn read(&mut self, oid: &str) -> std::io::Result<Option<(String, Vec<u8>)>> {
+        use std::io::{BufRead, Read, Write};
+        let protocol = |msg: &str| std::io::Error::new(std::io::ErrorKind::InvalidData, msg);
+        let stdin = self
+            .stdin
+            .as_mut()
+            .ok_or_else(|| protocol("cat-file stdin closed"))?;
+        stdin.write_all(oid.as_bytes())?;
+        stdin.write_all(b"\n")?;
+        stdin.flush()?;
+
+        let mut header = String::new();
+        if self.stdout.read_line(&mut header)? == 0 {
+            return Err(protocol("cat-file exited"));
+        }
+        let header = header.trim_end_matches('\n');
+        let mut fields = header.split(' ');
+        let (Some(_name), Some(typ), Some(size), None) =
+            (fields.next(), fields.next(), fields.next(), fields.next())
+        else {
+            // "<name> missing" / "<name> ambiguous".
+            return if header.ends_with(" missing") || header.ends_with(" ambiguous") {
+                Ok(None)
+            } else {
+                Err(protocol("unexpected cat-file header"))
+            };
+        };
+        let size: usize = size
+            .parse()
+            .map_err(|_| protocol("unexpected cat-file size"))?;
+        let mut data = vec![0; size];
+        self.stdout.read_exact(&mut data)?;
+        let mut newline = [0u8; 1];
+        self.stdout.read_exact(&mut newline)?;
+        if newline[0] != b'\n' {
+            return Err(protocol("unexpected cat-file trailer"));
+        }
+        Ok(Some((typ.to_string(), data)))
+    }
+}
+
+impl Drop for CatFileBatch {
+    fn drop(&mut self) {
+        drop(self.stdin.take());
+        let _ = self.child.wait();
+    }
+}
+
+fn inflate_loose_object(compressed: &[u8], expected_type: &str) -> Result<Vec<u8>> {
+    let decompressed = miniz_oxide::inflate::decompress_to_vec_zlib(compressed)
         .map_err(|err| GitError::new(format!("zlib decompression failed: {err:?}")))?;
     let nul = decompressed
         .iter()
@@ -1989,11 +2156,15 @@ fn commit_tree_oid(commit: &[u8]) -> Result<String> {
     Err(GitError::new("commit has no tree"))
 }
 
-fn tree_lookup_blob(git_dir: &Path, tree_oid: &str, slash_path: &str) -> Result<Option<String>> {
+fn tree_lookup_blob(
+    objects: &mut ObjectReader,
+    tree_oid: &str,
+    slash_path: &str,
+) -> Result<Option<String>> {
     let mut current_tree = tree_oid.to_string();
     let mut parts = slash_path.split('/').peekable();
     while let Some(part) = parts.next() {
-        let tree = read_object(git_dir, &current_tree, "tree")?;
+        let tree = objects.read(&current_tree, "tree")?;
         let Some(entry) = find_tree_entry(&tree, part)? else {
             return Ok(None);
         };
@@ -2310,6 +2481,108 @@ mod tests {
             .lines
             .iter()
             .any(|line| line.typ == "add" && line.text == "BETA-worktree" && line.new_num == 2));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    /// `file_log` and `commit_diff` over a repository whose objects are all
+    /// packed (as after a clone or gc) — read through the shared cat-file
+    /// batch — match the same calls over the loose objects, and git itself.
+    #[test]
+    fn file_log_and_commit_diff_read_packed_history_like_loose_history() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(root.join("src/deep")).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+        for i in 0..12 {
+            fs::write(root.join("src/deep/a.rs"), format!("a {}\n", i / 3)).unwrap();
+            fs::write(root.join("b.txt"), format!("b {i}\n")).unwrap();
+            if i == 7 {
+                let _ = fs::remove_file(root.join("src/deep/a.rs"));
+            }
+            commit_all(
+                &root,
+                &format!("change {i}"),
+                &format!("2026-01-{:02}T00:00:00Z", i + 1),
+            );
+        }
+        let expected: Vec<String> = git_capture(
+            &root,
+            &[
+                "log",
+                "--first-parent",
+                "--format=%H",
+                "--",
+                "src/deep/a.rs",
+            ],
+        )
+        .lines()
+        .map(str::to_string)
+        .collect();
+        let head = rev(&root, "HEAD");
+        let older = rev(&root, "HEAD~4");
+        let head_parent = format!("{head}^");
+        let snapshot = || {
+            let (entries, truncated) = file_log(&root, "src/deep/a.rs", 100).unwrap();
+            let (limited, limited_truncated) = file_log(&root, "src/deep/a.rs", 2).unwrap();
+            let missing = file_log(&root, "src/nope.rs", 100).unwrap();
+            let diff = commit_diff(&root, &older, &head, "src/deep/a.rs").unwrap();
+            let step = commit_diff(&root, &head_parent, &head, "b.txt").unwrap();
+            let bad = commit_diff(&root, &"0".repeat(40), &head, "b.txt")
+                .err()
+                .map(|err| err.to_string());
+            (
+                entries
+                    .iter()
+                    .map(|e| (e.hash_full.clone(), e.subject.clone(), e.date))
+                    .collect::<Vec<_>>(),
+                truncated,
+                limited.len(),
+                limited_truncated,
+                missing.0.len(),
+                format!(
+                    "{:?}",
+                    diff.lines
+                        .iter()
+                        .map(|l| (&l.typ, &l.text))
+                        .collect::<Vec<_>>()
+                ),
+                (diff.added, diff.deleted, diff.no_change),
+                format!(
+                    "{:?}",
+                    step.lines
+                        .iter()
+                        .map(|l| (&l.typ, &l.text))
+                        .collect::<Vec<_>>()
+                ),
+                bad,
+            )
+        };
+
+        let loose = snapshot();
+        git(&root, &["gc", "-q", "--prune=now"]);
+        assert!(
+            !root
+                .join(".git/objects")
+                .join(&head[..2])
+                .join(&head[2..])
+                .exists(),
+            "gc packs the history"
+        );
+        let packed = snapshot();
+
+        assert_eq!(packed, loose);
+        assert_eq!(
+            packed.0.iter().map(|e| e.0.clone()).collect::<Vec<_>>(),
+            expected
+        );
+        assert!(!packed.1);
+        assert_eq!((packed.2, packed.3), (2, true));
+        assert_eq!(packed.4, 0);
+        assert!(packed.6 .0, "a.rs is absent at HEAD~4 and present at HEAD");
+        assert!(packed.8.is_some(), "an unknown commit still errors");
 
         let _ = fs::remove_dir_all(root);
     }
