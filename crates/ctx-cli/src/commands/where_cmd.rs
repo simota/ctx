@@ -387,6 +387,89 @@ pub(crate) fn collect_where_paths(
     Ok(())
 }
 
+/// Per-file summary from [`where_file_stats_with`]: what `map` and `noise`
+/// read off the where walk, without the line text or symbol details.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WhereFileStat {
+    /// Slash-separated path relative to the root (`FileInput::path`).
+    pub(crate) path: String,
+    /// `sum(line.len() + 1)` over the file's lines (`FileInput::lines`).
+    pub(crate) line_bytes: i64,
+    /// cl100k tokens of the raw file content (see [`build_where_file_stat`]).
+    pub(crate) tokens: i64,
+    /// `FileInput::symbols.len()`, or 0 when the walk's `wants_symbols`
+    /// returned false for the file.
+    pub(crate) symbols: usize,
+}
+
+/// The where walk (same files, same order as [`where_files_with`]) reduced to
+/// a [`WhereFileStat`] per file. Each file is read once: its lines are never
+/// materialised, its token count comes from the bytes already read, and it is
+/// parsed for symbols only when `wants_symbols(rel_path, line_bytes)` is true.
+/// Lets `map` and `noise` skip holding the whole repository's text in memory
+/// and, for `noise`, skip parsing files whose symbol count it never reads.
+pub(crate) fn where_file_stats_with(
+    root: &Path,
+    opts: &WalkIgnoreOptions,
+    wants_symbols: impl Fn(&str, i64) -> bool + Sync,
+) -> Result<Vec<WhereFileStat>, String> {
+    let ignore = WalkIgnore::new(root, opts)?;
+    let mut candidates = Vec::new();
+    let canonical_root = crate::common::canonical_walk_root(root);
+    collect_where_paths(root, &canonical_root, root, &ignore, &mut candidates)?;
+    let mut out: Vec<WhereFileStat> = candidates
+        .par_iter()
+        .filter_map(|path| build_where_file_stat(root, path, &wants_symbols))
+        .collect();
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(out)
+}
+
+/// [`build_where_input`] followed by the [`WhereFileStat`] reduction, computed
+/// from the one read of the file.
+fn build_where_file_stat(
+    root: &Path,
+    path: &Path,
+    wants_symbols: &(impl Fn(&str, i64) -> bool + Sync),
+) -> Option<WhereFileStat> {
+    let rel = path
+        .strip_prefix(root)
+        .ok()?
+        .to_string_lossy()
+        .replace('\\', "/");
+    let body = std::fs::read_to_string(path).ok()?;
+    // FileInput::lines is `body.lines()`; each line counts its length + 1.
+    let line_bytes: i64 = body.lines().map(|line| line.len() as i64 + 1).sum();
+    let symbols = if wants_symbols(&rel, line_bytes) {
+        ctx_symbols::extract_source(path, body.as_bytes()).len()
+    } else {
+        0
+    };
+    // Mirror Go's tokens.CountFile on the file at `root.join(rel)`: count the
+    // raw content, including any trailing newline (reconstructing it from
+    // the lines via join("\n") would drop that newline and any CRLF detail,
+    // diverging from Go by a token); empty files count 0 like Go. When that
+    // path is the file just read (always, unless its name is not UTF-8 or
+    // contains a backslash), count the bytes in hand rather than reading it
+    // again. Otherwise read that path, falling back to a line-join estimate
+    // if it cannot be read (Go's EstimateBySize fallback on CountFile error).
+    let abs = root.join(&rel);
+    let tokens = if abs.as_os_str() == path.as_os_str() {
+        ctx_tokens::count_str(&body)
+    } else {
+        match ctx_tokens::count_file(&abs.to_string_lossy()) {
+            Ok(n) => n,
+            Err(_) => ctx_tokens::count_str(&body.lines().collect::<Vec<_>>().join("\n")),
+        }
+    };
+    Some(WhereFileStat {
+        path: rel,
+        line_bytes,
+        tokens,
+        symbols,
+    })
+}
+
 /// Read and parse a single candidate file into a `FileInput`, or `None` when it
 /// cannot be read (mirroring the sequential walk's `let Ok(body) … else
 /// continue`). Pure given `(root, path)`, so it is safe to call concurrently.
@@ -970,6 +1053,59 @@ mod tests {
 
         let files = where_files(&fx.0).unwrap();
         assert_eq!(paths(&files), vec![".gitignore", "src/main.rs"]);
+    }
+
+    #[test]
+    fn where_file_stats_match_full_walk() {
+        let fx = TempFixture::new("file-stats");
+        fx.write(".gitignore", "*.log\n");
+        fx.write(
+            "src/main.go",
+            "package main\n\nfunc main() {}\nfunc helper() {}\n",
+        );
+        fx.write(
+            "src/crlf.py",
+            "def a():\r\n    pass\r\nclass B:\r\n    pass",
+        );
+        fx.write("src/lib.rs", "pub fn lib() {}\npub struct S;\n");
+        fx.write("empty.txt", "");
+        fx.write("no_newline.md", "# title\nbody");
+        fx.write("debug.log", "ignored\n");
+        std::fs::write(fx.0.join("binary.bin"), b"\xff\xfe\x00bad").unwrap();
+
+        let full = where_files(&fx.0).unwrap();
+        let expected: Vec<WhereFileStat> = full
+            .iter()
+            .map(|fi| {
+                let raw = std::fs::read_to_string(fx.0.join(&fi.path)).unwrap();
+                WhereFileStat {
+                    path: fi.path.clone(),
+                    line_bytes: fi.lines.iter().map(|l| l.len() as i64 + 1).sum(),
+                    tokens: ctx_tokens::count_str(&raw),
+                    symbols: fi.symbols.len(),
+                }
+            })
+            .collect();
+        assert!(expected.iter().any(|f| f.symbols > 0));
+
+        let opts = WalkIgnoreOptions::default_where();
+        assert_eq!(
+            where_file_stats_with(&fx.0, &opts, |_, _| true).unwrap(),
+            expected
+        );
+
+        // Files the predicate declines are still listed, with 0 symbols.
+        let only_go = where_file_stats_with(&fx.0, &opts, |path, _| path.ends_with(".go")).unwrap();
+        let expected_go: Vec<WhereFileStat> = expected
+            .into_iter()
+            .map(|mut f| {
+                if !f.path.ends_with(".go") {
+                    f.symbols = 0;
+                }
+                f
+            })
+            .collect();
+        assert_eq!(only_go, expected_go);
     }
 
     #[test]

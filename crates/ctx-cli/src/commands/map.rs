@@ -4,9 +4,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use rayon::prelude::*;
-
-use crate::commands::where_cmd::{where_files_with, WalkIgnoreOptions};
+use crate::commands::where_cmd::{where_file_stats_with, WalkIgnoreOptions};
 use crate::common::*;
 
 #[derive(Debug)]
@@ -306,49 +304,27 @@ pub(crate) fn heatmap_metrics(
     } else {
         std::collections::HashMap::new()
     };
-    let files = where_files_with(root, &map_walk_options(root))?;
-    // Per-file token counting is independent, so it runs in parallel; the
-    // indexed `collect` keeps the walk's (sorted) order.
+    // The where walk reduced to path / tokens / symbol count: every file is
+    // parsed (Go map's extractSymbols runs tree-sitter via symbols.New() —
+    // NOT the where regex extractor — so languages tree-sitter doesn't cover
+    // count 0, and extraction errors leave 0 like Go's warn-and-skip), its
+    // tokens are counted from the same read (see build_where_file_stat), and
+    // no line text is kept. The walk already runs on the rayon pool and returns
+    // the sorted order.
+    let files = where_file_stats_with(root, &map_walk_options(root), |_, _| true)?;
     Ok(files
-        .into_par_iter()
+        .into_iter()
         .map(|fi| {
-            let tokens = estimate_where_tokens(root, &fi);
-            // Mirror Go map's extractSymbols: tree-sitter extraction via
-            // symbols.New() (NOT the where regex extractor — Go map counts 0
-            // symbols for languages tree-sitter doesn't cover, e.g. Rust).
-            // Extraction errors leave the count at 0, like Go's warn-and-skip.
-            // The walk already ran exactly that extraction on this file
-            // (`build_where_input` → `ctx_symbols::extract`), so reuse its
-            // result instead of parsing every file a second time.
-            let symbols = fi.symbols.len() as i64;
             let churn_commits = churn.get(&fi.path).map(|c| c.commits as i64).unwrap_or(0);
             ctx_heatmap::FileMetric {
                 path: fi.path,
-                is_dir: fi.is_dir,
-                tokens,
-                symbols,
+                is_dir: false,
+                tokens: fi.tokens,
+                symbols: fi.symbols as i64,
                 churn: churn_commits,
             }
         })
         .collect())
-}
-
-pub(crate) fn estimate_where_tokens(root: &Path, input: &ctx_where::FileInput) -> i64 {
-    // Mirror Go's tokens.CountFile: count the raw on-disk file content,
-    // including any trailing newline. Reconstructing from `input.lines`
-    // via join("\n") would silently drop the trailing newline (and any
-    // CRLF detail), diverging from Go by one token on files that end in
-    // "\n". Empty files count 0, exactly like Go (the old `.max(1)` clamp
-    // was a holdover from the pre-parity bytes/4 heuristic and made map /
-    // noise totals diverge by +1 per empty file). Fall back to a line-join
-    // estimate only if the file cannot be read (matches Go's EstimateBySize
-    // fallback on CountFile error).
-    let abs = root.join(&input.path);
-    let abs_str = abs.to_string_lossy();
-    match ctx_tokens::count_file(&abs_str) {
-        Ok(n) => n,
-        Err(_) => ctx_tokens::count_str(&input.lines.join("\n")),
-    }
 }
 
 #[cfg(test)]
