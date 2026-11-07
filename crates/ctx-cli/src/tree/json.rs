@@ -285,12 +285,15 @@ pub(crate) fn build_json_tree_node(
     // (each used to read it separately); a failed read falls back for all
     // three exactly as their own failed reads did.
     let data = readable.then(|| std::fs::read(path).ok()).flatten();
-    let (lines, chars) = data.as_deref().map_or((0, 0), text_stats);
-    let role = infer_json_role(&rel);
-    let tokens = match data
+    // UTF-8 is validated once for both the char count and the token count.
+    let text = data
         .as_deref()
-        .and_then(|data| std::str::from_utf8(data).ok())
-    {
+        .and_then(|data| std::str::from_utf8(data).ok());
+    let (lines, chars) = data
+        .as_deref()
+        .map_or((0, 0), |data| text_stats(data, text));
+    let role = infer_json_role(&rel);
+    let tokens = match text {
         Some(text) => ctx_tokens::count_str(text),
         None => ctx_tokens::estimate_by_size(size),
     };
@@ -344,8 +347,9 @@ pub(crate) fn json_tree_should_skip(name: &str) -> bool {
 /// Mirrors Go `walk.countTextStats`: returns (lines, chars). Binary or
 /// non-UTF-8 files (NUL byte or invalid UTF-8 in the first 512 bytes) yield
 /// (0, 0). `chars` is the UTF-8 rune count of the whole file.
-/// Takes the file content (the caller reads it once for all per-file stats).
-pub(crate) fn text_stats(data: &[u8]) -> (i64, i64) {
+/// Takes the file content (the caller reads it once for all per-file stats)
+/// and, when the whole content is valid UTF-8, that content as `text`.
+pub(crate) fn text_stats(data: &[u8], text: Option<&str>) -> (i64, i64) {
     if data.is_empty() {
         return (0, 0);
     }
@@ -357,7 +361,10 @@ pub(crate) fn text_stats(data: &[u8]) -> (i64, i64) {
     if *data.last().unwrap() != b'\n' {
         lines += 1;
     }
-    let chars = String::from_utf8_lossy(data).chars().count() as i64;
+    let chars = match text {
+        Some(text) => text.chars().count(),
+        None => String::from_utf8_lossy(data).chars().count(),
+    } as i64;
     (lines, chars)
 }
 

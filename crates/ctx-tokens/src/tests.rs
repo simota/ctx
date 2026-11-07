@@ -1,6 +1,7 @@
 // Exactness tests: the regex-free counter must agree with tiktoken-rs
 // (`cl100k_base().encode_ordinary`) and its split pattern piece-for-piece.
 
+use rustc_hash::FxHashMap as HashMap;
 use std::path::Path;
 
 use super::*;
@@ -26,7 +27,7 @@ fn regex_pieces(text: &str) -> Vec<&str> {
 }
 
 fn fast_pieces(text: &str) -> Vec<&str> {
-    split::Pieces::new(text, &get_encoder().classes).collect()
+    split::Pieces::new(text, classes()).collect()
 }
 
 fn assert_same(text: &str) {
@@ -47,16 +48,80 @@ const ALPHABET: &[char] = &[
     '\u{3000}', '.', '(', '_', '-', '\u{301}', '😀', '\u{0}',
 ];
 
+/// tiktoken-rs's rank map, rebuilt from its decoder.
+fn oracle_ranks() -> &'static HashMap<Vec<u8>, Rank> {
+    static RANKS: OnceLock<HashMap<Vec<u8>, Rank>> = OnceLock::new();
+    RANKS.get_or_init(|| {
+        (0..100_256)
+            .map(|rank| (oracle().decode_bytes(&[rank]).unwrap(), rank))
+            .collect()
+    })
+}
+
 #[test]
 fn vocabulary_matches_tiktoken() {
-    let encoder = get_encoder();
-    assert_eq!(encoder.ranks.len(), 100_256);
-    for (bytes, &rank) in &encoder.ranks {
+    assert_eq!(vocab::len(), 100_256);
+    assert_eq!(oracle_ranks().len(), 100_256);
+    for rank in 0..100_256 {
+        let bytes = oracle().decode_bytes(&[rank]).unwrap();
+        assert_eq!(vocab::token(rank), bytes.as_slice(), "rank {rank}");
+        assert_eq!(vocab::rank(&bytes), Some(rank), "rank {rank}");
+    }
+}
+
+#[test]
+fn vocabulary_rejects_exactly_the_non_tokens() {
+    // Byte strings next to every token (one byte longer or shorter), most
+    // of which are not tokens: a lookup must find exactly what tiktoken's
+    // map holds.
+    let mut checked_misses = 0;
+    for rank in 0..100_256 {
+        let bytes = vocab::token(rank);
+        let mut probes = vec![bytes[..bytes.len() - 1].to_vec(), bytes[1..].to_vec()];
+        for extra in [b' ', b'e', 0x80, 0xff] {
+            let mut longer = bytes.to_vec();
+            longer.push(extra);
+            probes.push(longer);
+        }
+        for probe in probes {
+            let expected = oracle_ranks().get(&probe).copied();
+            checked_misses += usize::from(expected.is_none());
+            assert_eq!(vocab::rank(&probe), expected, "{probe:?}");
+        }
+    }
+    assert!(
+        checked_misses > 100_000,
+        "only {checked_misses} misses checked"
+    );
+    assert_eq!(vocab::rank(b""), None);
+}
+
+#[test]
+fn byte_pair_count_matches_tiktoken_merge() {
+    let mut parts = Vec::new();
+    let mut check = |piece: &[u8]| {
         assert_eq!(
-            oracle().decode_bytes(&[rank]).unwrap(),
-            *bytes,
-            "rank {rank}"
+            byte_pair_count(piece, &mut parts),
+            tiktoken_rs::byte_pair_split(piece, oracle_ranks()).len(),
+            "{piece:?}"
         );
+    };
+    for rank in (0..100_256).step_by(7) {
+        // Tokens glued to their neighbours: long, mostly non-token pieces.
+        let mut piece = vocab::token(rank).to_vec();
+        piece.extend_from_slice(vocab::token((rank * 31 + 17) % 100_256));
+        piece.extend_from_slice(vocab::token((rank * 7 + 3) % 100_256));
+        if piece.len() > 1 {
+            check(&piece);
+        }
+    }
+    for piece in [
+        &b"ab"[..],
+        b"\xff\xfe",
+        b"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        b"\x00\x01\x02",
+    ] {
+        check(piece);
     }
 }
 

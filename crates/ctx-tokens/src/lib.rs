@@ -2,8 +2,7 @@
 //
 // Token counting with the cl100k_base BPE encoder — mirrors internal/tokens.
 //
-// The encoder table is loaded once per process via OnceLock (mirrors Go's
-// sync.Once in getSharedEncoder). Counting matches Go's
+// Counting matches Go's
 // enc.Encode(text, nil, nil) semantics — tiktoken-rs `encode_ordinary`:
 // special tokens are treated as ordinary text, no allowed-special /
 // disallowed-special overrides.
@@ -12,66 +11,94 @@
 // token vector: the text is split into the same pre-tokenizer pieces (see
 // split.rs — a regex-free equivalent of the cl100k pattern, which dominated
 // the encoder's run time), then each piece is one token when it is in the
-// vocabulary and otherwise merged with tiktoken-rs's own `byte_pair_split`.
-// The vocabulary is the official cl100k_base.tiktoken file (sha256
-// 223921b7…b2a7, the same bytes tiktoken-rs embeds); loading only the rank
-// map — not tiktoken-rs's decoder, sorted-token table and per-thread regex
-// clones — also makes the one-time initialisation cheaper.
+// vocabulary and otherwise merged by `byte_pair_count`, a port of
+// tiktoken-rs's own `_byte_pair_merge`. The vocabulary is the official
+// cl100k_base.tiktoken file (sha256 223921b7…b2a7, the same bytes
+// tiktoken-rs embeds), laid out as a static lookup table by build.rs (see
+// vocab.rs), so the only run-time initialisation left is the split
+// character classes.
 
 mod split;
+mod vocab;
+mod vocab_hash;
 
 use std::sync::OnceLock;
 
-use base64::Engine as _;
-use rustc_hash::FxHashMap;
-use tiktoken_rs::Rank;
+use vocab::Rank;
 
-const CL100K_BASE: &str = include_str!("../assets/cl100k_base.tiktoken");
+static CLASSES: OnceLock<split::Classes> = OnceLock::new();
 
-struct Encoder {
-    ranks: FxHashMap<Vec<u8>, Rank>,
-    classes: split::Classes,
+fn classes() -> &'static split::Classes {
+    CLASSES.get_or_init(split::Classes::new)
 }
 
-static ENCODER: OnceLock<Encoder> = OnceLock::new();
-
-fn get_encoder() -> &'static Encoder {
-    ENCODER.get_or_init(|| {
-        let mut ranks = FxHashMap::default();
-        ranks.reserve(100_256);
-        for line in CL100K_BASE.lines() {
-            let (token, rank) = line
-                .split_once(' ')
-                .expect("cl100k_base line is `<base64> <rank>`");
-            let token = base64::engine::general_purpose::STANDARD
-                .decode(token)
-                .expect("cl100k_base token is valid base64");
-            let rank: Rank = rank.parse().expect("cl100k_base rank is an integer");
-            ranks.insert(token, rank);
-        }
-        Encoder {
-            ranks,
-            classes: split::Classes::new(),
-        }
-    })
+fn count_pieces(text: &str) -> usize {
+    let mut parts = Vec::new();
+    split::Pieces::new(text, classes())
+        .map(|piece| {
+            let bytes = piece.as_bytes();
+            // Every single byte is in the vocabulary, so a piece that is
+            // not a token has at least two bytes (`byte_pair_count`'s
+            // precondition) — exactly tiktoken's encode_ordinary branch.
+            if bytes.len() == 1 || vocab::rank(bytes).is_some() {
+                1
+            } else {
+                byte_pair_count(bytes, &mut parts)
+            }
+        })
+        .sum()
 }
 
-impl Encoder {
-    fn count(&self, text: &str) -> usize {
-        split::Pieces::new(text, &self.classes)
-            .map(|piece| {
-                let bytes = piece.as_bytes();
-                // Every single byte is in the vocabulary, so a piece that is
-                // not a token has at least two bytes (`byte_pair_split`'s
-                // precondition) — exactly tiktoken's encode_ordinary branch.
-                if bytes.len() == 1 || self.ranks.contains_key(bytes) {
-                    1
-                } else {
-                    tiktoken_rs::byte_pair_split(bytes, &self.ranks).len()
-                }
-            })
-            .sum()
+/// Number of tokens tiktoken's BPE merges `piece` (`len() >= 2`) into:
+/// `byte_pair_split(piece, ranks).len()`, with the same merge loop as
+/// tiktoken-rs 0.11's `_byte_pair_merge` (copied below step for step, so
+/// ties and merge order are identical). `parts` is scratch space, reused
+/// across pieces.
+fn byte_pair_count(piece: &[u8], parts: &mut Vec<(usize, Rank)>) -> usize {
+    debug_assert!(piece.len() > 1);
+    let rank_of = |bytes: &[u8]| vocab::rank(bytes).unwrap_or(Rank::MAX);
+
+    // (start, rank of the pair starting at start).
+    parts.clear();
+    let mut min_rank: (Rank, usize) = (Rank::MAX, usize::MAX);
+    for i in 0..piece.len() - 1 {
+        let rank = rank_of(&piece[i..i + 2]);
+        if rank < min_rank.0 {
+            min_rank = (rank, i);
+        }
+        parts.push((i, rank));
     }
+    parts.push((piece.len() - 1, Rank::MAX));
+    parts.push((piece.len(), Rank::MAX));
+
+    let get_rank = |parts: &[(usize, Rank)], i: usize| {
+        if (i + 3) < parts.len() {
+            // `piece[i..i + 2]` above; the +3 is because parts[i + 1] is not
+            // yet removed.
+            rank_of(&piece[parts[i].0..parts[i + 3].0])
+        } else {
+            Rank::MAX
+        }
+    };
+
+    while min_rank.0 != Rank::MAX {
+        let i = min_rank.1;
+        // Update parts[i] and parts[i - 1] before removing parts[i + 1].
+        if i > 0 {
+            parts[i - 1].1 = get_rank(parts, i - 1);
+        }
+        parts[i].1 = get_rank(parts, i);
+        parts.remove(i + 1);
+
+        min_rank = (Rank::MAX, usize::MAX);
+        for (i, &(_, rank)) in parts[..parts.len() - 1].iter().enumerate() {
+            if rank < min_rank.0 {
+                min_rank = (rank, i);
+            }
+        }
+    }
+    // `windows(2)` over the parts: one token per adjacent pair.
+    parts.len() - 1
 }
 
 /// Count the number of cl100k_base tokens in `text`.
@@ -79,7 +106,7 @@ impl Encoder {
 /// Mirrors Go's `counter.CountString(text)` →
 /// `len(enc.Encode(text, nil, nil))`.
 pub fn count_str(text: &str) -> i64 {
-    get_encoder().count(text) as i64
+    count_pieces(text) as i64
 }
 
 /// Count cl100k_base tokens for the content of a file.
