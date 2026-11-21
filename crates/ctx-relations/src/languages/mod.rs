@@ -9,6 +9,7 @@ pub mod jsts;
 pub mod jvm;
 pub mod php;
 pub mod py;
+pub mod rust;
 pub mod swift;
 
 pub use common::{file_set, supported_ext, FileEntry};

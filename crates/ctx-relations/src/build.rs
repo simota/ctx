@@ -28,6 +28,7 @@ pub fn build(root: &str) -> std::io::Result<Index> {
     let jvm_idx = languages::jvm::build_jvm_index(&files);
     let swift_mods = languages::swift::build_swift_modules(&files);
     let php_map = languages::php::read_composer_psr4(root);
+    let rust_idx = languages::rust::build_rust_index(&files, &all_files);
 
     let mut imports: BTreeMap<String, Vec<String>> = BTreeMap::new();
 
@@ -55,6 +56,7 @@ pub fn build(root: &str) -> std::io::Result<Index> {
             ".swift" => {
                 languages::swift::resolve_swift_imports(&fi.abs, &fi.rel, swift_mods.as_ref())
             }
+            ".rs" => languages::rust::resolve_rust_imports(&fi.abs, &fi.rel, &rust_idx, &all_files),
             _ => Vec::new(),
         };
         if !edges.is_empty() {
@@ -139,6 +141,7 @@ mod tests {
     #[test]
     fn supported_smoke() {
         assert!(supported("a.go"));
-        assert!(!supported("a.rs"));
+        assert!(supported("a.rs"));
+        assert!(!supported("a.md"));
     }
 }

@@ -78,6 +78,12 @@ fn visit(root: &Path, dir: &Path, out: &mut Vec<WalkedFile>) -> std::io::Result<
         // Besides directories, keep only regular files: reading a FIFO,
         // socket or device would block the walk forever.
         if ty.is_dir() {
+            // A Cargo build directory (marked by the CACHEDIR.TAG cargo
+            // writes) holds generated and vendored-in-place sources that
+            // are not part of the repository's import graph.
+            if name_str == "target" && path.join("CACHEDIR.TAG").is_file() {
+                continue;
+            }
             visit(root, &path, out)?;
         } else if ty.is_file() {
             out.push(WalkedFile {
