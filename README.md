@@ -167,6 +167,28 @@ ctx cochange src/server.rs --format paths | ctx pack --from-stdin
 `ctx cochange` は git 履歴から、指定ファイル（またはディレクトリ）と同じコミットで変更されてきたファイルを、共変更回数と confidence（そのファイルのコミットのうち相手も変更した割合）付きで並べます。
 変更前に「ついでに直す必要がありそうなファイル」を把握したり、レビューで変更漏れを疑う材料にできます。50 ファイルを超える一括コミットは結合のノイズとして除外します。
 
+### 4b. import でつながるファイルを知る
+
+```bash
+ctx deps src/server.rs                       # このファイルが import するファイル
+ctx impact src/store.rs                      # このファイルを import するファイル（変更の影響範囲）
+ctx impact src/store.rs --depth 3            # 3 hop 先まで（どのファイル経由かも表示）
+ctx impact crates/core/ --format paths       # ディレクトリ単位（外から使っているファイルだけ）
+ctx impact src/store.rs --format paths | ctx pack --from-stdin --goal "review callers"
+```
+
+`ctx deps` / `ctx impact` は静的な import グラフをたどります。対応言語は Rust・Go・TypeScript / JavaScript（Svelte・Vue を含む）・Python・Java / Kotlin・PHP・Swift です。
+Rust は `mod` 宣言（`#[path]` を含む）、`use` ツリー（`{a, b::{c, self}}`）、本文中の `crate::` / `self::` / `super::` パス、ワークスペース内の他クレート名（`Cargo.toml` の `[package] name` / `[lib] name`）を解決します。マクロ展開・再 export の追跡・`cfg` 評価は行いません。`mod tests { use super::*; }` のようなインラインモジュール内の `super` は辺になりません。
+`--depth N` で N hop 先まで、近い順（同じ距離ではリンク数の多い順）に並べます。ディレクトリや複数のパスを渡すと 1 つの単位として扱い、その外側との関係だけを返します。`--format paths` は 1 行 1 パスで `ctx pack --from-stdin` にそのまま渡せます（`--json` は `--depth` > 1 のとき各ファイルの `depth` / `via` / `links` を含みます）。
+
+pack では `--deps[=N]` / `--dependents[=N]`（既定 5）で、選んだファイル（`--changed` / `--base` / `--from-where` / `--from-stdin` / `--from-refs` / `--from-mix`）が import するファイル・選んだファイルを import するファイルを追加できます。
+追加分は選んだファイルの後ろに「定義 → 呼び出し元 → co-change companion」の順で置かれ、`reason` に `dependency: imported by src/api.rs` / `dependent: imports src/api.rs` と記録されます。
+
+```bash
+ctx pack --changed --deps --dependents --goal "what does this change break?"
+ctx pack --base main --dependents=10 --companions
+```
+
 ### 5. 選んだファイルを保存して再利用する（mix）
 
 ```bash
@@ -221,7 +243,7 @@ ctx noise --top 20
 | `ctx echo` | bundle が問いに答えられるか評価 |
 | `ctx contract verify` | pack contract と応答を照合 |
 | `ctx audit verify` | audit log を検証 |
-| `ctx deps` / `ctx impact` | 依存関係と影響範囲を表示 |
+| `ctx deps` / `ctx impact` | import 依存と影響範囲を表示（`--depth`、ディレクトリ、`--format paths`） |
 | `ctx roots` | 既知の repository root を管理 |
 | `ctx onboarding` | codebase onboarding 用の読み順を生成 |
 | `ctx browse` | ローカル Web UI を起動 |
@@ -250,7 +272,8 @@ Claude Code や Cursor などの MCP client から、context 生成や検索を 
 }
 ```
 
-提供する tool: `ctx_pack`（`changed` / `base` / `companions` / `files` / `mix` / `refs` / `include` / `exclude` / `overflow` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_roots_list`。
+提供する tool: `ctx_pack`（`changed` / `base` / `companions` / `deps` / `dependents` / `files` / `mix` / `refs` / `include` / `exclude` / `overflow` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_deps`、`ctx_roots_list`。
+関数のシグネチャを変える前に `ctx_deps {"anchor":"src/store.rs","direction":"importers","depth":2}` で影響範囲を確認し、`ctx_pack {"changed":true,"deps":5,"dependents":5}` で変更・その定義・呼び出し元をまとめて渡せます。
 signatures only で渡されたファイルの本体は `ctx_pack {"files":["src/store.rs:120-180"]}` のように行範囲で要求できます。
 ユーザーが貼ったスタックトレースやエラーは `ctx_pack {"refs":"<text>","around":15}` で、言及されたファイルと行（前後 15 行）にまとめて pack できます（解決できなかった言及は `## Unresolved references` に列挙）。
 ブランチ全体を渡すには `ctx_pack {"base":"main","companions":5}`（merge-base 以降の変更＋作業ツリーの変更）を使います。
@@ -282,6 +305,7 @@ Pins 画面（`#/pins`）では、ピン留めしたファイルを並び順の�
 同じ選択を mix として保存すると `ctx pack --from-mix <id>` や MCP から再利用でき、保存済み mix の Pack / ピンへの読み込み / 削除もここから行えます。
 検索結果の「Pin all N results」で `where` の結果をまとめてピン留めできるので、検索 → ピン → pack をブラウザだけで完結できます。
 「From a reply or stack trace」に LLM の返答やスタックトレースを貼り付けると、言及されたファイルと行を解決し（`POST /api/refs`）、「Pack cited lines」でその行だけを pack、「Pin N files」でピン留めできます。
+ファイル画面の Imports / Importers パネル（Rust にも対応）の「Pin with its imports」「Pin with its importers」で、そのファイルと import でつながるファイルをまとめてピン留めできます。
 Git Log の Review 画面（`#/gitlog/review`）の「Pin N changed files」は、base..head で変更されたファイル（削除済みを除く）をピン留めし、ブランチ差分のレビュー → pack を同じ流れで行えます（内容は作業ツリーから読みます）。
 状態を変更する API（`POST /api/mix`、`DELETE /api/mix/<id>`、`POST /api/pack`、`POST /api/refs`）は `Content-Type: application/json` を必須とし、ブラウザが cross-site と示すリクエスト（別 `Origin` / `Sec-Fetch-Site: cross-site`）を `403 forbidden_origin` で拒否します。
 

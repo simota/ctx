@@ -42,6 +42,12 @@ pub(crate) struct PackArgs {
     /// Also pack up to this many co-change companions of the selected files
     /// (`--companions[=N]`); 0 = off.
     pub(crate) companions: usize,
+    /// Also pack up to this many files the selected files import
+    /// (`--deps[=N]`); 0 = off.
+    pub(crate) deps: usize,
+    /// Also pack up to this many files that import the selected files
+    /// (`--dependents[=N]`); 0 = off.
+    pub(crate) dependents: usize,
     pub(crate) api_only: bool,
     pub(crate) layout: String,
     pub(crate) from_mix: String,
@@ -131,6 +137,8 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
     let mut changed = false;
     let mut base = String::new();
     let mut companions = 0usize;
+    let mut deps = 0usize;
+    let mut dependents = 0usize;
     let mut api_only = false;
     let mut layout = "sequential".to_string();
     let mut from_mix = String::new();
@@ -264,6 +272,14 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
             companions = DEFAULT_PACK_COMPANIONS;
         } else if let Some(value) = flag_value(arg, "--companions") {
             companions = value.to_string_lossy().parse().ok()?;
+        } else if arg == OsStr::new("--deps") {
+            deps = DEFAULT_PACK_COMPANIONS;
+        } else if let Some(value) = flag_value(arg, "--deps") {
+            deps = value.to_string_lossy().parse().ok()?;
+        } else if arg == OsStr::new("--dependents") {
+            dependents = DEFAULT_PACK_COMPANIONS;
+        } else if let Some(value) = flag_value(arg, "--dependents") {
+            dependents = value.to_string_lossy().parse().ok()?;
         } else if arg == OsStr::new("--api-only") {
             api_only = true;
         } else if let Some(value) = flag_value(arg, "--layout") {
@@ -368,6 +384,8 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
         changed,
         base,
         companions,
+        deps,
+        dependents,
         api_only,
         layout,
         from_mix,

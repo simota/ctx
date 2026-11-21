@@ -54,6 +54,12 @@ pub(crate) struct PackArgs {
     pub(crate) base: String,
     #[serde(default)]
     pub(crate) companions: i64,
+    /// With `changed`: also pack up to this many files the changed files import.
+    #[serde(default)]
+    pub(crate) deps: i64,
+    /// With `changed`: also pack up to this many files that import the changed files.
+    #[serde(default)]
+    pub(crate) dependents: i64,
     #[serde(default)]
     pub(crate) explain: bool,
     /// Explicit repository-relative files to pack, in this order.
@@ -144,6 +150,23 @@ pub(crate) struct CoChangeArgs {
     pub(crate) commits: i64,
     #[serde(default)]
     pub(crate) min_weight: i64,
+    #[serde(default)]
+    pub(crate) top: i64,
+    #[serde(default)]
+    pub(crate) format: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DepsArgs {
+    #[serde(default)]
+    pub(crate) path: String,
+    #[serde(default)]
+    pub(crate) anchor: String,
+    #[serde(default)]
+    pub(crate) direction: String,
+    #[serde(default)]
+    pub(crate) depth: i64,
     #[serde(default)]
     pub(crate) top: i64,
     #[serde(default)]

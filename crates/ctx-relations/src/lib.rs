@@ -30,4 +30,4 @@ pub mod walk;
 pub mod testing;
 
 pub use crate::build::{build, build_cached, invalidate_cache, supported};
-pub use crate::types::{Edges, Index};
+pub use crate::types::{Direction, Edges, Index, Reached};

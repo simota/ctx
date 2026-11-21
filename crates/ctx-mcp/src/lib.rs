@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 mod budget;
 mod cochange;
+mod deps;
 mod pack;
 mod prompts;
 mod protocol;
@@ -43,6 +44,8 @@ const MAX_ANCHOR_LEN: usize = 256;
 const MAX_COMMITS: i64 = 10_000;
 
 const MAX_COMPANIONS: i64 = 50;
+/// Upper bound on `ctx_deps` `depth`.
+const MAX_DEPS_DEPTH: i64 = 10;
 /// Upper bound on `ctx_pack` `files` entries.
 const MAX_PACK_FILES: usize = 1_000;
 /// Upper bound on `ctx_pack` `include` / `exclude` patterns (each).

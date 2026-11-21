@@ -48,6 +48,7 @@ pub fn supported_ext(p: &str) -> bool {
             | ".kts"
             | ".php"
             | ".swift"
+            | ".rs"
     )
 }
 
@@ -104,11 +105,11 @@ mod tests {
     fn supported_ext_matches_all_languages() {
         for ext in [
             ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".svelte", ".vue", ".py", ".java",
-            ".kt", ".kts", ".php", ".swift",
+            ".kt", ".kts", ".php", ".swift", ".rs",
         ] {
             assert!(supported_ext(&format!("foo{ext}")), "{ext}");
         }
-        for ext in [".rs", ".md", ".json", ".css"] {
+        for ext in [".md", ".json", ".css"] {
             assert!(!supported_ext(&format!("foo{ext}")), "{ext}");
         }
     }

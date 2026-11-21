@@ -12,6 +12,8 @@ pub(crate) fn tools() -> Vec<Value> {
                     ("base", describe(str_schema(MAX_MIX_REF_LEN, None, &["main", "origin/main"]), "Branch review: restrict to files the current branch changes relative to this revision — everything since the merge base with it (committed on the branch, staged, unstaged, untracked). Implies changed=true; each file's reason gives +/- line counts, deleted files are listed as skipped. Combine with companions to add the tests/configs that usually change with them.")),
                     ("changed", describe(bool_schema(), "When true, restrict to files changed in the working tree (uncommitted). See 'base' for a whole branch.")),
                     ("companions", describe(int_schema(0, MAX_COMPANIONS), "With changed=true (or base), also pack up to this many files that historically change together with the changed files (git co-change), e.g. the tests or schemas a change usually needs (0..50). Defaults to 0.")),
+                    ("deps", describe(int_schema(0, MAX_COMPANIONS), "With changed=true (or base), also pack up to this many files the changed files import — the definitions they use (0..50). Defaults to 0. See ctx_deps.")),
+                    ("dependents", describe(int_schema(0, MAX_COMPANIONS), "With changed=true (or base), also pack up to this many files that import the changed files — the callers a change can break (0..50). Defaults to 0.")),
                     ("explain", describe(bool_schema(), "When true, include selection-reason annotations in the pack.")),
                     ("files", describe(json!({"items": {"maxLength": MAX_PATH_LEN, "type": "string"}, "maxItems": MAX_PACK_FILES, "type": "array"}), "Pack exactly these files (relative to 'path'), in this order, instead of walking the directory — e.g. the top paths from ctx_where. An entry may name a line range ('src/a.rs:120-180', 'src/a.rs#L42') to pack just those lines, e.g. a body whose signature an overflow digest showed; ranges of one file are merged. The goal does not filter them; only the budget cuts, and missing or out-of-root files are listed as skipped. Not combinable with 'changed' or 'mix'.")),
                     ("exclude", describe(json!({"items": {"maxLength": MAX_PATH_LEN, "type": "string"}, "maxItems": MAX_PACK_PATTERNS, "type": "array"}), "Path globs never packed (wins over 'include'); same syntax as 'include', e.g. [\"tests\", \"*_test.go\"]. Not combinable with 'files' or 'mix'.")),
@@ -120,6 +122,21 @@ pub(crate) fn tools() -> Vec<Value> {
                     ("top", describe(int_schema(0, MAX_TOP), "Max results (0..200). Defaults to 20.")),
                 ],
                 &[],
+            ),
+        ),
+        tool(
+            "ctx_deps",
+            "Follow the import graph from a file or directory: the files it imports (direction='imports', what you need to understand it) or the files that import it (direction='importers', what may break when it changes), up to 'depth' hops, nearest first with the file each was reached through. Imports are resolved for Rust, Go, TypeScript / JavaScript (incl. Svelte, Vue), Python, Java / Kotlin, PHP and Swift. Use before changing a function's signature or a module's behaviour; complements ctx_cochange (history) with the static graph. Typical chain: ctx_deps → ctx_pack {\"files\":[...]} → edit.",
+            object_schema(
+                vec![
+                    ("anchor", describe(str_schema(MAX_ANCHOR_LEN, None, &["src/store.rs", "src/auth/"]), "File or directory (relative to 'path'); a directory is treated as one unit.")),
+                    ("depth", describe(int_schema(0, MAX_DEPS_DEPTH), "Import hops to follow (1..10). Defaults to 1 (direct only).")),
+                    ("direction", describe(enum_schema(&["imports", "importers"]), "imports (default): what the anchor uses. importers: what uses the anchor.")),
+                    ("format", describe(enum_schema(&["markdown", "json"]), "Output format. Defaults to 'markdown'.")),
+                    ("path", describe(str_schema(MAX_PATH_LEN, Some("."), &[]), "Repository directory. Defaults to '.'")),
+                    ("top", describe(int_schema(0, MAX_TOP), "Max files listed (0..200). Defaults to 50.")),
+                ],
+                &["anchor"],
             ),
         ),
         tool(

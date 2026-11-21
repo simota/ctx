@@ -319,6 +319,8 @@ pub(crate) fn build_focus_pack_args(args: &FocusArgs, budget: i64) -> PackArgs {
         changed: false,
         base: String::new(),
         companions: 0,
+        deps: 0,
+        dependents: 0,
         api_only: false,
         layout: "sequential".to_string(),
         from_mix: String::new(),

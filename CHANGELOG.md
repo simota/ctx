@@ -8,6 +8,32 @@ and this project does not yet follow strict semver — see release notes per tag
 ## [Unreleased]
 
 ### Added
+- Rust import graph: `ctx deps` / `ctx impact`, `ctx browse`'s Imports /
+  Importers panel and everything built on them now resolve Rust — `mod`
+  declarations (incl. `#[path]`) that the file then uses, `use` trees
+  (`{a, b::{c, self}}`), inline `crate::` / `self::` / `super::` paths and
+  the names of other workspace crates (from `Cargo.toml` `[package]` /
+  `[lib]` names). Inline modules scope their paths, so
+  `mod tests { use super::*; }` adds no edge. Macros, re-exports and `cfg`
+  are not evaluated. Cargo `target/` directories (marked by `CACHEDIR.TAG`)
+  are skipped by the relations walk.
+- `ctx deps` / `ctx impact` `--depth N`: follow imports N hops, nearest
+  first, each with the file it was reached through (`--json` adds
+  `depth`, `via`, `links`). A directory or several paths are answered as
+  one unit. `--format paths` prints one path per line for
+  `ctx pack --from-stdin`. `--help` now documents both commands.
+- `ctx pack --deps[=N]` / `--dependents[=N]` (default 5): add the files the
+  selection imports and the files that import it — the definitions a
+  change uses and the callers it can break — after the selection, before
+  co-change companions, with `dependency: imported by …` /
+  `dependent: imports …` reasons. Works with `--changed`, `--base`,
+  `--from-where`, `--from-stdin`, `--from-refs` and `--from-mix`; a
+  selection with no import edges warns and packs alone.
+- MCP `ctx_deps` (`anchor`, `direction` imports|importers, `depth`, `top`,
+  `format`) and `ctx_pack` `deps` / `dependents` (with `changed` / `base`).
+- `ctx browse`: "Pin with its imports" / "Pin with its importers" on the
+  Imports / Importers panel pin the file and one side of its graph for the
+  Pins board's pack.
 - `ctx pack --from-refs`: pack the files and lines a piece of free text
   refers to — a model reply ("look at `src/store.rs:120-180` and
   `session.rs`"), a stack trace (`at f (src/a.ts:42:7)`,
