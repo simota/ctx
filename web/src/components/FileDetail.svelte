@@ -357,9 +357,9 @@
   );
   let isMmd = $derived(/\.(mmd|mermaid)$/i.test(path));
   // Files whose right-sidebar should also surface the import graph. Matches
-  // the language list in internal/relations.Supported on the backend.
+  // the language list in ctx_relations::supported on the backend.
   let isRelationsTarget = $derived(
-    /\.(go|tsx?|jsx?|mjs|cjs|svelte|vue|py|java|kts?|php|swift)$/i.test(path),
+    /\.(go|rs|tsx?|jsx?|mjs|cjs|svelte|vue|py|java|kts?|php|swift)$/i.test(path),
   );
   let isTestsTarget = $derived(/\.go$/i.test(path));
   let isPreviewable = $derived(isSvg || isHtml || isMarkdown || isMmd || isConfigRender);

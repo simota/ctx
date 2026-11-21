@@ -4,12 +4,15 @@
   import { openTab } from '../lib/tabs.svelte';
   import { announce } from '../lib/announce.svelte';
   import { basename } from '../lib/format';
+  import { ensurePinsRoot, pinMany } from '../lib/pins.svelte';
+  import { repo } from '../lib/repo.svelte';
 
   let { path }: { path: string } = $props();
 
   let data = $state<RelationsResponse | null>(null);
   let loading = $state(false);
   let error = $state<string | null>(null);
+  let pinMessage = $state('');
 
   // Refetch whenever `path` changes. The previous response is held until the
   // new one lands so the panel does not flash empty on every navigation.
@@ -21,6 +24,7 @@
     }
     loading = true;
     error = null;
+    pinMessage = '';
     let cancelled = false;
     fetchRelations(target)
       .then((r) => {
@@ -44,6 +48,17 @@
   function dirname(p: string): string {
     const slash = p.lastIndexOf('/');
     return slash >= 0 ? p.slice(0, slash) : '';
+  }
+
+  // Pin this file followed by one side of its import graph, so the Pins
+  // board can pack "the file and what it uses" (or "what uses it") at once.
+  function pinWith(kind: 'imports' | 'importers'): void {
+    if (!data) return;
+    const related = kind === 'imports' ? data.imports : data.importers;
+    ensurePinsRoot(repo.root);
+    const result = pinMany([path, ...related.map((it) => it.path)]);
+    pinMessage = result.message;
+    announce(result.message);
   }
 
   function go(target: string, e: MouseEvent) {
@@ -79,6 +94,12 @@
         <h3>
           Imports <span class="count muted">{data.imports.length}</span>
           <span class="meta muted">out</span>
+          <button
+            type="button"
+            class="pin-all"
+            title={`Pin this file and the ${data.imports.length} file(s) it $imports`}
+            onclick={() => pinWith('imports')}
+          >Pin with its imports</button>
         </h3>
         <ul>
           {#each data.imports as it, i (`${it.path}:${i}`)}
@@ -105,6 +126,12 @@
         <h3>
           Importers <span class="count muted">{data.importers.length}</span>
           <span class="meta muted">in</span>
+          <button
+            type="button"
+            class="pin-all"
+            title={`Pin this file and the ${data.importers.length} file(s) it $is imported by`}
+            onclick={() => pinWith('importers')}
+          >Pin with its importers</button>
         </h3>
         <ul>
           {#each data.importers as it, i (`${it.path}:${i}`)}
@@ -125,10 +152,34 @@
         </ul>
       </section>
     {/if}
+    {#if pinMessage}
+      <section>
+        <p class="muted" role="status">{pinMessage}</p>
+      </section>
+    {/if}
   {/if}
 </div>
 
 <style>
+  .pin-all {
+    margin-inline-start: auto;
+    font: inherit;
+    font-size: 10px;
+    text-transform: none;
+    letter-spacing: 0;
+    padding: 1px 6px;
+    white-space: nowrap;
+    border: 1px solid var(--ctx-border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ctx-fg-dim);
+    cursor: pointer;
+  }
+  .pin-all:hover,
+  .pin-all:focus-visible {
+    color: var(--ctx-fg);
+    border-color: var(--ctx-fg-dim);
+  }
   .relations {
     display: flex;
     flex-direction: column;
