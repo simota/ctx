@@ -188,8 +188,11 @@ pub(crate) fn parse_browse_args(args: &[OsString]) -> Option<BrowseArgs> {
             allow_nonlocal = true;
         } else if arg == OsStr::new("--no-open") {
             no_open = true;
-        } else if arg == OsStr::new("--audit") || arg == OsStr::new("--no-register") {
-        } else if flag_value(arg, "--relations-engine").is_some() {
+        } else if arg == OsStr::new("--audit")
+            || arg == OsStr::new("--no-register")
+            || flag_value(arg, "--relations-engine").is_some()
+        {
+            // Accepted for compatibility; no effect on the native server.
         } else if arg == OsStr::new("--relations-engine") {
             i += 1;
             args.get(i)?;

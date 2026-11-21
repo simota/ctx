@@ -223,7 +223,7 @@ pub(crate) fn build_json_tree_node(
                 .flatten()
                 .collect();
             // os.ReadDir returns entries sorted by filename.
-            entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+            entries.sort_by_key(|entry| entry.file_name());
             // Children are built in parallel (each node is independent: file
             // stats, token count and symbol extraction only read its own
             // file). The indexed collect keeps the sorted entry order, and

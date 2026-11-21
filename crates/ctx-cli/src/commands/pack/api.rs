@@ -93,15 +93,14 @@ pub(crate) fn extract_python_api_light(body: &str) -> String {
     let mut out = Vec::new();
     for line in body.lines() {
         let trimmed = line.trim_start();
-        if trimmed.starts_with("import ") || trimmed.starts_with("from ") {
-            out.push(line.trim_end().to_string());
-        } else if (trimmed.starts_with("def ") || trimmed.starts_with("class "))
+        let is_import = trimmed.starts_with("import ") || trimmed.starts_with("from ");
+        let is_public_def = (trimmed.starts_with("def ") || trimmed.starts_with("class "))
             && !trimmed
                 .split_whitespace()
                 .nth(1)
                 .unwrap_or("")
-                .starts_with('_')
-        {
+                .starts_with('_');
+        if is_import || is_public_def {
             out.push(line.trim_end().to_string());
         }
     }
@@ -113,10 +112,8 @@ pub(crate) fn line_has_exported_identifier(line: &str) -> bool {
         rest.split(')').nth(1).unwrap_or("").trim_start()
     } else if let Some(rest) = line.strip_prefix("func ") {
         rest
-    } else if let Some(rest) = line.strip_prefix("type ") {
-        rest
     } else {
-        ""
+        line.strip_prefix("type ").unwrap_or_default()
     };
     name.chars()
         .next()

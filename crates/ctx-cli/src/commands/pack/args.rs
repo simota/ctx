@@ -91,7 +91,7 @@ pub(crate) struct IgnoreConfigToml {
     pub(crate) patterns: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub(crate) struct PackCtxToml {
     #[serde(default)]
     pub(crate) pack: PackConfigToml,
@@ -99,16 +99,6 @@ pub(crate) struct PackCtxToml {
     pub(crate) ignore: IgnoreConfigToml,
     #[serde(default)]
     pub(crate) security: SecurityToml,
-}
-
-impl Default for PackCtxToml {
-    fn default() -> Self {
-        Self {
-            pack: PackConfigToml::default(),
-            ignore: IgnoreConfigToml::default(),
-            security: SecurityToml::default(),
-        }
-    }
 }
 
 pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
