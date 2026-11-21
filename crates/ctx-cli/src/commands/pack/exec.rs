@@ -62,9 +62,16 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
             return Err("pack: --base does not combine with --from-where".to_string());
         }
     }
-    if args.companions > 0 {
+    for (set, flag) in [
+        (args.deps > 0, "--deps"),
+        (args.dependents > 0, "--dependents"),
+        (args.companions > 0, "--companions"),
+    ] {
+        if !set {
+            continue;
+        }
         if !args.diff_spec.is_empty() {
-            return Err("pack: --companions does not apply to --diff".to_string());
+            return Err(format!("pack: {flag} does not apply to --diff"));
         }
         if !(args.changed
             || args.from_where
@@ -72,10 +79,9 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
             || args.from_refs
             || !args.from_mix.is_empty())
         {
-            return Err(
-                "pack: --companions needs a file selection to start from (--changed, --from-where, --from-stdin, --from-refs or --from-mix)"
-                    .to_string(),
-            );
+            return Err(format!(
+                "pack: {flag} needs a file selection to start from (--changed, --from-where, --from-stdin, --from-refs or --from-mix)"
+            ));
         }
     }
     if !matches!(
@@ -194,18 +200,20 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
                 );
             }
         }
-        if args.companions > 0 {
+        if wants_additions(&args) {
             let seeds: Vec<String> = paths
                 .iter()
                 .map(|path| ctx_pack::from_where::clean_input_path(path))
                 .filter(|path| !path.is_empty())
                 .collect();
-            for (path, reason) in pack_companions(&root, &seeds, args.no_warnings)
-                .into_iter()
-                .take(args.companions)
-            {
-                paths.push(path.clone());
-                reasons.insert(path, reason);
+            let mut quota = AdditionQuota::new(&args);
+            for addition in pack_additions(&root, &seeds, &args) {
+                if !quota.allows(&addition) || !root.join(&addition.path).is_file() {
+                    continue;
+                }
+                quota.take(&addition);
+                paths.push(addition.path.clone());
+                reasons.insert(addition.path, addition.reason);
             }
         }
         read_pack_paths_ordered(

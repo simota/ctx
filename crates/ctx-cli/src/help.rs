@@ -18,6 +18,10 @@ Selection:
       --companions[=<N>]      Also pack up to N (default 5) files that usually change
                               together with the selected ones (git co-change); needs
                               --changed, --from-where, --from-stdin, --from-refs or --from-mix
+      --deps[=<N>]            Also pack up to N (default 5) files the selected ones import
+                              (the definitions they use); same selections as --companions
+      --dependents[=<N>]      Also pack up to N (default 5) files that import the selected
+                              ones (the callers a change can break)
       --since <WHEN>          Only files changed after a date or duration (7d, 2w, 2026-01-01)
       --until <WHEN>          Only files changed before a date or duration
       --use-mtime             Use file mtime instead of git commit time for --since/--until
@@ -61,6 +65,7 @@ Snapshots:
 Examples:
   ctx pack . --goal \"debug session expiry\" --budget 30000 --out context.md
   ctx pack --changed --companions
+  ctx pack --changed --deps --dependents --goal \"what does this change break?\"
   ctx pack --base main --companions --goal \"review this branch\"
   ctx pack --include 'crates/ctx-web/**' --exclude tests --goal \"routing\" --overflow signatures
   echo 'src/store.rs:120-180' | ctx pack --from-stdin
@@ -109,6 +114,44 @@ Examples:
   ctx cochange src/server.rs
   ctx cochange src/auth/ --since 6mo
   ctx cochange src/server.rs --format paths | ctx pack --from-stdin",
+        ),
+        "deps" => (
+            "ctx deps <PATH>... [OPTIONS]",
+            "\
+Lists the files PATH imports — what you need open to understand it.
+PATH is a file or a directory, relative to the current directory; a directory
+(or several paths) is treated as one unit and answers for everything in it.
+Imports are resolved for Rust, Go, TypeScript / JavaScript (incl. Svelte, Vue),
+Python, Java / Kotlin, PHP and Swift.
+
+Command options:
+      --depth <N>             Follow imports N hops (default 1 = direct only)
+      --format <FORMAT>       text (default), json, paths (one path per line)
+      --json                  Shorthand for --format json
+
+Examples:
+  ctx deps src/server.rs
+  ctx deps src/server.rs --depth 2
+  ctx deps src/server.rs --format paths | ctx pack --from-stdin",
+        ),
+        "impact" => (
+            "ctx impact <PATH>... [OPTIONS]",
+            "\
+Lists the files that import PATH — what may break when it changes.
+PATH is a file or a directory, relative to the current directory; a directory
+(or several paths) is treated as one unit and answers for everything in it.
+Imports are resolved for Rust, Go, TypeScript / JavaScript (incl. Svelte, Vue),
+Python, Java / Kotlin, PHP and Swift.
+
+Command options:
+      --depth <N>             Follow imports N hops (default 1 = direct only)
+      --format <FORMAT>       text (default), json, paths (one path per line)
+      --json                  Shorthand for --format json
+
+Examples:
+  ctx impact src/store.rs
+  ctx impact src/store.rs --depth 3 --json
+  ctx impact crates/ctx-pack/ --format paths | ctx pack --from-stdin --goal \"review callers\"",
         ),
         "digest" => (
             "ctx digest [ROOT] [OPTIONS]",
@@ -170,11 +213,20 @@ mod tests {
     fn documented_commands_list_their_options() {
         let (usage, options) = command_help("pack").expect("pack help");
         assert!(usage.starts_with("ctx pack"));
-        for flag in ["--changed", "--companions", "--from-where", "--budget"] {
+        for flag in [
+            "--changed",
+            "--companions",
+            "--deps",
+            "--dependents",
+            "--from-where",
+            "--budget",
+        ] {
             assert!(options.contains(flag), "pack help lacks {flag}");
         }
         assert!(command_help("cochange").unwrap().1.contains("--min-weight"));
         assert!(command_help("digest").unwrap().0.contains("[ROOT]"));
+        assert!(command_help("deps").unwrap().1.contains("--depth"));
+        assert!(command_help("impact").unwrap().1.contains("--format"));
         assert!(command_help("mix").unwrap().1.contains("--from-where"));
         assert!(command_help("no-such-command").is_none());
     }

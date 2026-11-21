@@ -221,7 +221,7 @@ pub(crate) fn read_pack_root(
     }
     // Companions are drawn from every walked (non-ignored, in-scope) file,
     // before the seed filters below narrow `inputs` down.
-    let all_inputs = (args.companions > 0).then(|| inputs.clone());
+    let all_inputs = wants_additions(args).then(|| inputs.clone());
     apply_pack_time_filters(base, &mut inputs, args)?;
     // `--base`: why each branch file is in the pack, keyed by path.
     let mut change_notes = std::collections::HashMap::new();
@@ -327,19 +327,19 @@ pub(crate) fn read_pack_root(
             a.0.path.cmp(&b.0.path)
         }
     });
-    // Co-change companions follow every selected file, strongest first, so
-    // the budget favours the files the user actually picked.
+    // Additions (--deps, --dependents, --companions) follow every selected
+    // file, so the budget favours the files the user actually picked.
     if let Some(all_inputs) = all_inputs {
         let by_path: std::collections::HashMap<&str, &ctx_pack::FileInput> = all_inputs
             .iter()
             .map(|input| (input.path.as_str(), input))
             .collect();
-        let mut added = 0;
-        for (path, reason) in pack_companions(base, &seeds, args.no_warnings) {
-            if added >= args.companions {
-                break;
+        let mut quota = AdditionQuota::new(args);
+        for addition in pack_additions(base, &seeds, args) {
+            if !quota.allows(&addition) {
+                continue;
             }
-            let Some(input) = by_path.get(path.as_str()) else {
+            let Some(input) = by_path.get(addition.path.as_str()) else {
                 continue;
             };
             if args.api_only && !supports_api_only_light(&input.path) {
@@ -350,9 +350,9 @@ pub(crate) fn read_pack_root(
             if result.tier.is_empty() {
                 continue;
             }
-            result.reason = reason;
+            quota.take(&addition);
+            result.reason = addition.reason;
             scored.push(((*input).clone(), result));
-            added += 1;
         }
     }
     irrelevant.sort_by(|a, b| a.path.cmp(&b.path));

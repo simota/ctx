@@ -525,6 +525,7 @@ dependencies = [
  "ctx-git",
  "ctx-mix",
  "ctx-pack",
+ "ctx-relations",
  "ctx-symbols",
  "ctx-tokens",
  "ctx-where",
