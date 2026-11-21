@@ -61,6 +61,7 @@ pub mod refs;
 pub mod relevance;
 pub mod selection;
 pub mod signatures;
+pub mod timefilter;
 pub mod types;
 
 #[cfg(any(test, feature = "testing"))]
