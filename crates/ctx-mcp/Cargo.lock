@@ -295,6 +295,7 @@ dependencies = [
  "ctx-git",
  "ctx-mix",
  "ctx-pack",
+ "ctx-relations",
  "ctx-symbols",
  "ctx-tokens",
  "ctx-where",
@@ -321,6 +322,18 @@ dependencies = [
  "ctx-contract",
  "ctx-scan",
  "ctx-tokens",
+ "libc",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ctx-relations"
+version = "0.1.0"
+dependencies = [
+ "cbindgen",
  "libc",
  "once_cell",
  "regex",

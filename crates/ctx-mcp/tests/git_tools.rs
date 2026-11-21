@@ -256,3 +256,111 @@ fn digest_reports_repository_activity() {
     let not_repo = call_tool(&root, "ctx_digest", json!({"path": "src"}));
     assert_eq!(not_repo["result"]["isError"], true, "{not_repo}");
 }
+
+/// A crate where `src/api.rs` uses `src/store.rs` and `src/cli.rs` uses
+/// `src/api.rs`; `src/api.rs` is then edited in the work tree.
+fn import_repo(tag: &str) -> PathBuf {
+    let root = temp_repo(tag);
+    for (path, body) in [
+        ("Cargo.toml", "[package]\nname = \"demo\"\n"),
+        ("src/lib.rs", "pub mod api;\npub mod cli;\npub mod store;\n"),
+        ("src/store.rs", "pub fn load() -> u32 { 1 }\n"),
+        (
+            "src/api.rs",
+            "use crate::store::load;\npub fn api() -> u32 { load() }\n",
+        ),
+        ("src/cli.rs", "pub fn run() { crate::api::api(); }\n"),
+        ("src/other.rs", "pub fn other() {}\n"),
+    ] {
+        std::fs::write(root.join(path), body).unwrap();
+    }
+    git(&root, &["add", "-A"]);
+    git(&root, &["commit", "-q", "-m", "init"]);
+    std::fs::write(
+        root.join("src/api.rs"),
+        "use crate::store::load;\npub fn api() -> u32 { load() + 1 }\n",
+    )
+    .unwrap();
+    root
+}
+
+#[test]
+fn deps_tool_follows_imports_both_ways_and_by_depth() {
+    if !git_available() {
+        return;
+    }
+    let root = import_repo("deps-tool");
+    let body = text(&call_tool(
+        &root,
+        "ctx_deps",
+        json!({"anchor": "src/api.rs", "format": "json"}),
+    ));
+    let found: Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(found["files"][0]["path"], "src/store.rs", "{body}");
+    assert_eq!(found["total"], 1, "{body}");
+
+    let body = text(&call_tool(
+        &root,
+        "ctx_deps",
+        json!({"anchor": "src/store.rs", "direction": "importers", "depth": 2}),
+    ));
+    assert!(
+        body.contains("| 1 | src/api.rs | 1 | src/store.rs |"),
+        "{body}"
+    );
+    assert!(
+        body.contains("| 2 | src/cli.rs | 2 | src/api.rs |"),
+        "{body}"
+    );
+
+    let refused = call_tool(&root, "ctx_deps", json!({"anchor": "../x.rs"}));
+    assert_eq!(refused["error"]["code"], -32602, "{refused}");
+    let refused = call_tool(
+        &root,
+        "ctx_deps",
+        json!({"anchor": "src/api.rs", "direction": "up"}),
+    );
+    assert_eq!(refused["error"]["code"], -32602, "{refused}");
+}
+
+#[test]
+fn pack_changed_with_deps_and_dependents_adds_the_import_neighbourhood() {
+    if !git_available() {
+        return;
+    }
+    let root = import_repo("pack-deps");
+    let body = text(&call_tool(
+        &root,
+        "ctx_pack",
+        json!({"path": ".", "changed": true, "deps": 5, "dependents": 5, "format": "json"}),
+    ));
+    let pack: Value = serde_json::from_str(&body).unwrap();
+    let included: Vec<(&str, &str)> = pack["included"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| {
+            (
+                f["path"].as_str().unwrap(),
+                f["reason"].as_str().unwrap_or(""),
+            )
+        })
+        .collect();
+    let paths: Vec<&str> = included.iter().map(|(p, _)| *p).collect();
+    assert_eq!(
+        paths,
+        ["src/api.rs", "src/store.rs", "src/cli.rs"],
+        "{body}"
+    );
+    assert!(
+        included[1].1.contains("dependency: imported by src/api.rs"),
+        "{body}"
+    );
+    assert!(
+        included[2].1.contains("dependent: imports src/api.rs"),
+        "{body}"
+    );
+
+    let refused = call_tool(&root, "ctx_pack", json!({"path": ".", "deps": 3}));
+    assert_eq!(refused["error"]["code"], -32602, "{refused}");
+}

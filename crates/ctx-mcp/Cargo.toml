@@ -18,6 +18,7 @@ ctx-mix = { path = "../ctx-mix" }
 ctx-symbols = { path = "../ctx-symbols" }
 ctx-focus = { path = "../ctx-focus" }
 ctx-pack = { path = "../ctx-pack" }
+ctx-relations = { path = "../ctx-relations" }
 ctx-tokens = { path = "../ctx-tokens" }
 ctx-where = { path = "../ctx-where" }
 rayon = "1"

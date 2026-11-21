@@ -101,6 +101,7 @@ impl Server {
             "ctx_digest" => return Ok(self.run_digest(params.arguments.as_deref())?),
             "ctx_roots_list" => self.run_roots_list(params.arguments.as_deref())?,
             "ctx_cochange" => return self.run_cochange(params.arguments.as_deref()),
+            "ctx_deps" => return self.run_deps(params.arguments.as_deref()),
             _ => {
                 return Ok(tool_error_result(&format!("unknown tool: {}", params.name)));
             }
@@ -127,11 +128,17 @@ impl Server {
         if args.format.is_empty() {
             args.format = "markdown".to_string();
         }
-        if args.companions < 0 || args.companions > MAX_COMPANIONS {
-            return invalid_params_with_hint(
-                &format!("companions must be between 0 and {MAX_COMPANIONS}"),
-                "suggested: 5",
-            );
+        for (name, value) in [
+            ("companions", args.companions),
+            ("deps", args.deps),
+            ("dependents", args.dependents),
+        ] {
+            if !(0..=MAX_COMPANIONS).contains(&value) {
+                return invalid_params_with_hint(
+                    &format!("{name} must be between 0 and {MAX_COMPANIONS}"),
+                    "suggested: 5",
+                );
+            }
         }
         if args.files.len() > MAX_PACK_FILES {
             return invalid_params_with_hint(
@@ -198,11 +205,13 @@ impl Server {
                 || !args.mix.trim().is_empty()
                 || args.changed
                 || args.companions > 0
+                || args.deps > 0
+                || args.dependents > 0
                 || !args.include.is_empty()
                 || !args.exclude.is_empty())
         {
             return invalid_params_with_hint(
-                "refs cannot be combined with files, mix, changed, base, companions, include or exclude",
+                "refs cannot be combined with files, mix, changed, base, companions, deps, dependents, include or exclude",
                 "pass the text alone: {\"refs\":\"<stack trace or reply>\"}",
             );
         }
@@ -219,15 +228,16 @@ impl Server {
                 "list only the files you want in 'files'",
             );
         }
-        if selection && (args.changed || args.companions > 0) {
+        let additions = args.companions > 0 || args.deps > 0 || args.dependents > 0;
+        if selection && (args.changed || additions) {
             return invalid_params_with_hint(
-                "files / mix cannot be combined with changed or companions",
+                "files / mix cannot be combined with changed, companions, deps or dependents",
                 "call ctx_pack with {\"changed\":true} separately",
             );
         }
-        if args.companions > 0 && !args.changed {
+        if additions && !args.changed {
             return invalid_params_with_hint(
-                "companions needs changed=true",
+                "companions, deps and dependents need changed=true (or base)",
                 "call ctx_pack with {\"changed\":true,\"companions\":5}",
             );
         }
@@ -327,18 +337,52 @@ impl Server {
                 .into_iter()
                 .partition(|file| changed.contains(&file.path));
             files = selected;
+            let seeds: Vec<String> = files.iter().map(|file| file.path.clone()).collect();
+            let mut by_path: BTreeMap<String, PackFile> = rest
+                .into_iter()
+                .map(|file| (file.path.clone(), file))
+                .collect();
+            // Definitions first, then callers, then co-change partners; a
+            // file is added once, under the first group that wants it.
+            if args.deps > 0 || args.dependents > 0 {
+                match ctx_relations::build_cached(&root.to_string_lossy()) {
+                    Ok(index) => {
+                        for (wanted, direction) in [
+                            (args.deps, ctx_relations::Direction::Imports),
+                            (args.dependents, ctx_relations::Direction::Importers),
+                        ] {
+                            let mut added = 0;
+                            for found in index.reach(&seeds, direction, 1) {
+                                if added >= wanted {
+                                    break;
+                                }
+                                let Some(file) = by_path.remove(&found.path) else {
+                                    continue;
+                                };
+                                let reason = if direction == ctx_relations::Direction::Imports {
+                                    format!("dependency: imported by {}", found.via)
+                                } else {
+                                    format!("dependent: imports {}", found.via)
+                                };
+                                companions.push((file, reason));
+                                added += 1;
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        return Err(tool_error(format!("ctx_pack: deps/dependents: {err}")))
+                    }
+                }
+            }
             if args.companions > 0 {
-                let seeds: Vec<String> = files.iter().map(|file| file.path.clone()).collect();
-                let mut by_path: BTreeMap<String, PackFile> = rest
-                    .into_iter()
-                    .map(|file| (file.path.clone(), file))
-                    .collect();
+                let mut added = 0;
                 for (path, reason) in co_change_companions(&root, &seeds) {
-                    if companions.len() as i64 >= args.companions {
+                    if added >= args.companions {
                         break;
                     }
                     if let Some(file) = by_path.remove(&path) {
                         companions.push((file, reason));
+                        added += 1;
                     }
                 }
             }
