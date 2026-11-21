@@ -404,21 +404,37 @@
     if (entry) return entry.name;
     return basename(repo.root);
   });
+
+  // Skip link: move focus into the content pane (the right-hand section,
+  // whichever view it currently hosts) without touching the route.
+  function skipToContent(e: MouseEvent) {
+    e.preventDefault();
+    const target = document.querySelector<HTMLElement>('main .pane.right');
+    if (!target) return;
+    target.tabIndex = -1;
+    target.focus();
+  }
 </script>
+
+<!-- WHY: first tab stop. Without it a keyboard user tabs through the whole
+     header and file tree before reaching the content pane. -->
+<a class="skip-link" href="#ctx-main" onclick={skipToContent}>Skip to content</a>
 
 <div class="layout">
   <header class="topbar">
     <div class="brand">
-      <a href={toTreeHash()} aria-label="ctx home" onclick={(e) => { e.preventDefault(); navigate(toTreeHash()); }}>
-        <span class="brand-mark">ctx</span>
-      </a>
+      <h1 class="brand-title">
+        <a href={toTreeHash()} aria-label="ctx home" onclick={(e) => { e.preventDefault(); navigate(toTreeHash()); }}>
+          <span class="brand-mark">ctx</span>
+        </a>
+      </h1>
       {#if headerRootName}
         <span class="brand-sep" aria-hidden="true">·</span>
         <button
           type="button"
           class="brand-sub-btn"
           title="Switch project root (⌘⇧B / Ctrl+Shift+B)"
-          aria-label={`Current root: ${headerRootName}. Switch project root.`}
+          aria-label={`${headerRootName}: current root. Switch project root.`}
           onclick={openRootsPicker}
         >{headerRootName}</button>
       {/if}
@@ -453,7 +469,7 @@
       <button
         type="button"
         class="topnav-action"
-        aria-label="Switch project root"
+        aria-label="Roots: switch project root"
         title="Switch project root (⌘⇧B / Ctrl+Shift+B)"
         onclick={openRootsPicker}
       >Roots</button>
@@ -505,7 +521,7 @@
     </nav>
   </header>
 
-  <main class="content" class:two-pane={twoPane} class:tree-collapsed={!view.showTree && route.name !== 'gitlog'}>
+  <main id="ctx-main" class="content" class:two-pane={twoPane} class:file-open={route.name === 'file'} class:tree-collapsed={!view.showTree && route.name !== 'gitlog'}>
     {#if route.name === 'gitlog'}
       <aside class="pane left gitlog-side" aria-label="git log commits">
         <GitRefsPanel />
@@ -668,10 +684,39 @@
     gap: 6px;
     min-width: 0;
   }
+  /* The brand is the page's only <h1>; it keeps the inline look it had as a
+     bare link. */
+  .brand-title {
+    margin: 0;
+    font: inherit;
+    flex: 0 0 auto;
+  }
   .brand a {
+    display: inline-block;
     color: inherit;
     font-weight: 600;
-    flex: 0 0 auto;
+    min-width: 24px;
+    min-height: 24px;
+    line-height: 24px;
+  }
+  .skip-link {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    z-index: 1000;
+    padding: 6px 12px;
+    border-radius: 4px;
+    background: var(--ctx-bg-elev);
+    color: var(--ctx-fg-strong);
+    border: 1px solid var(--ctx-border-strong);
+    transform: translateY(-200%);
+  }
+  .skip-link:focus {
+    transform: none;
+  }
+  /* Focus lands here from the skip link only; the pane is not a control. */
+  .pane.right:focus {
+    outline: none;
   }
   .brand-mark {
     color: var(--ctx-accent-text);
@@ -738,6 +783,7 @@
   }
   .view-toggle {
     padding: 4px 8px;
+    min-height: 24px;
     line-height: 1;
     border: 0;
     color: var(--ctx-fg-dim);
@@ -873,23 +919,40 @@
      disables the two-pane split): the nav wraps under the brand + search row
      instead of forcing ~900px of page width, and the tree stacks above the
      content rather than leaving the main pane ~115px wide. */
-  @media (max-width: 799px) {
+  /* Below ~1360px one row cannot hold brand + search + nav: the nav's
+     intrinsic width (~660px) squeezed the search input down to 8px and, under
+     ~1000px, pushed the page into a horizontal scroll. The nav takes its own
+     row instead, so the search field keeps a usable width. */
+  @media (max-width: 1359px) {
     .layout {
-      grid-template-rows: auto minmax(0, 1fr) auto;
+      grid-template-rows: auto minmax(0, 1fr) 22px;
     }
     .topbar {
       grid-template-columns: auto minmax(0, 1fr);
       row-gap: 4px;
-      padding: 4px 8px;
+      padding: 4px 12px;
     }
     .topnav {
       grid-column: 1 / -1;
       flex-wrap: wrap;
       gap: 4px 8px;
     }
+  }
+  @media (max-width: 799px) {
+    .layout {
+      grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+    .topbar {
+      padding: 4px 8px;
+    }
     .content {
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: minmax(0, 40%) minmax(0, 1fr);
+    }
+    /* A file is open: the tree is now secondary, so the content pane takes
+       the larger share of a short viewport. */
+    .content.file-open {
+      grid-template-rows: minmax(0, 30%) minmax(0, 1fr);
     }
     .content.tree-collapsed {
       grid-template-columns: 36px minmax(0, 1fr);

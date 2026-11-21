@@ -134,7 +134,34 @@ and this project does not yet follow strict semver — see release notes per tag
   budget; files that are missing, outside the root or over budget are
   reported as skipped.
 
+
+### Changed
+- The `--since` / `--until` time-filter parser lives once in `ctx-pack`
+  (`ctx_pack::timefilter`) instead of being copied in `ctx-cli` and
+  `ctx-web`.
+
 ### Fixed
+- `ctx browse`: between roughly 800px and 1360px wide the header squeezed
+  the search field down to 8px (and under ~1000px the page scrolled
+  sideways). The navigation now takes its own row below 1360px, so the
+  search field stays usable.
+- `ctx browse`: a "Skip to content" link is the first tab stop (content was
+  31 tab presses away), the page has an `<h1>` and each file view an `<h2>`,
+  and buttons whose accessible name left out their visible text ("Go",
+  "Roots", "Wrap", "View", symbol and import rows) now include it.
+- `ctx browse`: the extension counts in Largest files met less than 4.5:1
+  contrast on the seven light themes; symbol, import and Git Log view tabs
+  are at least 24px tall; a missing file says "File not found" and what to
+  do instead of only echoing the server's stat error.
+- `ctx browse` on a phone: an open file gets the larger share of the screen
+  (about 210px of code instead of 85px on a 390×844 viewport), the Go button
+  stays beside the search field, and the Git Log header wraps instead of
+  clipping its "Relations" tab.
+- `/api/git/co-change` and `ctx cochange` graph output listed nodes and edges
+  in hash order, so the same repository gave a differently ordered payload
+  (and a different graph layout) on every run. The order is now stable.
+- `ctx browse`: a root registered as a bare `~` in `~/.ctx/roots.toml` is
+  expanded to the home directory, as the CLI and MCP server already did.
 - `ctx pack --overflow signatures`: the contract hashed the digest text as
   lines 1..N, so verifying a citation of a real declaration line compared
   it against the wrong line and reported stale content. It now records the
