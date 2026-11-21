@@ -52,6 +52,69 @@ pub struct RustIndex {
     crates: Vec<CrateInfo>,
     /// Crate name as written in Rust source (`ctx_pack`) → index in `crates`.
     by_name: HashMap<String, usize>,
+    /// For packages with both a library and a `src/main.rs`: each file of
+    /// the binary's module tree → `src/main.rs`, so `crate::` in it means
+    /// the binary rather than the library.
+    bin_root_of: HashMap<String, String>,
+}
+
+/// Directory a module file's children live in.
+fn child_dir(rel: &str, is_root: bool) -> String {
+    let dir = parent_slash(rel);
+    let base = basename(rel);
+    if is_root || base == "mod.rs" {
+        dir
+    } else {
+        join(&dir, base.strip_suffix(".rs").unwrap_or(base))
+    }
+}
+
+/// Every file in the module tree under `root`, found by following its
+/// out-of-line `mod` declarations (incl. those inside inline modules).
+fn module_tree(root: &str, abs_of: &HashMap<&str, &Path>, all: &HashSet<String>) -> Vec<String> {
+    let mut seen: HashSet<String> = HashSet::from([root.to_string()]);
+    let mut queue = vec![root.to_string()];
+    let mut out = Vec::new();
+    while let Some(rel) = queue.pop() {
+        let Some(src) = abs_of
+            .get(rel.as_str())
+            .and_then(|abs| fs::read_to_string(abs).ok())
+        else {
+            continue;
+        };
+        let (no_comments, code) = sanitize(&src);
+        let mods = inline_mods(&code);
+        let base_dir = child_dir(&rel, rel == root);
+        for caps in MOD_DECL_RE.captures_iter(&no_comments) {
+            let at = caps.get(2).unwrap().start();
+            if code.as_bytes().get(at) != no_comments.as_bytes().get(at) {
+                continue;
+            }
+            let target = match caps.get(1) {
+                Some(path) => normalize(&join(&parent_slash(&rel), path.as_str())),
+                None => {
+                    let mut dir = base_dir.clone();
+                    for name in enclosing(&mods, at) {
+                        dir = join(&dir, name);
+                    }
+                    let name = &caps[2];
+                    [
+                        join(&dir, &format!("{name}.rs")),
+                        join(&dir, &format!("{name}/mod.rs")),
+                    ]
+                    .into_iter()
+                    .find(|path| all.contains(path))
+                }
+            };
+            if let Some(target) = target.filter(|path| all.contains(path)) {
+                if seen.insert(target.clone()) {
+                    queue.push(target);
+                }
+            }
+        }
+        out.push(rel);
+    }
+    out
 }
 
 fn join(dir: &str, name: &str) -> String {
@@ -157,6 +220,26 @@ pub fn build_rust_index(files: &[FileEntry], all: &HashSet<String>) -> RustIndex
             .then_with(|| crates[a].dir.cmp(&crates[b].dir))
     });
     let mut index = RustIndex::default();
+    let abs_of: HashMap<&str, &Path> = files
+        .iter()
+        .filter(|fi| !fi.is_dir)
+        .map(|fi| (fi.rel.as_str(), fi.abs.as_path()))
+        .collect();
+    for krate in &crates {
+        let (Some(lib_root), main) = (&krate.lib_root, join(&krate.dir, "src/main.rs")) else {
+            continue;
+        };
+        if !all.contains(&main) {
+            continue;
+        }
+        // A module both targets declare stays with the library.
+        let lib: HashSet<String> = module_tree(lib_root, &abs_of, all).into_iter().collect();
+        for rel in module_tree(&main, &abs_of, all) {
+            if !lib.contains(&rel) {
+                index.bin_root_of.insert(rel, main.clone());
+            }
+        }
+    }
     for old in order {
         // The first package to claim a name keeps it: nearest to the root
         // last, so a fixture crate deep in the tree cannot shadow… a name is
@@ -451,6 +534,8 @@ impl<'a> FileCtx<'a> {
         } else if matches!(top, "tests" | "benches" | "examples") {
             let base_dir = krate.map_or("", |k| k.dir.as_str());
             (Some(join(base_dir, top)), None)
+        } else if let Some(main) = index.bin_root_of.get(rel) {
+            (Some(parent_slash(main)), Some(main.clone()))
         } else if let Some(krate) = krate {
             (Some(krate.src_dir.clone()), krate.root_file.clone())
         } else {
@@ -502,6 +587,14 @@ impl<'a> FileCtx<'a> {
         best
     }
 
+    /// Directory the out-of-line children of the inline module path
+    /// `inline` (outermost first) live in.
+    fn inline_dir(&self, inline: &[&str]) -> String {
+        inline
+            .iter()
+            .fold(self.mod_dir.clone(), |dir, name| join(&dir, name))
+    }
+
     /// The file that defines the module whose children live in `dir`.
     fn module_file(&self, dir: &str) -> Option<String> {
         let mut candidates = vec![
@@ -531,23 +624,18 @@ impl<'a> FileCtx<'a> {
                 let dir = self.crate_dir.as_deref()?;
                 self.descend(dir, rest).or_else(|| self.crate_root.clone())
             }
-            "self" => {
-                if !inline.is_empty() {
-                    return None;
-                }
-                self.descend(&self.mod_dir, rest)
-            }
+            "self" => self.descend(&self.inline_dir(inline), rest),
             "super" => {
                 let supers = 1 + rest.iter().take_while(|seg| *seg == "super").count();
                 let rest = &rest[supers - 1..];
-                // Each enclosing inline module absorbs one `super`.
+                // Each enclosing inline module absorbs one `super`; the path
+                // then continues from a module of this same file, and only
+                // its out-of-line descendants are other files.
                 if supers <= inline.len() {
-                    return None;
+                    let dir = self.inline_dir(&inline[..inline.len() - supers]);
+                    return self.descend(&dir, rest);
                 }
                 let above = supers - inline.len();
-                if above == 0 {
-                    return None;
-                }
                 let mut dir = self.super_dir.clone()?;
                 for _ in 1..above {
                     if dir.is_empty() {
@@ -831,6 +919,42 @@ mod tests {
             ("src/a.rs", "pub fn f() {}\n#[cfg(test)]\nmod tests {\n    use super::*;\n    use super::f;\n    fn t() { super::f(); self::t(); }\n}\n"),
         ];
         assert!(imports(&files, "src/a.rs").is_empty());
+    }
+
+    #[test]
+    fn inline_module_paths_reach_out_of_line_children() {
+        let files = [
+            ("Cargo.toml", MANIFEST),
+            (
+                "src/lib.rs",
+                "mod child;\nmod outer {\n    mod deep;\n    fn f() { self::deep::g(); }\n}\n#[cfg(test)]\nmod tests {\n    use super::child::run;\n    use super::helper;\n}\n",
+            ),
+            ("src/child.rs", ""),
+            ("src/outer/deep.rs", ""),
+        ];
+        assert_eq!(
+            imports(&files, "src/lib.rs"),
+            ["src/child.rs", "src/outer/deep.rs"]
+        );
+    }
+
+    #[test]
+    fn binary_modules_resolve_crate_to_main_not_the_library() {
+        let files = [
+            ("Cargo.toml", MANIFEST),
+            ("src/lib.rs", "pub mod store;\npub struct Config;\n"),
+            ("src/store.rs", "use crate::Config;\n"),
+            (
+                "src/main.rs",
+                "mod cmd;\nconst VERSION: &str = \"1\";\nfn main() { cmd::run(); }\n",
+            ),
+            ("src/cmd.rs", "use crate::VERSION;\nuse app::store::open;\n"),
+        ];
+        assert_eq!(
+            imports(&files, "src/cmd.rs"),
+            ["src/main.rs", "src/store.rs"]
+        );
+        assert_eq!(imports(&files, "src/store.rs"), ["src/lib.rs"]);
     }
 
     #[test]
