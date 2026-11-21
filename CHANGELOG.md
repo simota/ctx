@@ -157,7 +157,7 @@ and this project does not yet follow strict semver — see release notes per tag
   (about 210px of code instead of 85px on a 390×844 viewport), the Go button
   stays beside the search field, and the Git Log header wraps instead of
   clipping its "Relations" tab.
-- `/api/git/co-change` and `ctx cochange` graph output listed nodes and edges
+- `/api/git/co-change` (the Git Log Relations graph) listed nodes and edges
   in hash order, so the same repository gave a differently ordered payload
   (and a different graph layout) on every run. The order is now stable.
 - `ctx browse`: a root registered as a bare `~` in `~/.ctx/roots.toml` is
