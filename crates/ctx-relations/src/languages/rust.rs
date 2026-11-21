@@ -56,6 +56,9 @@ pub struct RustIndex {
     /// the binary's module tree → `src/main.rs`, so `crate::` in it means
     /// the binary rather than the library.
     bin_root_of: HashMap<String, String>,
+    /// `#[path = "..."] mod name;` declarations: the module's conventional
+    /// location (`<children dir of the declaring file>/name`) → its file.
+    path_mods: HashMap<String, String>,
 }
 
 /// Directory a module file's children live in.
@@ -250,6 +253,39 @@ pub fn build_rust_index(files: &[FileEntry], all: &HashSet<String>) -> RustIndex
             .or_insert(index.crates.len());
         index.crates.push(crates[old].clone());
     }
+    // `#[path]` modules, keyed by where the convention would look for them,
+    // so qualified paths from any file (`crate::sys::Handle`) find them.
+    let mut path_mods = Vec::new();
+    for fi in files {
+        if fi.is_dir || !fi.rel.ends_with(".rs") {
+            continue;
+        }
+        let Ok(src) = fs::read_to_string(&fi.abs) else {
+            continue;
+        };
+        if !src.contains("#[path") {
+            continue;
+        }
+        let (no_comments, code) = sanitize(&src);
+        let mods = inline_mods(&code);
+        let ctx = FileCtx::new(&fi.rel, &index, all);
+        for caps in MOD_DECL_RE.captures_iter(&no_comments) {
+            let (Some(path), name) = (caps.get(1), caps.get(2).unwrap()) else {
+                continue;
+            };
+            if code.as_bytes().get(name.start()) != no_comments.as_bytes().get(name.start()) {
+                continue;
+            }
+            let Some(target) = normalize(&join(&parent_slash(&fi.rel), path.as_str()))
+                .filter(|path| all.contains(path))
+            else {
+                continue;
+            };
+            let inline = enclosing(&mods, name.start());
+            path_mods.push((join(&ctx.inline_dir(&inline), name.as_str()), target));
+        }
+    }
+    index.path_mods.extend(path_mods);
     index
 }
 
@@ -577,6 +613,12 @@ impl<'a> FileCtx<'a> {
             }
             let file = join(&dir, &format!("{seg}.rs"));
             let nested = join(&dir, &format!("{seg}/mod.rs"));
+            let module = join(&dir, seg);
+            if let Some(target) = self.index.path_mods.get(&module) {
+                best = Some(target.clone());
+                dir = child_dir(target, false);
+                continue;
+            }
             if self.all.contains(&file) {
                 best = Some(file);
             } else if self.all.contains(&nested) {
@@ -854,6 +896,21 @@ mod tests {
             ("src/imp/unix.rs", ""),
         ];
         assert_eq!(imports(&files, "src/lib.rs"), ["src/imp/unix.rs"]);
+    }
+
+    #[test]
+    fn path_attribute_modules_resolve_from_qualified_paths() {
+        let files = [
+            ("Cargo.toml", MANIFEST),
+            (
+                "src/lib.rs",
+                "#[path = \"platform/unix.rs\"]\npub mod sys;\npub mod api;\n",
+            ),
+            ("src/platform/unix.rs", "pub struct Handle;\n"),
+            ("src/api.rs", "use crate::sys::Handle;\n"),
+            ("src/sys.rs", ""),
+        ];
+        assert_eq!(imports(&files, "src/api.rs"), ["src/platform/unix.rs"]);
     }
 
     #[test]
