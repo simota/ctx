@@ -28,7 +28,6 @@
 //! The wiring that makes 1-4 green is the migration loop's job; this oracle
 //! must be RED on those until it lands, and must NOT itself implement the cutover.
 
-use std::io::Write;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};

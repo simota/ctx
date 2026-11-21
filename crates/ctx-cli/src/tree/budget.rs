@@ -296,14 +296,9 @@ pub(crate) fn budget_bar(used: i64, token_budget: i64) -> String {
     if token_budget <= 0 {
         return "\u{2591}".repeat(BUDGET_BAR_WIDTH as usize);
     }
-    let mut filled =
-        ((used as f64 / token_budget as f64) * BUDGET_BAR_WIDTH as f64 + 0.5).floor() as i64;
-    if filled < 0 {
-        filled = 0;
-    }
-    if filled > BUDGET_BAR_WIDTH {
-        filled = BUDGET_BAR_WIDTH;
-    }
+    let filled = (((used as f64 / token_budget as f64) * BUDGET_BAR_WIDTH as f64 + 0.5).floor()
+        as i64)
+        .clamp(0, BUDGET_BAR_WIDTH);
     format!(
         "{}{}",
         "\u{2588}".repeat(filled as usize),

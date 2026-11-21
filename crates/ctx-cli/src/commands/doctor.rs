@@ -132,7 +132,7 @@ pub(crate) struct DoctorCheck {
     detail: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub(crate) struct CtxToml {
     #[serde(default)]
     audit: AuditToml,
@@ -233,15 +233,6 @@ pub(crate) fn load_ctx_toml(root: &Path) -> Result<(CtxToml, Option<PathBuf>), S
     let cfg = toml::from_str::<CtxToml>(&body)
         .map_err(|err| format!("decode {}: {err}", path.display()))?;
     Ok((cfg, Some(path)))
-}
-
-impl Default for CtxToml {
-    fn default() -> Self {
-        Self {
-            audit: AuditToml::default(),
-            security: SecurityToml::default(),
-        }
-    }
 }
 
 pub(crate) fn audit_status(cfg: &AuditToml) -> String {

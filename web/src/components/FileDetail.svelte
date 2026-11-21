@@ -192,6 +192,9 @@
   let data = $state<FileResponse | null>(null);
   let loading = $state(false);
   let error = $state<string | null>(null);
+  // True when the load failed with 404, so the message can say what happened
+  // and what to do instead of only echoing the server's stat error.
+  let errorNotFound = $state(false);
   let pinned = $derived(isPinned(path));
 
   // viewer controls
@@ -980,6 +983,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
       .catch((e: unknown) => {
         if (epoch !== loadEpoch) return;
         error = e instanceof Error ? e.message : String(e);
+        errorNotFound = e instanceof ApiCallError && e.status === 404;
       })
       .finally(() => {
         if (epoch === loadEpoch) loading = false;
@@ -2477,6 +2481,9 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
 
 <article class="file-detail" bind:this={rootEl} oncontextmenu={onContextMenu}>
   <header class="meta">
+    <!-- WHY: names this section for heading navigation; the visible
+         breadcrumb is a row of buttons, not a heading. -->
+    <h2 class="sr-only">{path.split('/').pop() || path}</h2>
     <div class="meta-top">
       <nav class="breadcrumb mono" aria-label="path" title={path}>
         {#each crumbs as crumb, ci (`${ci}:${crumb.path}`)}
@@ -2520,7 +2527,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
           <button
             type="button"
             class="action"
-            aria-label="Toggle preview between rendered output and source"
+            aria-label={`View: ${previewView === 'rendered' ? 'Rendered' : 'Source'}. Toggle preview between rendered output and source`}
             aria-pressed={previewView === 'rendered'}
             onclick={togglePreviewView}
             disabled={!data || diffMode || previewView === 'hex'}
@@ -2578,7 +2585,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
         <button
           type="button"
           class="action"
-          aria-label="Toggle line wrap"
+          aria-label={`Wrap: ${wrap ? 'on' : 'off'}. Toggle line wrap`}
           aria-pressed={wrap}
           onclick={toggleWrap}
           disabled={!data}
@@ -2684,8 +2691,13 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
       <span class="skel" style="width: 50%; height: 12px;"></span>
     </div>
   {:else if error}
-    <div class="error">
-      <p>Failed to load file.</p>
+    <div class="error" role="alert">
+      {#if errorNotFound}
+        <p>File not found.</p>
+        <p class="muted">It may have been moved, renamed or deleted. Pick another file from the tree, or retry.</p>
+      {:else}
+        <p>Failed to load file.</p>
+      {/if}
       <code class="mono">{error}</code>
       <button onclick={() => load(path)}>Retry</button>
     </div>
@@ -3595,7 +3607,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     .symbols {
       border-left: 0;
       border-top: 1px solid var(--ctx-border);
-      max-height: 160px;
+      max-height: 120px;
     }
     .history-entry {
       grid-template-columns: 6em 1fr 4em;

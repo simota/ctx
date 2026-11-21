@@ -193,6 +193,7 @@
     align-items: center;
     gap: 6px;
     font-size: 11px;
+    min-height: 24px;
     padding: 2px 6px 2px 8px;
     background: transparent;
     color: var(--ctx-fg);

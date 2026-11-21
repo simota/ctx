@@ -340,25 +340,8 @@ fn normalize_log_path(root: &Path, cwd: &Path, prefix: &str, raw: &str) -> Resul
     } else {
         Path::new(prefix).join(raw_path)
     };
-    clean_relative_path(&path).ok_or_else(|| format!("path {raw:?} is outside the repository root"))
-}
-
-fn clean_relative_path(path: &Path) -> Option<String> {
-    let mut parts = Vec::new();
-    for component in path.components() {
-        match component {
-            std::path::Component::CurDir => {}
-            std::path::Component::Normal(part) => parts.push(part.to_string_lossy().into_owned()),
-            std::path::Component::ParentDir => {
-                parts.pop()?;
-            }
-            _ => return None,
-        }
-    }
-    if parts.is_empty() {
-        return None;
-    }
-    Some(parts.join("/"))
+    crate::commands::relations::clean_relative_path(&path)
+        .ok_or_else(|| format!("path {raw:?} is outside the repository root"))
 }
 
 fn load_log_data(args: &LogArgs) -> Result<LogData, String> {

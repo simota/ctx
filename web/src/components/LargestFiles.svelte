@@ -418,12 +418,15 @@
   .ext-chip {
     font-variant-numeric: tabular-nums;
   }
+  /* Dimmed with the contrast-checked token, not opacity: 60% opacity put the
+     count below 4.5:1 on every light theme. */
   .ext-count {
-    opacity: 0.6;
+    color: var(--ctx-fg-dim);
     font-size: 10px;
     margin-left: 1px;
   }
   .ext-chip.active .ext-count {
+    color: inherit;
     opacity: 0.85;
   }
   .clear-ext {

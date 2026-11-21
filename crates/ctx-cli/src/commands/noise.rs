@@ -296,8 +296,8 @@ pub(crate) fn render_noise_text(result: &NoiseResult, top: usize) {
     println!("Top noise candidates by token impact:");
     println!();
     println!(
-        " {:<4} {:<9} {:<13} {:<11} {}",
-        "#", "Tokens", "Reason", "Gitignore", "Path"
+        " {:<4} {:<9} {:<13} {:<11} Path",
+        "#", "Tokens", "Reason", "Gitignore"
     );
     for (idx, c) in result.candidates.iter().enumerate() {
         println!(

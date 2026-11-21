@@ -108,7 +108,6 @@
                 type="button"
                 class="row"
                 title={it.path}
-                aria-label={`Open ${it.path}`}
                 onclick={(e) => go(it.path, e)}
               >
                 <span class="arrow muted" aria-hidden="true">→</span>
@@ -140,7 +139,6 @@
                 type="button"
                 class="row"
                 title={it.path}
-                aria-label={`Open ${it.path}`}
                 onclick={(e) => go(it.path, e)}
               >
                 <span class="arrow muted" aria-hidden="true">←</span>
@@ -221,6 +219,7 @@
     gap: 6px;
     width: 100%;
     padding: 3px 4px;
+    min-height: 24px;
     font-size: 11px;
     text-align: start;
     border: 0;

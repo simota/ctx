@@ -302,6 +302,7 @@ pub fn write_digest_fixture() -> PathBuf {
 /// - Go stores the time at nanosecond precision (e.g. "2024-06-01T11:15:41.385642Z")
 /// - Rust uses midnight for `since` ("2024-06-01T00:00:00Z") and second-precision
 ///   for `until` ("2026-06-01T11:15:41Z").
+///
 /// Both agree on the DATE portion; the time-of-day differs. All other fields are
 /// compared exactly (commits, authors, files, deltas, hot_files, since_ref, head_ref).
 pub fn assert_digest_json_parity(root: &Path, args: &[&str]) {

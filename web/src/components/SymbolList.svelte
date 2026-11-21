@@ -52,7 +52,7 @@
           <button
             type="button"
             class="row"
-            aria-label={`Jump to ${s.name} on line ${s.line}`}
+            aria-label={`${s.kind} ${s.name} L${s.line}: jump to line ${s.line}`}
             onclick={() => onJump?.(s.line)}
           >
             <span class="kind" style="color: {kindColor(s.kind)}">{s.kind}</span>
@@ -93,6 +93,7 @@
     gap: 6px;
     width: 100%;
     padding: 3px 4px;
+    min-height: 24px;
     font-size: 12px;
     align-items: baseline;
     text-align: left;

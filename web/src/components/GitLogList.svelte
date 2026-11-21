@@ -233,10 +233,13 @@
     height: 100%;
     overflow: auto;
   }
+  /* Wraps instead of clipping: in a narrow sidebar the ref select drops to
+     its own row rather than squeezing the title and cutting off a tab. */
   header {
     display: flex;
-    align-items: baseline;
-    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
     padding: 10px 12px 8px;
     position: sticky;
     top: 0;
@@ -247,6 +250,7 @@
   h2 {
     font-size: 0.95em;
     margin: 0;
+    white-space: nowrap;
   }
   .muted {
     color: var(--ctx-fg-dim);
@@ -256,6 +260,7 @@
   }
   .view-seg {
     display: inline-flex;
+    flex: 0 0 auto;
     margin-left: 8px;
     border: 1px solid var(--ctx-border);
     border-radius: 5px;
@@ -266,6 +271,7 @@
     color: var(--ctx-fg-dim);
     background: var(--ctx-bg-elev, var(--ctx-bg));
     border: 0;
+    min-height: 24px;
     padding: 2px 8px;
     cursor: pointer;
   }

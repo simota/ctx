@@ -962,10 +962,16 @@ fn co_change_graph_impl(
     let mut compact: HashMap<usize, usize> = HashMap::new();
     let mut nodes: Vec<CoChangeNode> = Vec::new();
     let mut edges: Vec<CoChangeEdge> = Vec::new();
-    for (&(a, b), &weight) in &pair_weights {
-        if weight < min_weight {
-            continue;
-        }
+    // Sorted by interned id (first-seen order in the log), not hash order:
+    // node indices and edge order are then the same on every call, so the
+    // payload and anything laid out from it are reproducible.
+    let mut kept: Vec<((usize, usize), u32)> = pair_weights
+        .iter()
+        .filter(|(_, &weight)| weight >= min_weight)
+        .map(|(&pair, &weight)| (pair, weight))
+        .collect();
+    kept.sort_unstable_by_key(|&(pair, _)| pair);
+    for ((a, b), weight) in kept {
         let source = intern_node(
             repo_root,
             count_lines,
@@ -3150,6 +3156,43 @@ mod tests {
         assert!(branch_changes(&root, "--output=/tmp/x").is_err());
         let err = branch_changes(&root, "no-such-branch").unwrap_err();
         assert!(err.to_string().contains("cannot resolve base"), "{err}");
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn co_change_graph_is_identical_across_calls() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp repo");
+        git(&root, &["init", "-q", "-b", "main", "."]);
+
+        // Eight files co-changing twice: 28 edges, enough that hash-order
+        // iteration would almost never repeat the same sequence.
+        for i in 0..2 {
+            for f in 0..8 {
+                fs::write(root.join(format!("f{f}.rs")), format!("v{i}\n")).expect("write");
+            }
+            commit_all(&root, "touch all", "2020-01-02T03:04:05+00:00");
+        }
+
+        let shape = |g: &CoChangeGraph| {
+            (
+                g.nodes.iter().map(|n| n.path.clone()).collect::<Vec<_>>(),
+                g.edges
+                    .iter()
+                    .map(|e| (e.source, e.target, e.weight))
+                    .collect::<Vec<_>>(),
+            )
+        };
+        let first = co_change_graph(&root, 100, None, 2).expect("co-change graph");
+        assert_eq!(first.edges.len(), 28);
+        for _ in 0..5 {
+            let again = co_change_graph(&root, 100, None, 2).expect("co-change graph");
+            assert_eq!(shape(&first), shape(&again));
+        }
 
         let _ = fs::remove_dir_all(root);
     }

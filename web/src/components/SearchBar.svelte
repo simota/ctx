@@ -115,7 +115,7 @@
       Exact
     </button>
   </div>
-  <button class="submit" type="submit" aria-label="run search">Go</button>
+  <button class="submit" type="submit" aria-label="Go: run search">Go</button>
 </form>
 
 <style>
@@ -178,11 +178,18 @@
     color: var(--ctx-accent-text);
   }
   @media (max-width: 720px) {
+    /* Row 1: icon | input | Go. Row 2: match options. Keeping Go beside the
+       input saves a third row on a phone. */
     .search-bar {
       grid-template-columns: 24px minmax(0, 1fr) auto;
     }
+    .submit {
+      grid-column: 3;
+      grid-row: 1;
+    }
     .match-mode {
       grid-column: 2 / -1;
+      grid-row: 2;
       justify-self: start;
     }
   }

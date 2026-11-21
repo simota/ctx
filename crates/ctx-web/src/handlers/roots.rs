@@ -178,7 +178,14 @@ fn roots_path() -> Result<PathBuf, String> {
     Ok(PathBuf::from(home).join(".ctx").join("roots.toml"))
 }
 
+/// Same rules as ctx-cli `common::expand_home` and ctx-mcp `util::expand_home`:
+/// a bare `~` and a `~/` prefix expand to `$HOME`; anything else is literal.
 fn expand_home(path: &str) -> PathBuf {
+    if path == "~" {
+        if let Ok(home) = std::env::var("HOME") {
+            return PathBuf::from(home);
+        }
+    }
     if let Some(rest) = path.strip_prefix("~/") {
         if let Ok(home) = std::env::var("HOME") {
             return PathBuf::from(home).join(rest);
@@ -249,5 +256,15 @@ mod tests {
             "body: {body}",
         );
         assert!(!body.contains(&path.display().to_string()), "body: {body}");
+    }
+    #[test]
+    fn expand_home_expands_bare_tilde_like_the_cli() {
+        let Ok(home) = std::env::var("HOME") else {
+            return;
+        };
+        assert_eq!(expand_home("~"), PathBuf::from(&home));
+        assert_eq!(expand_home("~/x"), PathBuf::from(&home).join("x"));
+        assert_eq!(expand_home("~user/x"), PathBuf::from("~user/x"));
+        assert_eq!(expand_home("/abs"), PathBuf::from("/abs"));
     }
 }
