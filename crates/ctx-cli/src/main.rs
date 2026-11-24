@@ -100,6 +100,15 @@ fn main() -> ExitCode {
                 .collect::<Vec<_>>()
                 .join(" ");
             eprintln!("Error: unsupported invocation: ctx {invocation}");
+            // A known command with missing or malformed arguments: point at
+            // its usage instead of leaving the user at a dead end.
+            if let Some(name) = invoked_command(&args[1..]) {
+                match help::command_help(name) {
+                    Some((usage, _)) => eprintln!("Usage: {usage}"),
+                    None => eprintln!("Usage: ctx {name} [ARGS]..."),
+                }
+                eprintln!("Run `ctx {name} --help` for the options.");
+            }
             ExitCode::FAILURE
         }
         Err(err) => {
@@ -107,6 +116,21 @@ fn main() -> ExitCode {
             ExitCode::from(err.exit_code() as u8)
         }
     }
+}
+
+/// The subcommand an invocation names (`ctx skim`, `ctx --json deps`), if
+/// any.
+fn invoked_command(args: &[OsString]) -> Option<&'static str> {
+    let first = args.first()?;
+    let candidate = if first.to_string_lossy().starts_with('-') {
+        args.get(1)?
+    } else {
+        first
+    };
+    COMMANDS
+        .iter()
+        .map(|(name, _)| *name)
+        .find(|name| candidate == OsStr::new(name))
 }
 
 /// Rust ignores SIGPIPE, so `ctx pack | head` used to panic with
@@ -409,6 +433,14 @@ mod tests {
 
     fn os_args(args: &[&str]) -> Vec<OsString> {
         args.iter().map(OsString::from).collect()
+    }
+
+    #[test]
+    fn invoked_command_finds_the_subcommand() {
+        assert_eq!(invoked_command(&os_args(&["skim"])), Some("skim"));
+        assert_eq!(invoked_command(&os_args(&["--json", "deps"])), Some("deps"));
+        assert_eq!(invoked_command(&os_args(&["src", "deps"])), None);
+        assert_eq!(invoked_command(&os_args(&[])), None);
     }
 
     #[test]

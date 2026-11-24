@@ -237,3 +237,13 @@ fn pack_tests_needs_a_selection() {
         String::from_utf8_lossy(&out.stderr)
     );
 }
+
+#[test]
+fn a_command_missing_its_arguments_points_at_its_usage() {
+    let root = polyglot("usage-hint");
+    let out = ctx(&root, &["deps"], "");
+    assert!(!out.status.success());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("Usage: ctx deps <PATH>..."), "{stderr}");
+    assert!(stderr.contains("Run `ctx deps --help`"), "{stderr}");
+}

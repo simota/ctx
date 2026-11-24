@@ -182,6 +182,30 @@ Examples:
   ctx tests --base main --json
   ctx tests src/auth/ --format paths | ctx pack --from-stdin",
         ),
+        "replay" => (
+            "ctx replay <list|show|prune|diff> [ARGS]... [OPTIONS]",
+            "\
+Pack snapshots saved with `ctx pack --snapshot <ID>`: what was packed, when,
+for which goal — to reproduce a pack, or see how a selection drifted.
+
+Actions:
+  list                        List saved snapshots
+  show ID                     Print a snapshot's manifest (JSON)
+  diff A B                    Files added, removed and changed between two snapshots
+  prune --older-than <DUR>    Delete snapshots older than DUR (30d, 2w, 12h)
+
+Command options:
+      --shared                Use the repository-shared store (.ctx/replay)
+      --json                  JSON output (list, prune)
+      --by <KEY>              diff: order by tier (default), tokens or score
+      --format <FORMAT>       diff: markdown (default) or json
+
+Examples:
+  ctx pack --goal \"auth\" --snapshot auth-v1
+  ctx replay list
+  ctx replay diff auth-v1 auth-v2
+  ctx pack --since-snapshot auth-v1          # only what changed since then",
+        ),
         "digest" => (
             "ctx digest [ROOT] [OPTIONS]",
             "\
@@ -258,6 +282,7 @@ mod tests {
         assert!(command_help("deps").unwrap().1.contains("--depth"));
         assert!(command_help("impact").unwrap().1.contains("--format"));
         assert!(command_help("tests").unwrap().1.contains("--changed"));
+        assert!(command_help("replay").unwrap().1.contains("prune --older-than"));
         assert!(command_help("mix").unwrap().1.contains("--from-where"));
         assert!(command_help("no-such-command").is_none());
     }

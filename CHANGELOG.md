@@ -171,6 +171,11 @@ and this project does not yet follow strict semver — see release notes per tag
   `ctx-web`.
 
 ### Fixed
+- A command run with missing or malformed arguments (`ctx deps`,
+  `ctx replay`, `ctx skim`, …) no longer stops at "unsupported invocation":
+  it prints the command's usage line and points at `ctx <command> --help`.
+  `ctx replay --help` now lists its actions (list, show, diff, prune) and
+  options.
 - `ctx browse`: the Imports / Importers "Pin with …" buttons' tooltips read
   "it $imports" / "it $is imported by" (a stray `$` in the template).
 - `ctx browse`: between roughly 800px and 1360px wide the header squeezed
