@@ -8,6 +8,30 @@ and this project does not yet follow strict semver — see release notes per tag
 ## [Unreleased]
 
 ### Added
+- `ctx tests [PATH]... [--changed | --base REV]`: the test files that
+  exercise a file, a directory or the current change — the tests to read
+  with a change and to run after it. A test is paired with a source when it
+  is named after it next to it, in an ancestor's `tests/` / `spec/` or in a
+  mirrored test tree (`foo_test.go`, `test_foo.py`, `foo.test.ts`,
+  `__tests__/foo.ts`, `tests/foo.rs`, `src/foo/tests.rs`,
+  `src/test/java/.../FooTest.java`, `spec/foo_spec.rb`; `mod.rs`,
+  `index.ts`, `__init__.py` and `lib.rs` match their directory / crate
+  name), or when it imports the source (the `ctx impact` graph). Needs no
+  git history. Files under `fixtures/`, `testdata/` and `__snapshots__/` are
+  never tests. `--changed` / `--base` list changed test files first; sources
+  with no test are listed under `No test found for:` (JSON `untested`).
+  `--format paths` feeds a test runner or `ctx pack --from-stdin`.
+- `ctx pack --tests[=N]` (default 5): add the selection's tests after its
+  dependencies and dependents and before co-change companions, with
+  `test: named after …` / `test: imports …` reasons. Works with every
+  selection `--deps` works with.
+- MCP `ctx_tests` (`anchor`, `changed`, `base`, `top`, `format`) and
+  `ctx_pack` `tests`.
+- `ctx browse`: the file view's Tests panel now works for every language,
+  not only Go — a source lists its tests, a test lists the sources it
+  exercises (`GET /api/tests` returns kind `paired` / `paired-test`; Go
+  keeps its symbol-aware analysis and coverage) — with "Pin with its tests"
+  / "Pin with its sources" for the Pins board's pack.
 - Rust import graph: `ctx deps` / `ctx impact`, `ctx browse`'s Imports /
   Importers panel and everything built on them now resolve Rust — `mod`
   declarations (incl. `#[path]`) that the file then uses, `use` trees
@@ -141,6 +165,8 @@ and this project does not yet follow strict semver — see release notes per tag
   `ctx-web`.
 
 ### Fixed
+- `ctx browse`: the Imports / Importers "Pin with …" buttons' tooltips read
+  "it $imports" / "it $is imported by" (a stray `$` in the template).
 - `ctx browse`: between roughly 800px and 1360px wide the header squeezed
   the search field down to 8px (and under ~1000px the page scrolled
   sideways). The navigation now takes its own row below 1360px, so the
