@@ -19,4 +19,5 @@ pub(crate) mod replay;
 pub(crate) mod roots;
 pub(crate) mod skim;
 pub(crate) mod symbols;
+pub(crate) mod tests_cmd;
 pub(crate) mod where_cmd;

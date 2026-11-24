@@ -32,6 +32,7 @@ use crate::commands::replay::run_replay_command;
 use crate::commands::roots::run_roots_command;
 use crate::commands::skim::run_skim_command;
 use crate::commands::symbols::run_symbols_command;
+use crate::commands::tests_cmd::run_tests_command;
 use crate::commands::where_cmd::run_where_command;
 use crate::tree::run_root_command;
 
@@ -46,6 +47,10 @@ const COMMANDS: &[(&str, &str)] = &[
     ("mcp", "Run MCP server operations"),
     ("deps", "Show dependencies for a file"),
     ("impact", "Show import impact for a file"),
+    (
+        "tests",
+        "Show the test files that exercise a file or a change",
+    ),
     (
         "cochange",
         "Show files that historically change together with a file",
@@ -161,6 +166,11 @@ fn try_run_native(args: &[OsString]) -> Option<ExitCode> {
         || flag_then_command(args, "impact")
     {
         return run_relations_command(args);
+    }
+    if args.first().is_some_and(|arg| arg == OsStr::new("tests"))
+        || flag_then_command(args, "tests")
+    {
+        return run_tests_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("where"))
         || flag_then_command(args, "where")

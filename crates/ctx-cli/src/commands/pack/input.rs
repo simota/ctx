@@ -327,7 +327,7 @@ pub(crate) fn read_pack_root(
             a.0.path.cmp(&b.0.path)
         }
     });
-    // Additions (--deps, --dependents, --companions) follow every selected
+    // Additions (--deps, --dependents, --tests, --companions) follow every selected
     // file, so the budget favours the files the user actually picked.
     if let Some(all_inputs) = all_inputs {
         let by_path: std::collections::HashMap<&str, &ctx_pack::FileInput> = all_inputs

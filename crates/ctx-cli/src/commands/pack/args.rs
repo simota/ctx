@@ -48,6 +48,9 @@ pub(crate) struct PackArgs {
     /// Also pack up to this many files that import the selected files
     /// (`--dependents[=N]`); 0 = off.
     pub(crate) dependents: usize,
+    /// Also pack up to this many test files that exercise the selected files
+    /// (`--tests[=N]`); 0 = off.
+    pub(crate) tests: usize,
     pub(crate) api_only: bool,
     pub(crate) layout: String,
     pub(crate) from_mix: String,
@@ -129,6 +132,7 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
     let mut companions = 0usize;
     let mut deps = 0usize;
     let mut dependents = 0usize;
+    let mut tests = 0usize;
     let mut api_only = false;
     let mut layout = "sequential".to_string();
     let mut from_mix = String::new();
@@ -266,6 +270,10 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
             deps = DEFAULT_PACK_COMPANIONS;
         } else if let Some(value) = flag_value(arg, "--deps") {
             deps = value.to_string_lossy().parse().ok()?;
+        } else if arg == OsStr::new("--tests") {
+            tests = DEFAULT_PACK_COMPANIONS;
+        } else if let Some(value) = flag_value(arg, "--tests") {
+            tests = value.to_string_lossy().parse().ok()?;
         } else if arg == OsStr::new("--dependents") {
             dependents = DEFAULT_PACK_COMPANIONS;
         } else if let Some(value) = flag_value(arg, "--dependents") {
@@ -376,6 +384,7 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
         companions,
         deps,
         dependents,
+        tests,
         api_only,
         layout,
         from_mix,

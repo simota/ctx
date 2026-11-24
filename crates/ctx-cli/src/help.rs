@@ -22,6 +22,8 @@ Selection:
                               (the definitions they use); same selections as --companions
       --dependents[=<N>]      Also pack up to N (default 5) files that import the selected
                               ones (the callers a change can break)
+      --tests[=<N>]           Also pack up to N (default 5) test files that exercise the
+                              selected ones (named after or importing them; `ctx tests`)
       --since <WHEN>          Only files changed after a date or duration (7d, 2w, 2026-01-01)
       --until <WHEN>          Only files changed before a date or duration
       --use-mtime             Use file mtime instead of git commit time for --since/--until
@@ -66,6 +68,7 @@ Examples:
   ctx pack . --goal \"debug session expiry\" --budget 30000 --out context.md
   ctx pack --changed --companions
   ctx pack --changed --deps --dependents --goal \"what does this change break?\"
+  ctx pack --changed --tests --goal \"make the failing test pass\"
   ctx pack --base main --companions --goal \"review this branch\"
   ctx pack --include 'crates/ctx-web/**' --exclude tests --goal \"routing\" --overflow signatures
   echo 'src/store.rs:120-180' | ctx pack --from-stdin
@@ -153,6 +156,32 @@ Examples:
   ctx impact src/store.rs --depth 3 --json
   ctx impact crates/ctx-pack/ --format paths | ctx pack --from-stdin --goal \"review callers\"",
         ),
+        "tests" => (
+            "ctx tests [PATH]... [OPTIONS]",
+            "\
+Lists the test files that exercise PATH — the tests to read with a change and
+to run after it. A test is paired with a source file when it is named after it
+next to it or in a mirrored test directory (`foo_test.go`, `test_foo.py`,
+`foo.test.ts`, `__tests__/foo.ts`, `tests/foo.rs`, `src/foo/tests.rs`,
+`src/test/java/.../FooTest.java`, `spec/foo_spec.rb`), or when it imports it.
+PATH is a file or directory relative to the current directory. Needs no git
+history, so it also works for new files.
+
+Command options:
+      --changed               Use the work tree's changed files (git status);
+                              changed test files are listed too
+      --base <REV>            Use the files the branch changes since the merge base
+                              with REV (implies --changed)
+      --top <N>               Max results (default: all)
+      --format <FORMAT>       text (default), json, paths (one path per line)
+      --json                  Shorthand for --format json
+
+Examples:
+  ctx tests src/store.rs
+  ctx tests --changed --format paths            # the tests to run for this change
+  ctx tests --base main --json
+  ctx tests src/auth/ --format paths | ctx pack --from-stdin",
+        ),
         "digest" => (
             "ctx digest [ROOT] [OPTIONS]",
             "\
@@ -218,6 +247,7 @@ mod tests {
             "--companions",
             "--deps",
             "--dependents",
+            "--tests",
             "--from-where",
             "--budget",
         ] {
@@ -227,6 +257,7 @@ mod tests {
         assert!(command_help("digest").unwrap().0.contains("[ROOT]"));
         assert!(command_help("deps").unwrap().1.contains("--depth"));
         assert!(command_help("impact").unwrap().1.contains("--format"));
+        assert!(command_help("tests").unwrap().1.contains("--changed"));
         assert!(command_help("mix").unwrap().1.contains("--from-where"));
         assert!(command_help("no-such-command").is_none());
     }

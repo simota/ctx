@@ -1,18 +1,20 @@
 //! Files added around a pack selection: what the selected files import
-//! (`--deps`), what imports them (`--dependents`) and what historically
-//! changes with them (`--companions`).
+//! (`--deps`), what imports them (`--dependents`), the tests that exercise
+//! them (`--tests`) and what historically changes with them (`--companions`).
 
 use std::path::Path;
 
 use super::*;
 
 /// Why a file was added around the selection. The order is the order the
-/// groups are packed in: definitions first, then callers, then companions.
+/// groups are packed in: definitions first, then callers, then tests, then
+/// companions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum AdditionKind {
     Dependency = 0,
     Dependent = 1,
-    Companion = 2,
+    Test = 2,
+    Companion = 3,
 }
 
 #[derive(Debug, Clone)]
@@ -22,22 +24,22 @@ pub(crate) struct PackAddition {
     pub(crate) reason: String,
 }
 
-/// Whether any of `--deps`, `--dependents` or `--companions` is set.
+/// Whether any of `--deps`, `--dependents`, `--tests` or `--companions` is set.
 pub(crate) fn wants_additions(args: &PackArgs) -> bool {
-    args.deps > 0 || args.dependents > 0 || args.companions > 0
+    args.deps > 0 || args.dependents > 0 || args.tests > 0 || args.companions > 0
 }
 
 /// Hands out additions in order while enforcing each flag's limit and never
 /// offering the same path twice.
 pub(crate) struct AdditionQuota {
-    left: [usize; 3],
+    left: [usize; 4],
     taken: std::collections::BTreeSet<String>,
 }
 
 impl AdditionQuota {
     pub(crate) fn new(args: &PackArgs) -> Self {
         Self {
-            left: [args.deps, args.dependents, args.companions],
+            left: [args.deps, args.dependents, args.tests, args.companions],
             taken: Default::default(),
         }
     }
@@ -73,48 +75,74 @@ pub(crate) fn pack_additions(root: &Path, seeds: &[String], args: &PackArgs) -> 
     if seeds.is_empty() {
         return out;
     }
-    if args.deps > 0 || args.dependents > 0 {
+    let index = if args.deps > 0 || args.dependents > 0 || args.tests > 0 {
         match ctx_relations::build(&root.to_string_lossy()) {
-            Ok(index) => {
-                for (wanted, direction, kind, flag) in [
-                    (
-                        args.deps,
-                        ctx_relations::Direction::Imports,
-                        AdditionKind::Dependency,
-                        "--deps",
-                    ),
-                    (
-                        args.dependents,
-                        ctx_relations::Direction::Importers,
-                        AdditionKind::Dependent,
-                        "--dependents",
-                    ),
-                ] {
-                    if wanted == 0 {
-                        continue;
-                    }
-                    let found = index.reach(seeds, direction, 1);
-                    if found.is_empty() && !args.no_warnings {
-                        let what = if kind == AdditionKind::Dependency {
-                            "the selected files import no file here"
-                        } else {
-                            "no file here imports the selected files"
-                        };
-                        eprintln!("warning: {flag}: {what} (imports are resolved for Rust, Go, JS/TS, Python, Java/Kotlin, PHP and Swift)");
-                    }
-                    out.extend(found.iter().map(|found| PackAddition {
-                        kind,
-                        path: found.path.clone(),
-                        reason: import_reason(found, kind == AdditionKind::Dependency),
-                    }));
-                }
-            }
+            Ok(index) => Some(index),
             Err(err) => {
                 if !args.no_warnings {
-                    eprintln!("warning: --deps/--dependents: cannot read imports: {err}");
+                    eprintln!("warning: --deps/--dependents/--tests: cannot read imports: {err}");
                 }
+                None
             }
         }
+    } else {
+        None
+    };
+    if let Some(index) = index.as_ref() {
+        for (wanted, direction, kind, flag) in [
+            (
+                args.deps,
+                ctx_relations::Direction::Imports,
+                AdditionKind::Dependency,
+                "--deps",
+            ),
+            (
+                args.dependents,
+                ctx_relations::Direction::Importers,
+                AdditionKind::Dependent,
+                "--dependents",
+            ),
+        ] {
+            if wanted == 0 {
+                continue;
+            }
+            let found = index.reach(seeds, direction, 1);
+            if found.is_empty() && !args.no_warnings {
+                let what = if kind == AdditionKind::Dependency {
+                    "the selected files import no file here"
+                } else {
+                    "no file here imports the selected files"
+                };
+                eprintln!("warning: {flag}: {what} (imports are resolved for Rust, Go, JS/TS, Python, Java/Kotlin, PHP and Swift)");
+            }
+            out.extend(found.iter().map(|found| PackAddition {
+                kind,
+                path: found.path.clone(),
+                reason: import_reason(found, kind == AdditionKind::Dependency),
+            }));
+        }
+    }
+    if args.tests > 0 {
+        let files: Vec<String> = ctx_relations::walk::walk(&root.to_string_lossy())
+            .map(|walked| {
+                walked
+                    .into_iter()
+                    .filter(|file| !file.is_dir && file.path != ".")
+                    .map(|file| file.path)
+                    .collect()
+            })
+            .unwrap_or_default();
+        let found = ctx_relations::find_tests(&files, index.as_ref(), seeds);
+        if found.is_empty() && !args.no_warnings {
+            eprintln!(
+                "warning: --tests: no test file is named after or imports the selected files"
+            );
+        }
+        out.extend(found.into_iter().map(|link| PackAddition {
+            kind: AdditionKind::Test,
+            reason: link.reason(),
+            path: link.path,
+        }));
     }
     if args.companions > 0 {
         out.extend(
