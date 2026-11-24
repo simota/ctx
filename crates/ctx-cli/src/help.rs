@@ -282,7 +282,10 @@ mod tests {
         assert!(command_help("deps").unwrap().1.contains("--depth"));
         assert!(command_help("impact").unwrap().1.contains("--format"));
         assert!(command_help("tests").unwrap().1.contains("--changed"));
-        assert!(command_help("replay").unwrap().1.contains("prune --older-than"));
+        assert!(command_help("replay")
+            .unwrap()
+            .1
+            .contains("prune --older-than"));
         assert!(command_help("mix").unwrap().1.contains("--from-where"));
         assert!(command_help("no-such-command").is_none());
     }
