@@ -102,6 +102,7 @@ impl Server {
             "ctx_roots_list" => self.run_roots_list(params.arguments.as_deref())?,
             "ctx_cochange" => return self.run_cochange(params.arguments.as_deref()),
             "ctx_deps" => return self.run_deps(params.arguments.as_deref()),
+            "ctx_tests" => return self.run_tests(params.arguments.as_deref()),
             _ => {
                 return Ok(tool_error_result(&format!("unknown tool: {}", params.name)));
             }
@@ -132,6 +133,7 @@ impl Server {
             ("companions", args.companions),
             ("deps", args.deps),
             ("dependents", args.dependents),
+            ("tests", args.tests),
         ] {
             if !(0..=MAX_COMPANIONS).contains(&value) {
                 return invalid_params_with_hint(
@@ -207,11 +209,12 @@ impl Server {
                 || args.companions > 0
                 || args.deps > 0
                 || args.dependents > 0
+                || args.tests > 0
                 || !args.include.is_empty()
                 || !args.exclude.is_empty())
         {
             return invalid_params_with_hint(
-                "refs cannot be combined with files, mix, changed, base, companions, deps, dependents, include or exclude",
+                "refs cannot be combined with files, mix, changed, base, companions, deps, dependents, tests, include or exclude",
                 "pass the text alone: {\"refs\":\"<stack trace or reply>\"}",
             );
         }
@@ -228,16 +231,17 @@ impl Server {
                 "list only the files you want in 'files'",
             );
         }
-        let additions = args.companions > 0 || args.deps > 0 || args.dependents > 0;
+        let additions =
+            args.companions > 0 || args.deps > 0 || args.dependents > 0 || args.tests > 0;
         if selection && (args.changed || additions) {
             return invalid_params_with_hint(
-                "files / mix cannot be combined with changed, companions, deps or dependents",
+                "files / mix cannot be combined with changed, companions, deps, dependents or tests",
                 "call ctx_pack with {\"changed\":true} separately",
             );
         }
         if additions && !args.changed {
             return invalid_params_with_hint(
-                "companions, deps and dependents need changed=true (or base)",
+                "companions, deps, dependents and tests need changed=true (or base)",
                 "call ctx_pack with {\"changed\":true,\"companions\":5}",
             );
         }
@@ -342,35 +346,56 @@ impl Server {
                 .into_iter()
                 .map(|file| (file.path.clone(), file))
                 .collect();
-            // Definitions first, then callers, then co-change partners; a
-            // file is added once, under the first group that wants it.
-            if args.deps > 0 || args.dependents > 0 {
-                match ctx_relations::build_cached(&root.to_string_lossy()) {
-                    Ok(index) => {
-                        for (wanted, direction) in [
-                            (args.deps, ctx_relations::Direction::Imports),
-                            (args.dependents, ctx_relations::Direction::Importers),
-                        ] {
-                            let mut added = 0;
-                            for found in index.reach(&seeds, direction, 1) {
-                                if added >= wanted {
-                                    break;
-                                }
-                                let Some(file) = by_path.remove(&found.path) else {
-                                    continue;
-                                };
-                                let reason = if direction == ctx_relations::Direction::Imports {
-                                    format!("dependency: imported by {}", found.via)
-                                } else {
-                                    format!("dependent: imports {}", found.via)
-                                };
-                                companions.push((file, reason));
-                                added += 1;
-                            }
+            // Definitions first, then callers, then tests, then co-change
+            // partners; a file is added once, under the first group that
+            // wants it.
+            let index = if args.deps > 0 || args.dependents > 0 || args.tests > 0 {
+                Some(
+                    ctx_relations::build_cached(&root.to_string_lossy()).map_err(|err| {
+                        tool_error(format!("ctx_pack: deps/dependents/tests: {err}"))
+                    })?,
+                )
+            } else {
+                None
+            };
+            if let Some(index) = index.as_ref() {
+                for (wanted, direction) in [
+                    (args.deps, ctx_relations::Direction::Imports),
+                    (args.dependents, ctx_relations::Direction::Importers),
+                ] {
+                    let mut added = 0;
+                    for found in index.reach(&seeds, direction, 1) {
+                        if added >= wanted {
+                            break;
                         }
+                        let Some(file) = by_path.remove(&found.path) else {
+                            continue;
+                        };
+                        let reason = if direction == ctx_relations::Direction::Imports {
+                            format!("dependency: imported by {}", found.via)
+                        } else {
+                            format!("dependent: imports {}", found.via)
+                        };
+                        companions.push((file, reason));
+                        added += 1;
                     }
-                    Err(err) => {
-                        return Err(tool_error(format!("ctx_pack: deps/dependents: {err}")))
+                }
+            }
+            if args.tests > 0 {
+                // Candidates are the walked (non-ignored) files only.
+                let listed: Vec<String> = by_path
+                    .keys()
+                    .cloned()
+                    .chain(seeds.iter().cloned())
+                    .collect();
+                let mut added = 0;
+                for link in ctx_relations::find_tests(&listed, index.as_ref(), &seeds) {
+                    if added >= args.tests {
+                        break;
+                    }
+                    if let Some(file) = by_path.remove(&link.path) {
+                        companions.push((file, link.reason()));
+                        added += 1;
                     }
                 }
             }

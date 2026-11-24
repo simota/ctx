@@ -10,6 +10,7 @@ mod protocol;
 mod resources;
 mod server;
 mod symbols;
+mod tests_tool;
 mod tools;
 mod types;
 mod util;

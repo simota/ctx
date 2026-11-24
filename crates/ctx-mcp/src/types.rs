@@ -60,6 +60,10 @@ pub(crate) struct PackArgs {
     /// With `changed`: also pack up to this many files that import the changed files.
     #[serde(default)]
     pub(crate) dependents: i64,
+    /// With `changed`: also pack up to this many test files that exercise
+    /// the changed files.
+    #[serde(default)]
+    pub(crate) tests: i64,
     #[serde(default)]
     pub(crate) explain: bool,
     /// Explicit repository-relative files to pack, in this order.
@@ -167,6 +171,23 @@ pub(crate) struct DepsArgs {
     pub(crate) direction: String,
     #[serde(default)]
     pub(crate) depth: i64,
+    #[serde(default)]
+    pub(crate) top: i64,
+    #[serde(default)]
+    pub(crate) format: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TestsArgs {
+    #[serde(default)]
+    pub(crate) path: String,
+    #[serde(default)]
+    pub(crate) anchor: String,
+    #[serde(default)]
+    pub(crate) changed: bool,
+    #[serde(default)]
+    pub(crate) base: String,
     #[serde(default)]
     pub(crate) top: i64,
     #[serde(default)]

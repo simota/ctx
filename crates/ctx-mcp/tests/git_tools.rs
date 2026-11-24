@@ -364,3 +364,60 @@ fn pack_changed_with_deps_and_dependents_adds_the_import_neighbourhood() {
     let refused = call_tool(&root, "ctx_pack", json!({"path": ".", "deps": 3}));
     assert_eq!(refused["error"]["code"], -32602, "{refused}");
 }
+
+#[test]
+fn tests_tool_and_pack_tests_pair_changed_sources_with_their_tests() {
+    if !git_available() {
+        return;
+    }
+    // `api_repo` edits src/api.rs in the work tree; src/api_test.rs is
+    // named after it.
+    let root = api_repo("tests-tool");
+    let body = text(&call_tool(
+        &root,
+        "ctx_tests",
+        json!({"changed": true, "format": "json"}),
+    ));
+    let report: Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(report["tests"][0]["path"], "src/api_test.rs", "{body}");
+    assert_eq!(report["tests"][0]["subject"], "src/api.rs", "{body}");
+
+    let body = text(&call_tool(
+        &root,
+        "ctx_tests",
+        json!({"anchor": "src/api.rs"}),
+    ));
+    assert!(
+        body.contains("| 1 | src/api_test.rs | named after src/api.rs |"),
+        "{body}"
+    );
+
+    let body = text(&call_tool(
+        &root,
+        "ctx_pack",
+        json!({"path": ".", "changed": true, "tests": 5, "format": "json"}),
+    ));
+    let pack: Value = serde_json::from_str(&body).unwrap();
+    let included: Vec<(&str, &str)> = pack["included"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| {
+            (
+                f["path"].as_str().unwrap(),
+                f["reason"].as_str().unwrap_or(""),
+            )
+        })
+        .collect();
+    assert_eq!(included[0].0, "src/api.rs", "{body}");
+    assert_eq!(
+        included[1],
+        ("src/api_test.rs", "test: named after src/api.rs"),
+        "{body}"
+    );
+
+    let refused = call_tool(&root, "ctx_tests", json!({}));
+    assert_eq!(refused["error"]["code"], -32602, "{refused}");
+    let refused = call_tool(&root, "ctx_pack", json!({"tests": 3}));
+    assert_eq!(refused["error"]["code"], -32602, "{refused}");
+}
