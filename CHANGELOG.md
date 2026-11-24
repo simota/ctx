@@ -27,6 +27,12 @@ and this project does not yet follow strict semver — see release notes per tag
   selection `--deps` works with.
 - MCP `ctx_tests` (`anchor`, `changed`, `base`, `top`, `format`) and
   `ctx_pack` `tests`.
+- MCP `ctx_mix` (`action` list | show | save | add): agents can discover
+  the mixes a user saved with `ctx mix` or the Pins board (`ctx_pack`
+  `mix` needed their id, which nothing over MCP could list), see a mix's
+  files and which are missing under the root, and save or extend their own
+  working set — line ranges included — for a later session. Files must be
+  regular files under the root; nothing is deleted or overwritten.
 - `ctx browse`: the file view's Tests panel now works for every language,
   not only Go — a source lists its tests, a test lists the sources it
   exercises (`GET /api/tests` returns kind `paired` / `paired-test`; Go

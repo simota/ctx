@@ -103,6 +103,7 @@ impl Server {
             "ctx_cochange" => return self.run_cochange(params.arguments.as_deref()),
             "ctx_deps" => return self.run_deps(params.arguments.as_deref()),
             "ctx_tests" => return self.run_tests(params.arguments.as_deref()),
+            "ctx_mix" => return self.run_mix(params.arguments.as_deref()),
             _ => {
                 return Ok(tool_error_result(&format!("unknown tool: {}", params.name)));
             }

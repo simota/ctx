@@ -293,13 +293,14 @@ Claude Code や Cursor などの MCP client から、context 生成や検索を 
 }
 ```
 
-提供する tool: `ctx_pack`（`changed` / `base` / `companions` / `deps` / `dependents` / `tests` / `files` / `mix` / `refs` / `include` / `exclude` / `overflow` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_deps`、`ctx_tests`、`ctx_roots_list`。
+提供する tool: `ctx_pack`（`changed` / `base` / `companions` / `deps` / `dependents` / `tests` / `files` / `mix` / `refs` / `include` / `exclude` / `overflow` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_deps`、`ctx_tests`、`ctx_mix`、`ctx_roots_list`。
 コードを変更したら `ctx_tests {"changed":true}` で読む・走らせるべきテストを確認し、`ctx_pack {"changed":true,"tests":5}` で変更とそのテストをまとめて渡せます。
 関数のシグネチャを変える前に `ctx_deps {"anchor":"src/store.rs","direction":"importers","depth":2}` で影響範囲を確認し、`ctx_pack {"changed":true,"deps":5,"dependents":5}` で変更・その定義・呼び出し元をまとめて渡せます。
 signatures only で渡されたファイルの本体は `ctx_pack {"files":["src/store.rs:120-180"]}` のように行範囲で要求できます。
 ユーザーが貼ったスタックトレースやエラーは `ctx_pack {"refs":"<text>","around":15}` で、言及されたファイルと行（前後 15 行）にまとめて pack できます（解決できなかった言及は `## Unresolved references` に列挙）。
 ブランチ全体を渡すには `ctx_pack {"base":"main","companions":5}`（merge-base 以降の変更＋作業ツリーの変更）を使います。
 編集前に `ctx_cochange {"anchor":"src/server.rs"}` で一緒に直すべきファイルを確認し、`ctx_pack {"changed":true,"companions":5}` で変更とその companion をまとめて渡す、といった使い方ができます。
+ユーザーが `ctx mix save` や browse の Pins 画面で保存した mix は `ctx_mix {"action":"list"}` で一覧・`{"action":"show","mix":"<id>"}` で中身を確認して `ctx_pack {"mix":"<id>"}` で pack でき、エージェント自身が見つけた作業セットも `ctx_mix {"action":"save","name":"auth work","files":["src/a.rs","src/b.rs:120-180"]}` で保存して次のセッションやユーザーに引き継げます（`add` で追記。MCP からは削除・上書きしません）。
 `ctx_where` で見つけたファイルだけを渡すには `ctx_pack {"files":["src/a.rs","src/b.rs"]}`（指定順に pack し、budget 超過・root 外・存在しないファイルは skipped として報告）、保存済み mix は `ctx_pack {"mix":"auth-review"}` で pack できます。
 ディレクトリ walk は `ctx_pack {"include":["src/**/*.rs"],"exclude":["tests"],"overflow":"signatures"}` のように CLI と同じ glob で絞り、予算に入らない関連ファイルをシグネチャだけで渡せます。
 

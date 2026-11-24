@@ -4,6 +4,7 @@ use std::path::PathBuf;
 mod budget;
 mod cochange;
 mod deps;
+mod mix_tool;
 mod pack;
 mod prompts;
 mod protocol;

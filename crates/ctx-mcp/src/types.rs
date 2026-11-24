@@ -179,6 +179,28 @@ pub(crate) struct DepsArgs {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+pub(crate) struct MixArgs {
+    #[serde(default)]
+    pub(crate) path: String,
+    /// list (default), show, save, add.
+    #[serde(default)]
+    pub(crate) action: String,
+    /// Id or name of an existing mix (show, add).
+    #[serde(default)]
+    pub(crate) mix: String,
+    /// Display name of a new mix (save).
+    #[serde(default)]
+    pub(crate) name: String,
+    #[serde(default)]
+    pub(crate) goal: String,
+    #[serde(default)]
+    pub(crate) budget: i64,
+    #[serde(default)]
+    pub(crate) files: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct TestsArgs {
     #[serde(default)]
     pub(crate) path: String,

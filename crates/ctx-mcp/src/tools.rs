@@ -156,6 +156,22 @@ pub(crate) fn tools() -> Vec<Value> {
             ),
         ),
         tool(
+            "ctx_mix",
+            "List, show, save or extend saved file selections (\"mixes\") — the store shared with `ctx mix`, the ctx browse Pins board and ctx_pack {\"mix\":…}. Use 'list' to discover the selections the user saved (then ctx_pack {\"mix\":\"<id>\"}), 'show' to see a mix's files and which are missing under this root, 'save' to keep the files you found relevant (e.g. ctx_where / ctx_deps / ctx_tests hits, line ranges allowed) for a later session or for the user, and 'add' to append files. Files must exist under 'path'. Never deletes or overwrites: save always creates a new mix.",
+            object_schema(
+                vec![
+                    ("action", describe(enum_schema(&["list", "show", "save", "add"]), "list (default), show, save or add.")),
+                    ("budget", describe(int_schema(0, MAX_BUDGET), "Token budget recorded with the mix (save, add). 0 = unset.")),
+                    ("files", describe(json!({"items": {"maxLength": MAX_PATH_LEN, "type": "string"}, "maxItems": MAX_PACK_FILES, "type": "array"}), "Files relative to 'path', in pack order (save, add); 'src/a.rs:120-180' or 'src/a.rs#L42' keeps just those lines.")),
+                    ("goal", describe(str_schema(MAX_GOAL_LEN, None, &["review session expiry"]), "Goal recorded with the mix (save; add replaces it when given).")),
+                    ("mix", describe(str_schema(MAX_MIX_REF_LEN, None, &["auth-review"]), "Id or name of an existing mix (show, add).")),
+                    ("name", describe(str_schema(MAX_MIX_REF_LEN, None, &["auth review"]), "Display name of the new mix (save); its id is derived from it.")),
+                    ("path", describe(str_schema(MAX_PATH_LEN, Some("."), &[]), "Repository directory the files are relative to. Defaults to '.'")),
+                ],
+                &[],
+            ),
+        ),
+        tool(
             "ctx_roots_list",
             "List ctx project roots registered in ~/.ctx/roots.toml. Returns each entry's name, absolute path, and last_opened_at, plus a marker on the root currently served by this MCP server. Use this when the user mentions another project, or when you need to know which other repositories are registered alongside the current one so you can suggest the right `ctx roots open <name>` command. Read-only.",
             object_schema(Vec::new(), &[]),
