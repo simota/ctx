@@ -97,7 +97,7 @@
           <button
             type="button"
             class="pin-all"
-            title={`Pin this file and the ${data.imports.length} file(s) it $imports`}
+            title={`Pin this file and the ${data.imports.length} file(s) it imports`}
             onclick={() => pinWith('imports')}
           >Pin with its imports</button>
         </h3>
@@ -128,7 +128,7 @@
           <button
             type="button"
             class="pin-all"
-            title={`Pin this file and the ${data.importers.length} file(s) it $is imported by`}
+            title={`Pin this file and the ${data.importers.length} file(s) it is imported by`}
             onclick={() => pinWith('importers')}
           >Pin with its importers</button>
         </h3>

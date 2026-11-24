@@ -127,6 +127,13 @@ fn handle_sync(state: AppState, params: TestsParams) -> Response {
     };
     let limit = crate::handlers::limit::parse_limit(&params.limit, 8, 1, 50) as usize;
 
+    // Outside Go (which keeps its symbol-aware analysis and coverage), pair
+    // the file with its tests — or a test with its sources — by naming
+    // convention and imports, for every language.
+    if insight.kind.is_empty() && is_code_path(&rel) {
+        return response::json(StatusCode::OK, &paired_insight(&state.root, &rel, limit));
+    }
+
     let resp = TestInsightResponse {
         path: insight.path,
         kind: insight.kind,
@@ -171,6 +178,92 @@ fn handle_sync(state: AppState, params: TestsParams) -> Response {
         }),
     };
     response::json(StatusCode::OK, &resp)
+}
+
+/// Files a test can exercise or be: code the relations walker understands,
+/// plus the other languages test pairing knows.
+fn is_code_path(rel: &str) -> bool {
+    ctx_relations::supported(rel)
+        || matches!(
+            rel.rsplit('.')
+                .next()
+                .map(str::to_ascii_lowercase)
+                .as_deref(),
+            Some("rb" | "cs" | "scala" | "dart" | "ex" | "exs" | "c" | "cc" | "cpp" | "h" | "hpp")
+        )
+}
+
+/// Test insight from `ctx_relations` test pairing: the tests of a source
+/// file (kind `paired`), or the sources a test file exercises (kind
+/// `paired-test`). Scores rank the link kinds
+/// (name 3, imports 2, name prefix / elsewhere 1).
+fn paired_insight(root: &str, rel: &str, limit: usize) -> TestInsightResponse {
+    let files: Vec<String> = ctx_relations::walk::walk(root)
+        .map(|walked| {
+            walked
+                .into_iter()
+                .filter(|file| !file.is_dir && file.path != ".")
+                .map(|file| file.path)
+                .collect()
+        })
+        .unwrap_or_default();
+    let index = ctx_relations::build_cached(root).ok();
+    let score = |kind: ctx_relations::TestLinkKind| match kind {
+        ctx_relations::TestLinkKind::Name => 3,
+        ctx_relations::TestLinkKind::Imports => 2,
+        _ => 1,
+    };
+    let reason = |link: &ctx_relations::TestLink| match link.kind {
+        ctx_relations::TestLinkKind::Name => "named after it",
+        ctx_relations::TestLinkKind::Imports => "imports it",
+        ctx_relations::TestLinkKind::NamePrefix => "named like it",
+        ctx_relations::TestLinkKind::NameElsewhere => "same name elsewhere",
+    };
+    let source_reason = |link: &ctx_relations::TestLink| match link.kind {
+        ctx_relations::TestLinkKind::Name => "test is named after it",
+        ctx_relations::TestLinkKind::Imports => "test imports it",
+        ctx_relations::TestLinkKind::NamePrefix => "test is named like it",
+        ctx_relations::TestLinkKind::NameElsewhere => "same name elsewhere",
+    };
+    let mut resp = TestInsightResponse {
+        path: rel.to_string(),
+        kind: "paired".to_string(),
+        tests: Vec::new(),
+        sources: Vec::new(),
+        total_tests: 0,
+        total_sources: 0,
+        coverage: None,
+    };
+    if ctx_relations::is_test_path(rel) {
+        resp.kind = "paired-test".to_string();
+        let found = ctx_relations::find_subjects(&files, index.as_ref(), rel);
+        resp.total_sources = found.len() as i32;
+        resp.sources = found
+            .iter()
+            .take(limit)
+            .map(|link| TestInsightSource {
+                path: link.path.clone(),
+                score: score(link.kind),
+                reasons: vec![source_reason(link).to_string()],
+                matched_symbols: Vec::new(),
+            })
+            .collect();
+    } else {
+        let found = ctx_relations::find_tests(&files, index.as_ref(), &[rel.to_string()]);
+        resp.total_tests = found.len() as i32;
+        resp.tests = found
+            .iter()
+            .take(limit)
+            .map(|link| TestInsightFile {
+                path: link.path.clone(),
+                score: score(link.kind),
+                reasons: vec![reason(link).to_string()],
+                test_count: 0,
+                matched_symbols: Vec::new(),
+            })
+            .collect();
+    }
+    resp
 }
 
 fn is_zero(v: &i32) -> bool {
