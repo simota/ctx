@@ -364,7 +364,13 @@
   let isRelationsTarget = $derived(
     /\.(go|rs|tsx?|jsx?|mjs|cjs|svelte|vue|py|java|kts?|php|swift)$/i.test(path),
   );
-  let isTestsTarget = $derived(/\.go$/i.test(path));
+  // Go gets symbol-aware test insight and coverage; every other language
+  // pairs files with their tests by naming convention and imports.
+  let isTestsTarget = $derived(
+    /\.(go|rs|tsx?|jsx?|mjs|cjs|svelte|vue|py|java|kts?|php|swift|rb|cs|scala|dart|exs?|c|cc|cpp|h|hpp)$/i.test(
+      path,
+    ),
+  );
   let isPreviewable = $derived(isSvg || isHtml || isMarkdown || isMmd || isConfigRender);
   let svgDataUrl = $derived.by(() => {
     if (!isSvg || !data) return '';
@@ -3004,10 +3010,16 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
         {:else if data.symbols && data.symbols.length > 0}
           <aside class="symbols">
             <SymbolList symbols={data.symbols} onJump={jumpToSymbol} />
+            {#if isTestsTarget}
+              <TestInsightsPanel {path} />
+            {/if}
             <EvidencePanel {path} />
           </aside>
         {:else}
           <aside class="symbols">
+            {#if isTestsTarget}
+              <TestInsightsPanel {path} />
+            {/if}
             <EvidencePanel {path} />
           </aside>
         {/if}

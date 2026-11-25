@@ -14,7 +14,7 @@ const DEFAULT_TOP: i64 = 50;
 
 /// `anchor` as a clean '/'-separated relative path ("" for the root), or
 /// `None` when it is absolute or climbs out with `..`.
-fn clean_anchor(anchor: &str) -> Option<String> {
+pub(crate) fn clean_anchor(anchor: &str) -> Option<String> {
     let mut parts = Vec::new();
     for component in Path::new(anchor).components() {
         match component {

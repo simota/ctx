@@ -32,6 +32,7 @@ use crate::commands::replay::run_replay_command;
 use crate::commands::roots::run_roots_command;
 use crate::commands::skim::run_skim_command;
 use crate::commands::symbols::run_symbols_command;
+use crate::commands::tests_cmd::run_tests_command;
 use crate::commands::where_cmd::run_where_command;
 use crate::tree::run_root_command;
 
@@ -46,6 +47,10 @@ const COMMANDS: &[(&str, &str)] = &[
     ("mcp", "Run MCP server operations"),
     ("deps", "Show dependencies for a file"),
     ("impact", "Show import impact for a file"),
+    (
+        "tests",
+        "Show the test files that exercise a file or a change",
+    ),
     (
         "cochange",
         "Show files that historically change together with a file",
@@ -95,6 +100,15 @@ fn main() -> ExitCode {
                 .collect::<Vec<_>>()
                 .join(" ");
             eprintln!("Error: unsupported invocation: ctx {invocation}");
+            // A known command with missing or malformed arguments: point at
+            // its usage instead of leaving the user at a dead end.
+            if let Some(name) = invoked_command(&args[1..]) {
+                match help::command_help(name) {
+                    Some((usage, _)) => eprintln!("Usage: {usage}"),
+                    None => eprintln!("Usage: ctx {name} [ARGS]..."),
+                }
+                eprintln!("Run `ctx {name} --help` for the options.");
+            }
             ExitCode::FAILURE
         }
         Err(err) => {
@@ -102,6 +116,21 @@ fn main() -> ExitCode {
             ExitCode::from(err.exit_code() as u8)
         }
     }
+}
+
+/// The subcommand an invocation names (`ctx skim`, `ctx --json deps`), if
+/// any.
+fn invoked_command(args: &[OsString]) -> Option<&'static str> {
+    let first = args.first()?;
+    let candidate = if first.to_string_lossy().starts_with('-') {
+        args.get(1)?
+    } else {
+        first
+    };
+    COMMANDS
+        .iter()
+        .map(|(name, _)| *name)
+        .find(|name| candidate == OsStr::new(name))
 }
 
 /// Rust ignores SIGPIPE, so `ctx pack | head` used to panic with
@@ -161,6 +190,11 @@ fn try_run_native(args: &[OsString]) -> Option<ExitCode> {
         || flag_then_command(args, "impact")
     {
         return run_relations_command(args);
+    }
+    if args.first().is_some_and(|arg| arg == OsStr::new("tests"))
+        || flag_then_command(args, "tests")
+    {
+        return run_tests_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("where"))
         || flag_then_command(args, "where")
@@ -399,6 +433,14 @@ mod tests {
 
     fn os_args(args: &[&str]) -> Vec<OsString> {
         args.iter().map(OsString::from).collect()
+    }
+
+    #[test]
+    fn invoked_command_finds_the_subcommand() {
+        assert_eq!(invoked_command(&os_args(&["skim"])), Some("skim"));
+        assert_eq!(invoked_command(&os_args(&["--json", "deps"])), Some("deps"));
+        assert_eq!(invoked_command(&os_args(&["src", "deps"])), None);
+        assert_eq!(invoked_command(&os_args(&[])), None);
     }
 
     #[test]

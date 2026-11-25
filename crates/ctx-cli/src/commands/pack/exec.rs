@@ -65,6 +65,7 @@ pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {
     for (set, flag) in [
         (args.deps > 0, "--deps"),
         (args.dependents > 0, "--dependents"),
+        (args.tests > 0, "--tests"),
         (args.companions > 0, "--companions"),
     ] {
         if !set {

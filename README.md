@@ -189,6 +189,26 @@ ctx pack --changed --deps --dependents --goal "what does this change break?"
 ctx pack --base main --dependents=10 --companions
 ```
 
+### 4c. 変更に対応するテストを知る
+
+```bash
+ctx tests src/store.rs                          # store.rs を検証しているテストファイル
+ctx tests --changed --format paths              # 今の変更で読む・走らせるべきテスト
+ctx tests --base main --json                    # ブランチ全体（変更されたテスト自身も含む）
+ctx tests src/auth/                             # ディレクトリ単位（中にあるテストも列挙）
+ctx pack --changed --tests --goal "make the failing test pass"
+```
+
+`ctx tests` はソースファイルと、それを検証するテストファイルを対応付けます。根拠は 2 種類です。
+
+- **命名規約**: `foo_test.go`、`test_foo.py` / `foo_test.py`、`foo.test.ts` / `foo.spec.tsx`、`__tests__/foo.ts`、`tests/foo.rs`、Rust の `src/foo/tests.rs`、`src/test/java/.../FooTest.java`、`spec/foo_spec.rb` など。ソースと同じディレクトリ、祖先の `tests/` / `spec/`、`src/main` ↔ `src/test` のようなミラー配置だけを対象にし、無関係な場所の同名ファイルは（一意な場合だけ）弱い候補として扱います。`mod.rs` / `index.ts` / `__init__.py` / `lib.rs` はディレクトリ名（crate 名）で照合します。
+- **import**: ソースを import しているテストファイル（`ctx impact` と同じ import グラフ。Rust の統合テスト `use my_crate::store` も解決します）。
+
+git 履歴を使わないので、新しいファイルや履歴の浅いリポジトリでも働きます（履歴に基づく `--companions` を補完します）。`fixtures/`・`testdata/`・`__snapshots__/` 配下はテストとして扱いません。
+`--changed` / `--base` では変更されたテストファイル自身も先頭に並び、テストが見つからなかったソースは `No test found for:`（JSON は `untested`）に列挙されます。`--format paths` は 1 行 1 パスで、テストランナーや `ctx pack --from-stdin` に渡せます。
+
+pack では `--tests[=N]`（既定 5）で、選んだファイル（`--changed` / `--base` / `--from-where` / `--from-stdin` / `--from-refs` / `--from-mix`）のテストを「定義 → 呼び出し元 → テスト → co-change companion」の順に追加し、`reason` に `test: named after src/store.rs` / `test: imports src/store.rs` と記録します。
+
 ### 5. 選んだファイルを保存して再利用する（mix）
 
 ```bash
@@ -244,6 +264,7 @@ ctx noise --top 20
 | `ctx contract verify` | pack contract と応答を照合 |
 | `ctx audit verify` | audit log を検証 |
 | `ctx deps` / `ctx impact` | import 依存と影響範囲を表示（`--depth`、ディレクトリ、`--format paths`） |
+| `ctx tests [PATH]` | ファイル・ディレクトリ・変更（`--changed` / `--base`）に対応するテストを表示 |
 | `ctx roots` | 既知の repository root を管理 |
 | `ctx onboarding` | codebase onboarding 用の読み順を生成 |
 | `ctx browse` | ローカル Web UI を起動 |
@@ -272,12 +293,14 @@ Claude Code や Cursor などの MCP client から、context 生成や検索を 
 }
 ```
 
-提供する tool: `ctx_pack`（`changed` / `base` / `companions` / `deps` / `dependents` / `files` / `mix` / `refs` / `include` / `exclude` / `overflow` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_deps`、`ctx_roots_list`。
+提供する tool: `ctx_pack`（`changed` / `base` / `companions` / `deps` / `dependents` / `tests` / `files` / `mix` / `refs` / `include` / `exclude` / `overflow` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_deps`、`ctx_tests`、`ctx_mix`、`ctx_roots_list`。
+コードを変更したら `ctx_tests {"changed":true}` で読む・走らせるべきテストを確認し、`ctx_pack {"changed":true,"tests":5}` で変更とそのテストをまとめて渡せます。
 関数のシグネチャを変える前に `ctx_deps {"anchor":"src/store.rs","direction":"importers","depth":2}` で影響範囲を確認し、`ctx_pack {"changed":true,"deps":5,"dependents":5}` で変更・その定義・呼び出し元をまとめて渡せます。
 signatures only で渡されたファイルの本体は `ctx_pack {"files":["src/store.rs:120-180"]}` のように行範囲で要求できます。
 ユーザーが貼ったスタックトレースやエラーは `ctx_pack {"refs":"<text>","around":15}` で、言及されたファイルと行（前後 15 行）にまとめて pack できます（解決できなかった言及は `## Unresolved references` に列挙）。
 ブランチ全体を渡すには `ctx_pack {"base":"main","companions":5}`（merge-base 以降の変更＋作業ツリーの変更）を使います。
 編集前に `ctx_cochange {"anchor":"src/server.rs"}` で一緒に直すべきファイルを確認し、`ctx_pack {"changed":true,"companions":5}` で変更とその companion をまとめて渡す、といった使い方ができます。
+ユーザーが `ctx mix save` や browse の Pins 画面で保存した mix は `ctx_mix {"action":"list"}` で一覧・`{"action":"show","mix":"<id>"}` で中身を確認して `ctx_pack {"mix":"<id>"}` で pack でき、エージェント自身が見つけた作業セットも `ctx_mix {"action":"save","name":"auth work","files":["src/a.rs","src/b.rs:120-180"]}` で保存して次のセッションやユーザーに引き継げます（`add` で追記。MCP からは削除・上書きしません）。
 `ctx_where` で見つけたファイルだけを渡すには `ctx_pack {"files":["src/a.rs","src/b.rs"]}`（指定順に pack し、budget 超過・root 外・存在しないファイルは skipped として報告）、保存済み mix は `ctx_pack {"mix":"auth-review"}` で pack できます。
 ディレクトリ walk は `ctx_pack {"include":["src/**/*.rs"],"exclude":["tests"],"overflow":"signatures"}` のように CLI と同じ glob で絞り、予算に入らない関連ファイルをシグネチャだけで渡せます。
 
@@ -306,6 +329,7 @@ Pins 画面（`#/pins`）では、ピン留めしたファイルを並び順の�
 検索結果の「Pin all N results」で `where` の結果をまとめてピン留めできるので、検索 → ピン → pack をブラウザだけで完結できます。
 「From a reply or stack trace」に LLM の返答やスタックトレースを貼り付けると、言及されたファイルと行を解決し（`POST /api/refs`）、「Pack cited lines」でその行だけを pack、「Pin N files」でピン留めできます。
 ファイル画面の Imports / Importers パネル（Rust にも対応）の「Pin with its imports」「Pin with its importers」で、そのファイルと import でつながるファイルをまとめてピン留めできます。
+ファイル画面の Tests パネルは Go 以外の全言語でも、そのファイルのテスト（テストファイルでは検証対象のソース）を表示し、「Pin with its tests」「Pin with its sources」でまとめてピン留めできます（Go は従来どおりシンボル照合と `coverage.out` を使います）。
 Git Log の Review 画面（`#/gitlog/review`）の「Pin N changed files」は、base..head で変更されたファイル（削除済みを除く）をピン留めし、ブランチ差分のレビュー → pack を同じ流れで行えます（内容は作業ツリーから読みます）。
 状態を変更する API（`POST /api/mix`、`DELETE /api/mix/<id>`、`POST /api/pack`、`POST /api/refs`）は `Content-Type: application/json` を必須とし、ブラウザが cross-site と示すリクエスト（別 `Origin` / `Sec-Fetch-Site: cross-site`）を `403 forbidden_origin` で拒否します。
 

@@ -26,8 +26,12 @@ pub mod session;
 pub mod types;
 pub mod walk;
 
+pub mod test_links;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
 pub use crate::build::{build, build_cached, invalidate_cache, supported};
+pub use crate::test_links::{
+    find_subjects, find_tests, is_test_path, tests_for, TestLink, TestLinkKind,
+};
 pub use crate::types::{Direction, Edges, Index, Reached};

@@ -4,12 +4,29 @@
   import { openTab } from '../lib/tabs.svelte';
   import { announce } from '../lib/announce.svelte';
   import { basename } from '../lib/format';
+  import { ensurePinsRoot, pinMany } from '../lib/pins.svelte';
+  import { repo } from '../lib/repo.svelte';
 
   let { path }: { path: string } = $props();
 
   let data = $state<TestInsightResponse | null>(null);
   let loading = $state(false);
   let error = $state<string | null>(null);
+  let pinMessage = $state('');
+
+  // `paired` / `paired-test`: tests matched by naming convention and imports
+  // (every language); otherwise Go's symbol-aware analysis.
+  let paired = $derived(data?.kind === 'paired' || data?.kind === 'paired-test');
+  let isTestFile = $derived(data?.kind === 'paired-test' || /_test\.go$/i.test(path));
+
+  // Pin this file with its tests (or a test with its sources), so the Pins
+  // board can pack the code together with what exercises it.
+  function pinWith(related: { path: string }[], what: string): void {
+    ensurePinsRoot(repo.root);
+    const result = pinMany([path, ...related.map((it) => it.path)]);
+    pinMessage = result.message;
+    announce(`${result.message} (with its ${what})`);
+  }
 
   $effect(() => {
     const target = path;
@@ -19,6 +36,7 @@
     }
     loading = true;
     error = null;
+    pinMessage = '';
     let cancelled = false;
     fetchTestInsights(target)
       .then((r) => {
@@ -108,9 +126,15 @@
       <section aria-label="source files likely covered by this test">
         <h3>
           Sources <span class="count muted">{countLabel(data.sources.length, data.total_sources)}</span>
-          {#if !data.coverage}
+          {#if !data.coverage && !paired}
             <span class="meta muted">test target</span>
           {/if}
+          <button
+            type="button"
+            class="pin-all"
+            title={`Pin this test and the ${data.sources.length} source file(s) it exercises`}
+            onclick={() => pinWith(data?.sources ?? [], 'sources')}
+          >Pin with its sources</button>
         </h3>
         <ul>
           {#each data.sources as it, i (`${it.path}:${i}`)}
@@ -122,13 +146,21 @@
                 aria-label={`Open ${it.path}`}
                 onclick={(e) => go(it.path, e)}
               >
-                <span class="score mono" aria-label={`score ${it.score}`}>{it.score}</span>
+                {#if paired}
+                  <span class="score" aria-hidden="true"></span>
+                {:else}
+                  <span class="score mono" aria-label={`score ${it.score}`}>{it.score}</span>
+                {/if}
                 <span class="name mono">{basename(it.path)}</span>
                 <span class="dir muted mono">{dirname(it.path)}</span>
               </button>
               {#if it.matched_symbols && it.matched_symbols.length > 0}
                 <div class="test-meta muted">
                   <span class="symbols mono">{it.matched_symbols.slice(0, 4).join(', ')}</span>
+                </div>
+              {:else if paired && it.reasons && it.reasons.length > 0}
+                <div class="test-meta muted">
+                  <span>{it.reasons[0]}</span>
                 </div>
               {/if}
             </li>
@@ -137,15 +169,35 @@
       </section>
     {/if}
 
+    {#if isTestFile && (!data.sources || data.sources.length === 0)}
+      <section aria-label="source files likely covered by this test">
+        <h3>Sources <span class="count muted">0</span></h3>
+        <p class="muted">No source file is named after this test or imported by it.</p>
+      </section>
+    {/if}
+
+    {#if !isTestFile || data.tests.length > 0}
     <section aria-label="related tests">
       <h3>
         Tests <span class="count muted">{countLabel(data.tests.length, data.total_tests)}</span>
-        {#if !data.coverage}
+        {#if !data.coverage && !paired}
           <span class="meta muted">no coverage.out</span>
+        {/if}
+        {#if data.tests.length > 0}
+          <button
+            type="button"
+            class="pin-all"
+            title={`Pin this file and the ${data.tests.length} test file(s) that exercise it`}
+            onclick={() => pinWith(data?.tests ?? [], 'tests')}
+          >Pin with its tests</button>
         {/if}
       </h3>
       {#if data.tests.length === 0}
-        <p class="muted">No related tests detected.</p>
+        <p class="muted">
+          {paired
+            ? 'No test is named after this file or imports it.'
+            : 'No related tests detected.'}
+        </p>
       {:else}
         <ul>
           {#each data.tests as it, i (`${it.path}:${i}`)}
@@ -157,7 +209,11 @@
                 aria-label={`Open ${it.path}`}
                 onclick={(e) => go(it.path, e)}
               >
-                <span class="score mono" aria-label={`score ${it.score}`}>{it.score}</span>
+                {#if paired}
+                  <span class="score" aria-hidden="true"></span>
+                {:else}
+                  <span class="score mono" aria-label={`score ${it.score}`}>{it.score}</span>
+                {/if}
                 <span class="name mono">{basename(it.path)}</span>
                 <span class="dir muted mono">{dirname(it.path)}</span>
               </button>
@@ -170,16 +226,45 @@
                     <span class="symbols mono">{it.matched_symbols.slice(0, 4).join(', ')}</span>
                   {/if}
                 </div>
+              {:else if paired && it.reasons && it.reasons.length > 0}
+                <div class="test-meta muted">
+                  <span>{it.reasons[0]}</span>
+                </div>
               {/if}
             </li>
           {/each}
         </ul>
       {/if}
     </section>
+    {/if}
+    {#if pinMessage}
+      <section>
+        <p class="muted" role="status">{pinMessage}</p>
+      </section>
+    {/if}
   {/if}
 </div>
 
 <style>
+  .pin-all {
+    margin-inline-start: auto;
+    font: inherit;
+    font-size: 10px;
+    text-transform: none;
+    letter-spacing: 0;
+    padding: 1px 6px;
+    white-space: nowrap;
+    border: 1px solid var(--ctx-border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ctx-fg-dim);
+    cursor: pointer;
+  }
+  .pin-all:hover,
+  .pin-all:focus-visible {
+    color: var(--ctx-fg);
+    border-color: var(--ctx-fg-dim);
+  }
   .tests {
     display: flex;
     flex-direction: column;

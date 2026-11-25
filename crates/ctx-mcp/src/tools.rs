@@ -14,6 +14,7 @@ pub(crate) fn tools() -> Vec<Value> {
                     ("companions", describe(int_schema(0, MAX_COMPANIONS), "With changed=true (or base), also pack up to this many files that historically change together with the changed files (git co-change), e.g. the tests or schemas a change usually needs (0..50). Defaults to 0.")),
                     ("deps", describe(int_schema(0, MAX_COMPANIONS), "With changed=true (or base), also pack up to this many files the changed files import — the definitions they use (0..50). Defaults to 0. See ctx_deps.")),
                     ("dependents", describe(int_schema(0, MAX_COMPANIONS), "With changed=true (or base), also pack up to this many files that import the changed files — the callers a change can break (0..50). Defaults to 0.")),
+                    ("tests", describe(int_schema(0, MAX_COMPANIONS), "With changed=true (or base), also pack up to this many test files that exercise the changed files — named after them (foo_test.go, test_foo.py, foo.test.ts, tests/foo.rs, FooTest.java) or importing them (0..50). Defaults to 0. See ctx_tests.")),
                     ("explain", describe(bool_schema(), "When true, include selection-reason annotations in the pack.")),
                     ("files", describe(json!({"items": {"maxLength": MAX_PATH_LEN, "type": "string"}, "maxItems": MAX_PACK_FILES, "type": "array"}), "Pack exactly these files (relative to 'path'), in this order, instead of walking the directory — e.g. the top paths from ctx_where. An entry may name a line range ('src/a.rs:120-180', 'src/a.rs#L42') to pack just those lines, e.g. a body whose signature an overflow digest showed; ranges of one file are merged. The goal does not filter them; only the budget cuts, and missing or out-of-root files are listed as skipped. Not combinable with 'changed' or 'mix'.")),
                     ("exclude", describe(json!({"items": {"maxLength": MAX_PATH_LEN, "type": "string"}, "maxItems": MAX_PACK_PATTERNS, "type": "array"}), "Path globs never packed (wins over 'include'); same syntax as 'include', e.g. [\"tests\", \"*_test.go\"]. Not combinable with 'files' or 'mix'.")),
@@ -137,6 +138,37 @@ pub(crate) fn tools() -> Vec<Value> {
                     ("top", describe(int_schema(0, MAX_TOP), "Max files listed (0..200). Defaults to 50.")),
                 ],
                 &["anchor"],
+            ),
+        ),
+        tool(
+            "ctx_tests",
+            "Find the test files that exercise a file, a directory or the current change: tests named after the source next to it or in a mirrored test directory (foo_test.go, test_foo.py, foo.test.ts, __tests__/foo.ts, tests/foo.rs, src/foo/tests.rs, src/test/java/.../FooTest.java, spec/foo_spec.rb) and tests that import it. Needs no git history. Use it to decide which tests to read before changing code and which to run after; also lists the sources no test was found for. Typical chain: ctx_tests → run them / ctx_pack {\"changed\":true,\"tests\":5}.",
+            object_schema(
+                vec![
+                    ("anchor", describe(str_schema(MAX_ANCHOR_LEN, None, &["src/store.rs", "src/auth/"]), "File or directory (relative to 'path') to find tests for. Optional when changed=true or base is given.")),
+                    ("base", describe(str_schema(MAX_MIX_REF_LEN, None, &["main", "origin/main"]), "Use the files the current branch changes since the merge base with this revision (implies changed=true).")),
+                    ("changed", describe(bool_schema(), "Use the files changed in the working tree; changed test files are listed too.")),
+                    ("format", describe(enum_schema(&["markdown", "json"]), "Output format. Defaults to 'markdown'.")),
+                    ("path", describe(str_schema(MAX_PATH_LEN, Some("."), &[]), "Repository directory. Defaults to '.'")),
+                    ("top", describe(int_schema(0, MAX_TOP), "Max tests listed (0..200). Defaults to 50.")),
+                ],
+                &[],
+            ),
+        ),
+        tool(
+            "ctx_mix",
+            "List, show, save or extend saved file selections (\"mixes\") — the store shared with `ctx mix`, the ctx browse Pins board and ctx_pack {\"mix\":…}. Use 'list' to discover the selections the user saved (then ctx_pack {\"mix\":\"<id>\"}), 'show' to see a mix's files and which are missing under this root, 'save' to keep the files you found relevant (e.g. ctx_where / ctx_deps / ctx_tests hits, line ranges allowed) for a later session or for the user, and 'add' to append files. Files must exist under 'path'. Never deletes or overwrites: save always creates a new mix.",
+            object_schema(
+                vec![
+                    ("action", describe(enum_schema(&["list", "show", "save", "add"]), "list (default), show, save or add.")),
+                    ("budget", describe(int_schema(0, MAX_BUDGET), "Token budget recorded with the mix (save, add). 0 = unset.")),
+                    ("files", describe(json!({"items": {"maxLength": MAX_PATH_LEN, "type": "string"}, "maxItems": MAX_PACK_FILES, "type": "array"}), "Files relative to 'path', in pack order (save, add); 'src/a.rs:120-180' or 'src/a.rs#L42' keeps just those lines.")),
+                    ("goal", describe(str_schema(MAX_GOAL_LEN, None, &["review session expiry"]), "Goal recorded with the mix (save; add replaces it when given).")),
+                    ("mix", describe(str_schema(MAX_MIX_REF_LEN, None, &["auth-review"]), "Id or name of an existing mix (show, add).")),
+                    ("name", describe(str_schema(MAX_MIX_REF_LEN, None, &["auth review"]), "Display name of the new mix (save); its id is derived from it.")),
+                    ("path", describe(str_schema(MAX_PATH_LEN, Some("."), &[]), "Repository directory the files are relative to. Defaults to '.'")),
+                ],
+                &[],
             ),
         ),
         tool(
