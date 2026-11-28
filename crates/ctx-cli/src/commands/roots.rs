@@ -518,7 +518,7 @@ pub(crate) fn extract_browse_url(line: &str) -> Option<String> {
 }
 
 pub(crate) fn display_duration(duration: Duration) -> String {
-    if duration.as_millis() % 1000 == 0 {
+    if duration.subsec_millis() == 0 {
         format!("{}s", duration.as_secs())
     } else {
         format!("{}ms", duration.as_millis())
