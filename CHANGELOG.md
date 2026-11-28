@@ -20,6 +20,9 @@ and this project does not yet follow strict semver — see release notes per tag
   name lists the defined ones. Commit ctx.toml to share them with a team.
 - MCP `ctx_profiles` lists the repository's profiles, and `ctx_pack`
   `profile` applies one (explicit arguments win; `include` / `exclude` add).
+- `ctx doctor` reports the pack profiles ctx.toml defines (`Pack profiles:`
+  / JSON `configuration.pack_profiles`), or the error that would stop every
+  `--profile` run.
 - `ctx tests [PATH]... [--changed | --base REV]`: the test files that
   exercise a file, a directory or the current change — the tests to read
   with a change and to run after it. A test is paired with a source when it

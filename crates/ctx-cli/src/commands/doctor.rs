@@ -114,6 +114,8 @@ pub(crate) struct DoctorConfiguration {
     chain_integrity: String,
     query_masking: String,
     ctxignore: String,
+    /// `[profiles.<name>]` tables: their names, or why they do not load.
+    pack_profiles: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -218,9 +220,24 @@ pub(crate) fn doctor_report(root: &Path, strict_flag: bool) -> Result<DoctorRepo
             chain_integrity: chain_integrity_status(&cfg.audit),
             query_masking: query_masking_status(&cfg.audit),
             ctxignore: ctxignore_status(root),
+            pack_profiles: pack_profiles_status(root),
         },
         browse: browse_readiness(&cfg, strict),
     })
+}
+
+/// The pack profiles ctx.toml defines (`ctx pack --profile`), or the error
+/// that would stop every `--profile` run.
+pub(crate) fn pack_profiles_status(root: &Path) -> String {
+    match ctx_pack::profile::load(root) {
+        Ok(profiles) if profiles.is_empty() => "none".to_string(),
+        Ok(profiles) => format!(
+            "\u{2713} {} ({})",
+            profiles.entries.len(),
+            profiles.names().join(", ")
+        ),
+        Err(err) => format!("\u{2717} {err}"),
+    }
 }
 
 pub(crate) fn load_ctx_toml(root: &Path) -> Result<(CtxToml, Option<PathBuf>), String> {
@@ -457,7 +474,11 @@ pub(crate) fn render_doctor(report: &DoctorReport) {
         "  Query masking:     {}",
         report.configuration.query_masking
     );
-    println!("  .ctxignore:        {}\n", report.configuration.ctxignore);
+    println!("  .ctxignore:        {}", report.configuration.ctxignore);
+    println!(
+        "  Pack profiles:     {}\n",
+        report.configuration.pack_profiles
+    );
     println!("Browse readiness");
     render_browse_check("Loopback bind", &report.browse.loopback);
     render_browse_check("Audit writable", &report.browse.audit_writable);

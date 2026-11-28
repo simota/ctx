@@ -172,6 +172,20 @@ fn invalid_profile_is_rejected_before_packing() {
 }
 
 #[test]
+fn doctor_reports_profiles_and_their_errors() {
+    let root = repo();
+    let report = json(&ctx(&root, &["doctor", ".", "--json"]));
+    assert_eq!(
+        report["configuration"]["pack_profiles"],
+        "\u{2713} 2 (review, web)"
+    );
+    fs::write(root.join("ctx.toml"), "[profiles.x]\nformat = \"html\"\n").unwrap();
+    let report = json(&ctx(&root, &["doctor", ".", "--json"]));
+    let status = report["configuration"]["pack_profiles"].as_str().unwrap();
+    assert!(status.contains("unknown format"), "{status}");
+}
+
+#[test]
 fn profiles_command_lists_profiles_with_their_options() {
     let root = repo();
     let out = ctx(&root, &["profiles"]);
