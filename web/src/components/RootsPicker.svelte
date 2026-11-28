@@ -669,10 +669,10 @@
     color: var(--ctx-accent-text);
   }
   .opt .name {
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .opt .path {
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .opt .meta {
     font-size: 11px;

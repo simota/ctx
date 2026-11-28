@@ -217,7 +217,7 @@
     grid-row: 1;
     color: var(--ctx-link);
     font-weight: 500;
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .score {
     grid-column: 2;

@@ -275,10 +275,10 @@
     color: var(--ctx-link);
   }
   .opt .name {
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .opt .path {
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .opt .line {
     color: var(--ctx-accent-text);

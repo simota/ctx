@@ -226,7 +226,7 @@
     grid-column: 1;
     grid-row: 1;
     color: var(--ctx-link);
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .tokens {
     grid-column: 2;

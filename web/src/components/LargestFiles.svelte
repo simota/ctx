@@ -492,11 +492,11 @@
   .name {
     color: var(--ctx-link);
     font-weight: 500;
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .dir {
     font-size: 10px;
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .bar-cell {
     height: 8px;
@@ -539,7 +539,7 @@
     margin: 6px 0;
     color: var(--ctx-err);
     font-size: 11px;
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .empty {
     margin: 0;

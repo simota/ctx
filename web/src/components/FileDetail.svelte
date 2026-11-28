@@ -2951,7 +2951,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     margin: 0;
     font-size: 13px;
     font-weight: 500;
-    word-break: break-all;
+    overflow-wrap: anywhere;
     /* 12em basis: on a narrow pane the action row wraps below the path
        instead of squeezing the file name to one letter per line. */
     flex: 1 1 12em;
@@ -3245,7 +3245,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     display: block;
     margin: 6px 0;
     color: var(--ctx-err);
-    word-break: break-all;
+    overflow-wrap: anywhere;
     font-size: 11px;
   }
 
@@ -3307,7 +3307,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
   }
   .code.wrap .ln-content {
     white-space: pre-wrap;
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
 
   /* Diff view — re-uses the line/gutter grid but widens the gutter to fit
@@ -3401,6 +3401,15 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
   :global(.ctx-jump:focus-visible) {
     outline: 1px solid var(--ctx-accent);
     outline-offset: 1px;
+  }
+  /* Users who ask for more contrast (or use forced colours) get a persistent
+     dotted underline, so jumpable identifiers are distinguishable from plain
+     code without hovering and without relying on colour (WCAG 1.4.1). */
+  @media (prefers-contrast: more), (forced-colors: active) {
+    :global(.ctx-jump) {
+      text-decoration: underline dotted;
+      text-underline-offset: 3px;
+    }
   }
   /* Strip transition + hover background when the user prefers reduced motion. */
   .code.reduce-motion :global(.ctx-jump) {
