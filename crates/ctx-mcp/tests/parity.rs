@@ -652,6 +652,7 @@ fn strip_rust_only_tools(body: &str) -> String {
         r#""dependents":{"#,
         r#""files":{"#,
         r#""mix":{"#,
+        r#""profile":{"#,
     ] {
         if let Some(at) = out.find(member) {
             out = remove_object_at(&out, at, at + member.len() - 1);
@@ -660,6 +661,7 @@ fn strip_rust_only_tools(body: &str) -> String {
     for tool in [
         r#"{"description":"Rank the files that historically change"#,
         r#"{"description":"Follow the import graph"#,
+        r#"{"description":"List the named pack profiles"#,
     ] {
         if let Some(at) = out.find(tool) {
             out = remove_object_at(&out, at, at);
