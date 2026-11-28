@@ -23,6 +23,8 @@ are under `crates/ctx-web/dist/`. Documentation and static site files are in
 - `make fmt`: format all Rust crates with `rustfmt`.
 - `make web`: rebuild the frontend into Rust-embedded assets; requires `pnpm`.
 - `make dev`: run the Vite frontend dev server only.
+- `make web-test`: type-check the frontend and run its unit tests
+  (`web/src/lib/*.test.ts`, Node's built-in runner); requires `pnpm`.
 
 ## Coding Style & Naming Conventions
 
@@ -38,6 +40,8 @@ Place integration tests in each crate's `tests/` directory and unit
 tests beside the code they cover. Name tests for behavior, for example
 `packs_diff_with_budget_limit`. Run `make test` before broad changes; for a
 narrow crate, use `cargo test --manifest-path crates/<crate>/Cargo.toml`.
+Frontend logic that can be pure (parsing, classification, formatting) lives
+in `web/src/lib/*.ts` with a sibling `*.test.ts`.
 Update or add focused tests when changing CLI behavior, parsing, packing,
 symbol extraction, MCP behavior, or web embedding.
 
