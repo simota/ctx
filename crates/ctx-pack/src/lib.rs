@@ -56,6 +56,7 @@ pub mod ffi;
 pub mod from_where;
 pub mod pathfilter;
 pub mod preset;
+pub mod profile;
 pub mod redact;
 pub mod refs;
 pub mod relevance;

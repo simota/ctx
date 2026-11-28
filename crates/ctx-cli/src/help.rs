@@ -52,6 +52,10 @@ Output:
       --format <FORMAT>       markdown (default), xml, json, plain
       --json / --plain        Shorthand for --format json / plain
       --preset <NAME>         blog, review, debug, llm (or [pack] preset in ctx.toml)
+      --profile <NAME>        Apply [profiles.NAME] from the root's ctx.toml (goal, budget,
+                              base/changed, deps, dependents, tests, companions, include,
+                              exclude, overflow, format, explain); options on the command
+                              line win. List them with `ctx profiles`
       --out <FILE>            Write to FILE instead of stdout
       --explain               Annotate why each file was selected
       --why <PATH>            Explain whether PATH would be packed (repeatable)
@@ -70,6 +74,7 @@ Examples:
   ctx pack --changed --deps --dependents --goal \"what does this change break?\"
   ctx pack --changed --tests --goal \"make the failing test pass\"
   ctx pack --base main --companions --goal \"review this branch\"
+  ctx pack --profile review --budget 80000          # a saved strategy from ctx.toml
   ctx pack --include 'crates/ctx-web/**' --exclude tests --goal \"routing\" --overflow signatures
   echo 'src/store.rs:120-180' | ctx pack --from-stdin
   ctx where \"session expiry\" --json | ctx pack --from-where --around 15
@@ -218,6 +223,34 @@ Command options:
       --top <N>               Max hot files (default 10)
       --format <FORMAT>       markdown (default), plain, json (--json is shorthand)
       --out <FILE>            Write to FILE instead of stdout",
+        ),
+        "profiles" => (
+            "ctx profiles [ROOT] [OPTIONS]",
+            "\
+Lists the pack profiles ROOT's ctx.toml defines and the `ctx pack` options each
+stands for. A profile is a named selection strategy — which files to start from
+and what to add, the budget, filters and output — that `ctx pack --profile NAME`
+and the MCP ctx_pack tool (`\"profile\"`) apply. Commit ctx.toml to share them.
+
+  [profiles.review]
+  description = \"Branch review with callers and tests\"
+  base = \"main\"          # or changed = true
+  dependents = 5         # also deps, tests, companions (0-50)
+  tests = 5
+  budget = 60000
+  goal = \"review this branch\"
+  exclude = [\"docs/**\"]  # also include
+  overflow = \"signatures\"
+  format = \"markdown\"    # plain, json, xml
+  explain = true
+
+Command options:
+      --json                  JSON output
+
+Examples:
+  ctx profiles
+  ctx pack --profile review
+  ctx pack --profile review --base origin/main --out review.md",
         ),
         "mix" => (
             "ctx mix <ACTION> [ARGS]... [OPTIONS]",
@@ -401,6 +434,11 @@ mod tests {
             .1
             .contains("prune --older-than"));
         assert!(command_help("mix").unwrap().1.contains("--from-where"));
+        assert!(command_help("pack").unwrap().1.contains("--profile"));
+        assert!(command_help("profiles")
+            .unwrap()
+            .1
+            .contains("[profiles.review]"));
         assert!(command_help("no-such-command").is_none());
     }
 

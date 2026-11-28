@@ -35,6 +35,9 @@ pub(crate) struct PackArgs {
     pub(crate) plain_file_contents: bool,
     pub(crate) explain: bool,
     pub(crate) preset: String,
+    /// `--profile <NAME>`: a `[profiles.NAME]` table of the root's ctx.toml
+    /// whose options are applied before the command line's own.
+    pub(crate) profile: String,
     pub(crate) changed: bool,
     /// `--base <REV>`: branch review — pack the files changed since the
     /// merge base with REV, committed or not (implies `--changed`).
@@ -127,6 +130,7 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
     let plain_file_contents = false;
     let mut explain = false;
     let mut preset = String::new();
+    let mut profile = String::new();
     let mut changed = false;
     let mut base = String::new();
     let mut companions = 0usize;
@@ -253,6 +257,11 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
             i += 1;
             preset = args.get(i)?.to_string_lossy().into_owned();
             preset_changed = true;
+        } else if let Some(value) = flag_value(arg, "--profile") {
+            profile = value.to_string_lossy().into_owned();
+        } else if arg == OsStr::new("--profile") {
+            i += 1;
+            profile = args.get(i)?.to_string_lossy().into_owned();
         } else if arg == OsStr::new("--changed") {
             changed = true;
         } else if let Some(value) = flag_value(arg, "--base") {
@@ -379,6 +388,7 @@ pub(crate) fn parse_pack_args(args: &[OsString]) -> Option<PackArgs> {
         plain_file_contents,
         explain,
         preset,
+        profile,
         changed,
         base,
         companions,

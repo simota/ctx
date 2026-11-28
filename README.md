@@ -209,6 +209,33 @@ git 履歴を使わないので、新しいファイルや履歴の浅いリポ�
 
 pack では `--tests[=N]`（既定 5）で、選んだファイル（`--changed` / `--base` / `--from-where` / `--from-stdin` / `--from-refs` / `--from-mix`）のテストを「定義 → 呼び出し元 → テスト → co-change companion」の順に追加し、`reason` に `test: named after src/store.rs` / `test: imports src/store.rs` と記録します。
 
+### 4d. よく使う選び方に名前を付ける（profile）
+
+```bash
+ctx profiles                                   # ctx.toml に定義された profile と、展開されるオプション
+ctx pack --profile review                      # = --base main --dependents=5 --tests=5 ... を一語で
+ctx pack --profile review --base origin/main --budget 80000   # コマンドラインの指定が優先
+```
+
+```toml
+# ctx.toml
+[profiles.review]
+description = "Branch review with callers and tests"
+base = "main"          # または changed = true
+dependents = 5         # deps / tests / companions も（0〜50、changed か base が必要）
+tests = 5
+budget = 60000
+goal = "review this branch"
+exclude = ["docs/**", "*.lock"]   # include も可
+overflow = "signatures"
+```
+
+mix が「どのファイルを渡すか」を保存するのに対し、profile は「どう選び、どう出力するか」（起点となる選択、追加する依存・呼び出し元・テスト・companion、予算、glob フィルタ、overflow、format、explain）を保存します。
+`ctx.toml` をコミットすれば、チームで同じレビュー・デバッグ用の選び方を共有できます。
+コマンドラインで明示したオプションは profile の値より優先され（`--tests=0` で無効化も可）、`--include` / `--exclude` は profile の値に追加されます。
+未知のキー・範囲外の値・`changed` / `base` なしの `deps` などは pack の前にエラーになり、存在しない名前を指定すると定義済みの profile 名を表示します。
+MCP では `ctx_profiles` で一覧し、`ctx_pack {"profile":"review"}` で同じ profile を使えます。
+
 ### 5. 選んだファイルを保存して再利用する（mix）
 
 ```bash
@@ -265,6 +292,7 @@ ctx noise --top 20
 | `ctx audit verify` | audit log を検証 |
 | `ctx deps` / `ctx impact` | import 依存と影響範囲を表示（`--depth`、ディレクトリ、`--format paths`） |
 | `ctx tests [PATH]` | ファイル・ディレクトリ・変更（`--changed` / `--base`）に対応するテストを表示 |
+| `ctx profiles` | `ctx.toml` に定義した pack profile（名前付きの選び方）を一覧 |
 | `ctx roots` | 既知の repository root を管理 |
 | `ctx onboarding` | codebase onboarding 用の読み順を生成 |
 | `ctx browse` | ローカル Web UI を起動 |
@@ -293,7 +321,8 @@ Claude Code や Cursor などの MCP client から、context 生成や検索を 
 }
 ```
 
-提供する tool: `ctx_pack`（`changed` / `base` / `companions` / `deps` / `dependents` / `tests` / `files` / `mix` / `refs` / `include` / `exclude` / `overflow` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_deps`、`ctx_tests`、`ctx_mix`、`ctx_roots_list`。
+提供する tool: `ctx_pack`（`changed` / `base` / `companions` / `deps` / `dependents` / `tests` / `files` / `mix` / `refs` / `include` / `exclude` / `overflow` / `profile` 対応）、`ctx_where`、`ctx_focus`、`ctx_skim`、`ctx_budget`、`ctx_symbols`、`ctx_tree`、`ctx_digest`、`ctx_cochange`、`ctx_deps`、`ctx_tests`、`ctx_mix`、`ctx_profiles`、`ctx_roots_list`。
+リポジトリの `ctx.toml` に profile があれば、`ctx_profiles` で一覧して `ctx_pack {"profile":"review"}` のように呼べます（明示した引数が優先、`include` / `exclude` は追加）。
 コードを変更したら `ctx_tests {"changed":true}` で読む・走らせるべきテストを確認し、`ctx_pack {"changed":true,"tests":5}` で変更とそのテストをまとめて渡せます。
 関数のシグネチャを変える前に `ctx_deps {"anchor":"src/store.rs","direction":"importers","depth":2}` で影響範囲を確認し、`ctx_pack {"changed":true,"deps":5,"dependents":5}` で変更・その定義・呼び出し元をまとめて渡せます。
 signatures only で渡されたファイルの本体は `ctx_pack {"files":["src/store.rs:120-180"]}` のように行範囲で要求できます。
@@ -355,6 +384,7 @@ cp ctx.toml.example ctx.toml
 - `[ai]`: tokenizer と既定 token budget
 - `[security]`: secret scan / redact / strict offline
 - `[pack]`: pack preset
+- `[profiles.<name>]`: 名前付きの pack profile（`ctx pack --profile`、MCP `ctx_pack` `profile`）
 - `[hooks]`: pre/post pack hook
 - `[audit]`: audit log と query masking
 

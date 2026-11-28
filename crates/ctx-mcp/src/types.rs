@@ -89,6 +89,14 @@ pub(crate) struct PackArgs {
     /// that does not fit the budget.
     #[serde(default)]
     pub(crate) overflow: String,
+    /// A `[profiles.<name>]` table of the repository's ctx.toml whose values
+    /// fill the arguments left unset.
+    #[serde(default)]
+    pub(crate) profile: String,
+    /// Set when the budget came from the profile (it then counts as
+    /// explicit, like a `budget` argument).
+    #[serde(skip)]
+    pub(crate) profile_budget: bool,
 }
 
 #[derive(Deserialize)]

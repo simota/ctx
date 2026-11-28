@@ -316,6 +316,7 @@ pub(crate) fn build_focus_pack_args(args: &FocusArgs, budget: i64) -> PackArgs {
         plain_file_contents: false,
         explain: false,
         preset: String::new(),
+        profile: String::new(),
         changed: false,
         base: String::new(),
         companions: 0,
