@@ -552,7 +552,7 @@
     display: block;
     margin-top: 4px;
     color: var(--ctx-err);
-    word-break: break-all;
+    overflow-wrap: anywhere;
     font-size: 10px;
   }
 </style>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Symbol } from '../lib/api';
+  import { identifierBreakParts } from '../lib/format';
 
   // `onJump(line)` is the historic intra-file form; `(line, path)` is the
   // cross-file extension used by the definition picker. SymbolList itself
@@ -56,7 +57,7 @@
             onclick={() => onJump?.(s.line)}
           >
             <span class="kind" style="color: {kindColor(s.kind)}">{s.kind}</span>
-            <span class="name mono">{s.name}</span>
+            <span class="name mono">{#each identifierBreakParts(s.name) as part, j}{#if j > 0}<wbr />{/if}{part}{/each}</span>
             <span class="line muted">L{s.line}</span>
           </button>
         </li>
@@ -115,7 +116,7 @@
     letter-spacing: 0.04em;
   }
   .name {
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .line {
     font-size: 10px;

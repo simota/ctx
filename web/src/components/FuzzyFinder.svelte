@@ -338,7 +338,7 @@
   }
   .opt .name {
     color: var(--ctx-fg);
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .opt .dir {
     color: var(--ctx-fg-dim);

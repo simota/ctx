@@ -93,6 +93,20 @@ fn main() -> ExitCode {
             // handled by `try_run_native`. If we reach here, a parse-accepted
             // command hit a shape no native handler claimed. There is no Go
             // fallback — fail honestly rather than delegate.
+            //
+            // Exception: `--help` that follows other arguments (`ctx pack .
+            // --help`) never reaches clap's help handler and no native
+            // handler claims it. Show the command's help, as the user asked,
+            // instead of an error that tells them to run `--help`.
+            if let Some(name) = invoked_command(&args[1..]) {
+                if help::help_requested(&args[1..]) {
+                    // Render exactly what `ctx <name> --help` prints.
+                    if let Err(help) = cli().try_get_matches_from(["ctx", name, "--help"]) {
+                        let _ = help.print();
+                        return ExitCode::from(help.exit_code() as u8);
+                    }
+                }
+            }
             let invocation = args
                 .iter()
                 .skip(1)
@@ -428,7 +442,7 @@ fn cli() -> ClapCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::roots::{extract_browse_url, parse_duration_arg};
+    use crate::commands::roots::{display_duration, extract_browse_url, parse_duration_arg};
     use std::time::Duration;
 
     fn os_args(args: &[&str]) -> Vec<OsString> {
@@ -495,5 +509,13 @@ mod tests {
         assert_eq!(parse_duration_arg("1h"), Some(Duration::from_secs(3600)));
         assert_eq!(parse_duration_arg("10"), Some(Duration::from_secs(10)));
         assert_eq!(parse_duration_arg("bad"), None);
+    }
+
+    #[test]
+    fn duration_display_uses_seconds_only_for_whole_seconds() {
+        assert_eq!(display_duration(Duration::from_secs(10)), "10s");
+        assert_eq!(display_duration(Duration::from_millis(2000)), "2s");
+        assert_eq!(display_duration(Duration::from_millis(1500)), "1500ms");
+        assert_eq!(display_duration(Duration::from_millis(0)), "0s");
     }
 }

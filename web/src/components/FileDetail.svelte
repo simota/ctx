@@ -81,73 +81,13 @@
   import MakefileRender from './MakefileRender.svelte';
   import DockerfileRender from './DockerfileRender.svelte';
   import { buildConfigTree } from '../lib/config-tree';
+  import { classifyFile } from '../lib/file-kind';
+  import { makeSlugger, stripExecutableHtml, extractMermaidBlocks, escapeAttr } from '../lib/markdown-html';
   import RelationsPanel from './RelationsPanel.svelte';
   import TestInsightsPanel from './TestInsightsPanel.svelte';
   import EvidencePanel from './EvidencePanel.svelte';
   import HexView from './HexView.svelte';
 
-  // Slug generator matching the one used to build TOC entries. Keeps Latin
-  // and Unicode letters/numbers (so Japanese headings keep their text),
-  // replaces whitespace with `-`, and tracks duplicates with a numeric
-  // suffix the way GitHub does.
-  function makeSlugger() {
-    const counts = new Map<string, number>();
-    return (text: string): string => {
-      const base = text
-        .toLowerCase()
-        .trim()
-        .replace(/[^\p{L}\p{N}\s-]/gu, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-');
-      const n = counts.get(base) ?? 0;
-      counts.set(base, n + 1);
-      return n === 0 ? base : `${base}-${n}`;
-    };
-  }
-
-  // Remove constructs the sandboxed iframe would otherwise warn about.
-  // The iframe runs with sandbox="allow-same-origin" (no allow-scripts) so
-  // nothing actually executes — but the browser still logs a warning per
-  // attempt. Stripping <script> blocks and inline on* handlers silences the
-  // console while preserving the iframe sandbox as defence-in-depth.
-  function stripExecutableHtml(html: string): string {
-    return html
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '')
-      .replace(/<script\b[^>]*\/?>/gi, '')
-      .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '')
-      .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '')
-      .replace(/\son[a-z]+\s*=\s*[^\s>]+/gi, '');
-  }
-
-  // After marked has rendered the markdown to HTML, pull each mermaid code
-  // block out and replace it with a stable-id placeholder. The pattern is
-  // tight because markedHighlight always emits `class="hljs language-X"` —
-  // mermaid isn't a hljs language, so the inner text comes back unwrapped
-  // (just entity-escaped), which we decode before passing to mermaid.render.
-  let _mermaidSeq = 0;
-  function extractMermaidBlocks(
-    html: string,
-  ): { html: string; blocks: { id: string; code: string }[] } {
-    const blocks: { id: string; code: string }[] = [];
-    const out = html.replace(
-      /<pre><code class="hljs language-mermaid">([\s\S]*?)<\/code><\/pre>/g,
-      (_m, body: string) => {
-        const id = `m${_mermaidSeq++}`;
-        blocks.push({ id, code: decodeHtmlEntities(body) });
-        return `<div class="mermaid-block" data-mid="${id}"></div>`;
-      },
-    );
-    return { html: out, blocks };
-  }
-
-  function decodeHtmlEntities(s: string): string {
-    return s
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&amp;/g, '&');
-  }
 
   // `pane` — which split-view pane this instance renders in. The split view
   // mounts one FileDetail per pane and each registers window-level keydown
@@ -304,53 +244,28 @@
   //     cookies/localStorage even though the URL is technically same-origin.
   //   - The server adds Content-Security-Policy: sandbox allow-scripts so a
   //     direct navigation (no iframe) still falls into the same sandbox.
-  let isSvg = $derived(/\.svg$/i.test(path));
-  let isHtml = $derived(/\.x?html?$/i.test(path));
-  // Binary media served straight from /raw with the right Content-Type — the
-  // /api/file text content is meaningless for these, so they render as an
-  // <img>/<iframe> preview instead of a source pane. SVG keeps its own
-  // data-URL path (script-safe) and is intentionally excluded here.
-  let isImage = $derived(/\.(png|jpe?g|gif|webp|avif|bmp|ico|apng)$/i.test(path));
-  let isPdf = $derived(/\.pdf$/i.test(path));
-  let isBinaryView = $derived(isImage || isPdf);
-  let isMarkdown = $derived(/\.(md|markdown|mdx)$/i.test(path));
-  let isCss = $derived(/\.(css|scss|sass|less|pcss|postcss)$/i.test(path));
-  let isJson = $derived(/\.json$/i.test(path));
-  // SVG is XML but has its own preview path; .xhtml/.html are handled by
-  // isHtml. The remaining .xml/.xsd/.xsl/.xslt/.rss/.atom/.plist files
-  // belong to the XML insights sidebar.
-  let isXml = $derived(!isSvg && !isHtml && /\.(xml|xsd|xsl|xslt|rss|atom|plist)$/i.test(path));
-  let isYaml = $derived(/\.ya?ml$/i.test(path));
-  let isSql = $derived(/\.sql$/i.test(path));
-  // Build files identify by basename (no extension) as well as by suffix:
-  // `Makefile`/`GNUmakefile`/`*.mk`, `Dockerfile`/`Dockerfile.dev`/`*.dockerfile`.
-  let baseName = $derived(path.split('/').pop() ?? '');
-  let isMakefile = $derived(
-    /^(GNUmakefile|[Mm]akefile)$/.test(baseName) || /\.(mk|make|mak)$/i.test(baseName),
-  );
-  let isDockerfile = $derived(
-    /^(Dockerfile|Containerfile)(\.[\w.-]+)?$/i.test(baseName) || /\.dockerfile$/i.test(baseName),
-  );
-  let isToml = $derived(/\.toml$/i.test(path));
-  // Config files that get a structured "Rendered" view alongside Source —
-  // Dockerfile/Makefile draw dedicated cards; YAML/JSON/TOML/XML share the
-  // collapsible ConfigTree. `configRenderKind` names which path to take.
-  let configRenderKind = $derived(
-    isMakefile
-      ? 'makefile'
-      : isDockerfile
-        ? 'dockerfile'
-        : isYaml
-          ? 'yaml'
-          : isJson
-            ? 'json'
-            : isToml
-              ? 'toml'
-              : isXml
-                ? 'xml'
-                : '',
-  );
-  let isConfigRender = $derived(configRenderKind !== '');
+  let {
+    isSvg,
+    isHtml,
+    isImage,
+    isPdf,
+    isBinaryView,
+    isMarkdown,
+    isCss,
+    isJson,
+    isXml,
+    isYaml,
+    isSql,
+    isMakefile,
+    isDockerfile,
+    isToml,
+    isMmd,
+    configRenderKind,
+    isConfigRender,
+    isRelationsTarget,
+    isTestsTarget,
+    isPreviewable,
+  } = $derived(classifyFile(path));
   // Built only for the tree formats; Dockerfile/Makefile render from their
   // own insight extractors inside the dedicated components.
   let configTree = $derived(
@@ -358,20 +273,6 @@
       ? buildConfigTree(configRenderKind, data?.content ?? '')
       : null,
   );
-  let isMmd = $derived(/\.(mmd|mermaid)$/i.test(path));
-  // Files whose right-sidebar should also surface the import graph. Matches
-  // the language list in ctx_relations::supported on the backend.
-  let isRelationsTarget = $derived(
-    /\.(go|rs|tsx?|jsx?|mjs|cjs|svelte|vue|py|java|kts?|php|swift)$/i.test(path),
-  );
-  // Go gets symbol-aware test insight and coverage; every other language
-  // pairs files with their tests by naming convention and imports.
-  let isTestsTarget = $derived(
-    /\.(go|rs|tsx?|jsx?|mjs|cjs|svelte|vue|py|java|kts?|php|swift|rb|cs|scala|dart|exs?|c|cc|cpp|h|hpp)$/i.test(
-      path,
-    ),
-  );
-  let isPreviewable = $derived(isSvg || isHtml || isMarkdown || isMmd || isConfigRender);
   let svgDataUrl = $derived.by(() => {
     if (!isSvg || !data) return '';
     return `data:image/svg+xml;utf8,${encodeURIComponent(data.content)}`;
@@ -398,9 +299,6 @@
   function readThemeVar(name: string, fallback: string): string {
     if (typeof document === 'undefined') return fallback;
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
-  }
-  function escapeAttr(s: string): string {
-    return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
   }
   function buildMarkdownCss(): string {
     const bg = readThemeVar('--ctx-bg', '#1e1e1e');
@@ -3053,7 +2951,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     margin: 0;
     font-size: 13px;
     font-weight: 500;
-    word-break: break-all;
+    overflow-wrap: anywhere;
     /* 12em basis: on a narrow pane the action row wraps below the path
        instead of squeezing the file name to one letter per line. */
     flex: 1 1 12em;
@@ -3347,7 +3245,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
     display: block;
     margin: 6px 0;
     color: var(--ctx-err);
-    word-break: break-all;
+    overflow-wrap: anywhere;
     font-size: 11px;
   }
 
@@ -3409,7 +3307,7 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
   }
   .code.wrap .ln-content {
     white-space: pre-wrap;
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
 
   /* Diff view — re-uses the line/gutter grid but widens the gutter to fit
@@ -3503,6 +3401,15 @@ kbd { background: ${bgElev}; border: 1px solid ${border}; border-radius: 3px; pa
   :global(.ctx-jump:focus-visible) {
     outline: 1px solid var(--ctx-accent);
     outline-offset: 1px;
+  }
+  /* Users who ask for more contrast (or use forced colours) get a persistent
+     dotted underline, so jumpable identifiers are distinguishable from plain
+     code without hovering and without relying on colour (WCAG 1.4.1). */
+  @media (prefers-contrast: more), (forced-colors: active) {
+    :global(.ctx-jump) {
+      text-decoration: underline dotted;
+      text-underline-offset: 3px;
+    }
   }
   /* Strip transition + hover background when the user prefers reduced motion. */
   .code.reduce-motion :global(.ctx-jump) {

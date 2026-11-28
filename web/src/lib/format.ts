@@ -218,3 +218,11 @@ export function langFromPath(path: string): string {
   };
   return map[ext] ?? 'plaintext';
 }
+
+// Split an identifier at the points a reader expects it to wrap — after `_`,
+// `.`, `:` or `/`, and before a camelCase hump — so a narrow column can render
+// `<wbr>` between the parts instead of breaking mid-word. Joining the parts
+// returns the input unchanged.
+export function identifierBreakParts(name: string): string[] {
+  return name.split(/(?<=[_.:/])(?=[^_.:/])|(?<=[a-z0-9])(?=[A-Z])/);
+}

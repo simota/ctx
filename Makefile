@@ -5,7 +5,7 @@
 # Node/pnpm toolchain — rebuild the frontend explicitly with `make web`.
 
 .PHONY: all help build release install install-prefix uninstall \
-        test lint fmt check web run dev browse oracle clean distclean
+        test lint fmt check web web-test run dev browse oracle clean distclean
 
 BINARY      := ctx
 CLI_MANIFEST := crates/ctx-cli/Cargo.toml
@@ -50,6 +50,9 @@ release:  ## Build the optimized release ctx binary and copy it to ./bin
 
 web:  ## Rebuild the web frontend into crates/ctx-web/dist (needs pnpm)
 	cd web && pnpm install --frozen-lockfile && pnpm build
+
+web-test:  ## Type-check the web frontend and run its unit tests (needs pnpm)
+	cd web && pnpm install --frozen-lockfile && pnpm check && pnpm test
 
 # ---- install --------------------------------------------------------------
 

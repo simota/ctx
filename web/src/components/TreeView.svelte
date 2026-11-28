@@ -811,7 +811,7 @@
     display: block;
     margin: 6px 0;
     color: var(--ctx-err);
-    word-break: break-all;
+    overflow-wrap: anywhere;
     font-size: 11px;
   }
 </style>

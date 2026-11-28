@@ -425,7 +425,7 @@
     font-size: 10px;
     text-transform: none;
     letter-spacing: 0;
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .readme {
     margin: 0;
@@ -496,7 +496,7 @@
     line-height: 1;
   }
   .name {
-    word-break: break-all;
+    overflow-wrap: anywhere;
     min-width: 0;
   }
   .meta {
@@ -537,7 +537,7 @@
     margin: 6px 0;
     color: var(--ctx-err);
     font-size: 11px;
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .empty {
     margin: 0;
