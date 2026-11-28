@@ -104,6 +104,7 @@ impl Server {
             "ctx_deps" => return self.run_deps(params.arguments.as_deref()),
             "ctx_tests" => return self.run_tests(params.arguments.as_deref()),
             "ctx_mix" => return self.run_mix(params.arguments.as_deref()),
+            "ctx_profiles" => return self.run_profiles(params.arguments.as_deref()),
             _ => {
                 return Ok(tool_error_result(&format!("unknown tool: {}", params.name)));
             }
@@ -115,6 +116,8 @@ impl Server {
         let mut args: PackArgs = parse_json_opt(raw)?;
         validate_len("path", &args.path, MAX_PATH_LEN)?;
         validate_len("goal", &args.goal, MAX_GOAL_LEN)?;
+        validate_len("profile", &args.profile, MAX_MIX_REF_LEN)?;
+        self.apply_pack_profile(&mut args)?;
         if args.path.is_empty() {
             args.path = ".".to_string();
         }
@@ -300,6 +303,7 @@ impl Server {
             .and_then(|raw| serde_json::from_str::<Value>(raw.get()).ok())
             .is_some_and(|v| v.get("budget").is_some_and(|b| b.as_i64().unwrap_or(0) > 0));
         let mut args = self.parse_pack_args(raw)?;
+        let explicit_budget = explicit_budget || args.profile_budget;
         let root = self.resolve_path(&args.path)?;
         if !args.refs.trim().is_empty() {
             return self.run_pack_refs(&root, &mut args, explicit_budget);

@@ -26,6 +26,7 @@ pub(crate) fn tools() -> Vec<Value> {
                     ("around", describe(json!({"maximum": 1000, "minimum": 0, "type": "integer"}), "With 'refs': lines of context either side of each cited line. Defaults to 10.")),
                     ("overflow", describe(enum_schema(&["drop", "signatures"]), "What happens to a relevant file that does not fit the budget when walking a directory: 'drop' (default; listed as skipped) or 'signatures' (pack its declaration lines with line numbers instead, when those fit; request a body afterwards with files:[\"path:START-END\"]).")),
                     ("path", describe(str_schema(MAX_PATH_LEN, Some("."), &[]), "Directory to walk. Defaults to '.'")),
+                    ("profile", describe(str_schema(MAX_MIX_REF_LEN, None, &["review"]), "Apply a named pack profile from the repository's ctx.toml ([profiles.<name>]; list them with ctx_profiles): its goal, budget, changed/base, companions, deps, dependents, tests, include, exclude, overflow, format and explain fill the arguments you leave unset; include / exclude add to yours.")),
                 ],
                 &["path"],
             ),
@@ -167,6 +168,16 @@ pub(crate) fn tools() -> Vec<Value> {
                     ("mix", describe(str_schema(MAX_MIX_REF_LEN, None, &["auth-review"]), "Id or name of an existing mix (show, add).")),
                     ("name", describe(str_schema(MAX_MIX_REF_LEN, None, &["auth review"]), "Display name of the new mix (save); its id is derived from it.")),
                     ("path", describe(str_schema(MAX_PATH_LEN, Some("."), &[]), "Repository directory the files are relative to. Defaults to '.'")),
+                ],
+                &[],
+            ),
+        ),
+        tool(
+            "ctx_profiles",
+            "List the named pack profiles the repository's ctx.toml defines ([profiles.<name>]) — the selection strategies the user's team uses, e.g. 'review' = branch vs main with callers and tests at 60k tokens. Each entry shows its settings and how to call it: ctx_pack {\"profile\":\"<name>\"}. Call this before composing a ctx_pack call for a review or a change, and prefer a matching profile over guessing arguments.",
+            object_schema(
+                vec![
+                    ("path", describe(str_schema(MAX_PATH_LEN, Some("."), &[]), "Repository directory whose ctx.toml is read (falls back to the server root). Defaults to '.'")),
                 ],
                 &[],
             ),

@@ -14,6 +14,7 @@ pub(crate) mod mix;
 pub(crate) mod noise;
 pub(crate) mod onboarding;
 pub(crate) mod pack;
+pub(crate) mod profiles;
 pub(crate) mod relations;
 pub(crate) mod replay;
 pub(crate) mod roots;

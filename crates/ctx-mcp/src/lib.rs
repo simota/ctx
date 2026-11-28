@@ -6,6 +6,7 @@ mod cochange;
 mod deps;
 mod mix_tool;
 mod pack;
+mod profile_tool;
 mod prompts;
 mod protocol;
 mod resources;

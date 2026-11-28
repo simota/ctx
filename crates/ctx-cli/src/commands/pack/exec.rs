@@ -1,5 +1,5 @@
 use std::env;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::io::{self, Read};
 use std::path::Path;
 use std::process::ExitCode;
@@ -9,13 +9,57 @@ use crate::common::*;
 
 pub(crate) fn run_pack_command(args: &[OsString]) -> Option<ExitCode> {
     let parsed = parse_pack_args(args)?;
-    match pack_command(parsed) {
+    let profile = parsed.profile.clone();
+    let result = if profile.trim().is_empty() {
+        pack_command(parsed)
+    } else {
+        match apply_pack_profile(args, &parsed) {
+            Ok(expanded) => pack_command(expanded).map_err(|err| {
+                format!("{err}\n(options from --profile {profile} apply before the command line's)")
+            }),
+            Err(err) => Err(err),
+        }
+    };
+    match result {
         Ok(()) => Some(ExitCode::SUCCESS),
         Err(err) => {
             eprintln!("{err}");
             Some(ExitCode::from(1))
         }
     }
+}
+
+/// Re-parse the command line with the options of `[profiles.<NAME>]` from
+/// the root's ctx.toml inserted right after `pack`, so every option given on
+/// the command line overrides the profile's value (list options such as
+/// `--include` add to it).
+pub(crate) fn apply_pack_profile(args: &[OsString], parsed: &PackArgs) -> Result<PackArgs, String> {
+    let root = if parsed.root.is_absolute() {
+        parsed.root.clone()
+    } else {
+        env::current_dir()
+            .map_err(|err| err.to_string())?
+            .join(&parsed.root)
+    };
+    let profiles =
+        ctx_pack::profile::load(&root).map_err(|err| format!("pack: --profile: {err}"))?;
+    let profile = profiles
+        .get(&parsed.profile)
+        .map_err(|err| format!("pack: --profile: {err}"))?;
+    let at = args
+        .iter()
+        .position(|arg| arg == OsStr::new("pack"))
+        .ok_or_else(|| "pack: --profile: missing pack command".to_string())?;
+    let mut expanded: Vec<OsString> = args[..=at].to_vec();
+    expanded.extend(profile.to_cli_args().into_iter().map(OsString::from));
+    expanded.extend_from_slice(&args[at + 1..]);
+    parse_pack_args(&expanded).ok_or_else(|| {
+        format!(
+            "pack: --profile {}: its options do not parse together with the command line: {}",
+            parsed.profile.trim(),
+            profile.command_line()
+        )
+    })
 }
 
 pub(crate) fn pack_command(mut args: PackArgs) -> Result<(), String> {

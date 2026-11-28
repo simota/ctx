@@ -27,6 +27,7 @@ use crate::commands::mix::run_mix_command;
 use crate::commands::noise::run_noise_command;
 use crate::commands::onboarding::run_onboarding_command;
 use crate::commands::pack::run_pack_command;
+use crate::commands::profiles::run_profiles_command;
 use crate::commands::relations::run_relations_command;
 use crate::commands::replay::run_replay_command;
 use crate::commands::roots::run_roots_command;
@@ -73,6 +74,10 @@ const COMMANDS: &[(&str, &str)] = &[
     (
         "mix",
         "Save and manage reusable file selections for ctx pack",
+    ),
+    (
+        "profiles",
+        "List the named pack profiles defined in ctx.toml",
     ),
 ];
 
@@ -278,6 +283,13 @@ fn try_run_native(args: &[OsString]) -> Option<ExitCode> {
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("mix")) || flag_then_command(args, "mix") {
         return run_mix_command(args);
+    }
+    if args
+        .first()
+        .is_some_and(|arg| arg == OsStr::new("profiles"))
+        || flag_then_command(args, "profiles")
+    {
+        return run_profiles_command(args);
     }
     if args.first().is_some_and(|arg| arg == OsStr::new("tui")) {
         return run_tui_command(args);

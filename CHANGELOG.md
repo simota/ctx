@@ -8,6 +8,21 @@ and this project does not yet follow strict semver — see release notes per tag
 ## [Unreleased]
 
 ### Added
+- Pack profiles: name a selection strategy once in `ctx.toml` and use it
+  everywhere. `[profiles.<name>]` holds any of `description`, `goal`,
+  `budget`, `format`, `changed`, `base`, `companions`, `deps`,
+  `dependents`, `tests`, `include`, `exclude`, `overflow` and `explain`.
+  `ctx pack --profile review` applies one (options on the command line win,
+  `--tests=0` turns an addition off, `--include` / `--exclude` add to the
+  profile's); `ctx profiles [ROOT] [--json]` lists them with the options
+  each stands for. Profiles are validated before packing — unknown keys,
+  out-of-range values, `deps` without `changed`/`base` — and an unknown
+  name lists the defined ones. Commit ctx.toml to share them with a team.
+- MCP `ctx_profiles` lists the repository's profiles, and `ctx_pack`
+  `profile` applies one (explicit arguments win; `include` / `exclude` add).
+- `ctx doctor` reports the pack profiles ctx.toml defines (`Pack profiles:`
+  / JSON `configuration.pack_profiles`), or the error that would stop every
+  `--profile` run.
 - `ctx tests [PATH]... [--changed | --base REV]`: the test files that
   exercise a file, a directory or the current change — the tests to read
   with a change and to run after it. A test is paired with a source when it

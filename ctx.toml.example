@@ -43,6 +43,31 @@ unit    = "tokens" # "tokens" | "chars" | "pages"
 [pack]
 preset = "" # "blog" | "review" | "debug" | "llm"
 
+# Named pack profiles: reusable selection strategies, applied with
+# `ctx pack --profile <name>` or MCP `ctx_pack {"profile":"<name>"}` and
+# listed by `ctx profiles` / MCP `ctx_profiles`. Options given on the command
+# line (or as ctx_pack arguments) win; include / exclude add to the profile's.
+# Keys: description, goal, budget, format, changed, base, companions, deps,
+# dependents, tests (0-50; need changed or base), include, exclude,
+# overflow ("drop" | "signatures"), explain.
+#
+# [profiles.review]
+# description = "Branch review with callers and tests"
+# base = "main"
+# dependents = 5
+# tests = 5
+# companions = 3
+# budget = 60000
+# goal = "review this branch"
+# exclude = ["docs/**", "*.lock"]
+# overflow = "signatures"
+#
+# [profiles.wip]
+# description = "Uncommitted work with the definitions it uses"
+# changed = true
+# deps = 5
+# tests = 5
+
 [hooks]
 pre_pack  = ""
 post_pack = ""
