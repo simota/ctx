@@ -254,8 +254,122 @@ Examples:
   ctx where \"session login\" --json | ctx mix save login --from-where
   ctx pack --from-mix auth-review --out context.md",
         ),
+        "browse" => (
+            "ctx browse [PATH] [OPTIONS]",
+            "\
+Serves PATH (default .) in the local web UI and opens it in the system browser.
+
+Options:
+      --port <N>              Port to listen on (default 0: pick a free port)
+      --bind <HOST[:PORT]>    Address to bind (default 127.0.0.1); a port here is used
+                              unless --port is given
+      --allow-nonlocal        Allow binding a non-loopback address (exposes the repository
+                              to the network)
+      --no-open               Print the URL without launching the browser
+      --web-engine <ENGINE>   Server implementation; only `rust` is supported
+                              (also CTX_WEB_ENGINE)
+
+Examples:
+  ctx browse
+  ctx browse ../other-repo --port 8080 --no-open",
+        ),
+        "mcp" => (
+            "ctx mcp serve [OPTIONS]",
+            "\
+Runs the Model Context Protocol server over stdio (JSON-RPC on stdin/stdout).
+
+Options:
+      --root <DIR>            Repository the tools read (default: current directory)
+      --allow-outside-root    Let tool calls name paths outside --root
+      --log-file <FILE>       Accepted for compatibility; ignored
+
+Example:
+  claude mcp add ctx -- ctx mcp serve --root /path/to/repo",
+        ),
+        "tui" => (
+            "ctx tui [PATH]",
+            "\
+Opens the interactive terminal file browser on PATH (default .) with token
+counts. Needs an interactive terminal (TTY); takes no options.",
+        ),
+        "roots" => (
+            "ctx roots <add|list|remove|open> [ARGS] [OPTIONS]",
+            "\
+Commands:
+  add [PATH]                  Register PATH (default .) as a known root (alias: register)
+  list                        List registered roots and when each was last opened (alias: ls)
+  remove NAME|PATH            Forget a registered root (alias: rm)
+  open NAME|PATH              Start `ctx browse` for a registered root in the background
+                              (alias: o)
+
+Command options:
+      --name <TEXT>           Name to register the root under (add; default: directory name)
+      --port <N>              Port for the browse server (open; default: a free port)
+      --bind <HOST>           Address for the browse server (open; default 127.0.0.1)
+      --no-open               Print the URL without launching the browser (open)
+      --timeout <DURATION>    How long to wait for the server to start (open; default 10s;
+                              units ms, s, m, h)",
+        ),
+        "map" => (
+            "ctx map [ROOT] [OPTIONS]",
+            "\
+Options:
+      --by <KEY>              Size cells by tokens (default), files, symbols or churn
+      --depth <N>             Directory depth to aggregate at (default 2)
+      --top <N>               Keep only the N largest cells (default 0: all)
+      --format <FORMAT>       ascii (default), json, svg
+      --json / --plain        Shorthand for --format json / a plain ranked list
+      --width <N>             Map width in columns (default 80, at most 1000)
+      --height <N>            Map height in rows (default 20, at most 1000)
+      --budget <N>            Token budget to show alongside the totals (default 0: none)",
+        ),
+        "skim" => (
+            "ctx skim <FILE> [OPTIONS]",
+            "\
+Renders FILE at the most detailed tier that fits the budget, trying in order:
+full, api+doc, signatures, outline.
+
+Options:
+      --budget <N>            Size limit (default 1000)
+      --unit <UNIT>           Measure the budget in tokens (default) or chars
+      --tier <TIER>           Force one tier: full, api+doc, signatures, outline
+      --lang <LANG>           Language for symbol extraction (default auto: from the
+                              file extension)",
+        ),
+        "focus" => (
+            "ctx focus <ANCHOR> [OPTIONS]",
+            "\
+Packs a symbol, file name or path (ANCHOR) together with the files around it.
+
+Options:
+      --hops <N>              How far to follow references from the anchor (default 1)
+      --budget <N>            Token budget (default 8000)
+      --format <FORMAT>       markdown (default), json, plain
+      --json / --plain        Shorthand for --format json / plain",
+        ),
+        "noise" => (
+            "ctx noise [ROOT] [OPTIONS]",
+            "\
+Lists files that cost many tokens but carry little meaning (generated code,
+lockfiles, test data, ...).
+
+Options:
+      --top <N>               Show the N largest candidates (default 20)
+      --format <FORMAT>       text (default), json
+      --json                  Shorthand for --format json
+      --apply                 Print every candidate as an ignore-file proposal to review",
+        ),
         _ => return None,
     })
+}
+
+/// True when the user asked for help (`-h` / `--help`) anywhere in the
+/// command line before a `--` separator — e.g. `ctx pack . --help`, where
+/// the flag follows other arguments and so never reaches clap's own handler.
+pub(crate) fn help_requested(args: &[std::ffi::OsString]) -> bool {
+    args.iter()
+        .take_while(|arg| *arg != "--")
+        .any(|arg| arg == "--help" || arg == "-h")
 }
 
 #[cfg(test)]
@@ -288,5 +402,39 @@ mod tests {
             .contains("prune --older-than"));
         assert!(command_help("mix").unwrap().1.contains("--from-where"));
         assert!(command_help("no-such-command").is_none());
+    }
+
+    #[test]
+    fn server_and_inspection_commands_list_their_options() {
+        for (name, flags) in [
+            (
+                "browse",
+                &["--port", "--bind", "--allow-nonlocal", "--no-open"][..],
+            ),
+            ("mcp", &["--root", "--allow-outside-root"][..]),
+            ("roots", &["--name", "--timeout", "open NAME|PATH"][..]),
+            ("map", &["--by", "--depth", "--format", "--width"][..]),
+            ("skim", &["--budget", "--unit", "--tier", "--lang"][..]),
+            ("focus", &["--hops", "--budget", "--format"][..]),
+            ("noise", &["--top", "--apply", "--format"][..]),
+        ] {
+            let (usage, options) = command_help(name).unwrap_or_else(|| panic!("{name} help"));
+            assert!(usage.starts_with(&format!("ctx {name}")), "{usage}");
+            for flag in flags {
+                assert!(options.contains(flag), "{name} help lacks {flag}");
+            }
+        }
+        assert!(command_help("tui").unwrap().0.contains("[PATH]"));
+    }
+
+    #[test]
+    fn help_requested_anywhere_before_separator() {
+        let args = |list: &[&str]| -> Vec<std::ffi::OsString> {
+            list.iter().map(std::ffi::OsString::from).collect()
+        };
+        assert!(super::help_requested(&args(&["pack", ".", "--help"])));
+        assert!(super::help_requested(&args(&["mcp", "serve", "-h"])));
+        assert!(!super::help_requested(&args(&["where", "--", "--help"])));
+        assert!(!super::help_requested(&args(&["pack", "--budget", "100"])));
     }
 }

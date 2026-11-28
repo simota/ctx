@@ -264,6 +264,9 @@ pub(crate) fn parse_mcp_serve_args(args: &[OsString]) -> Option<Result<McpServeA
             root = Some(PathBuf::from(value));
         } else if arg == OsStr::new("--allow-outside-root") {
             allow_outside_root = true;
+        } else if arg == OsStr::new("--help") || arg == OsStr::new("-h") {
+            // Not ours to handle: decline so the caller renders `ctx mcp` help.
+            return None;
         } else if flag_value(arg, "--log-file").is_some() {
         } else if arg == OsStr::new("--log-file") {
             i += 1;
