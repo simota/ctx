@@ -169,11 +169,27 @@ and this project does not yet follow strict semver — see release notes per tag
 - The `--since` / `--until` time-filter parser lives once in `ctx-pack`
   (`ctx_pack::timefilter`) instead of being copied in `ctx-cli` and
   `ctx-web`.
+- Web: file-kind classification and the Markdown preview's HTML transforms
+  moved out of `FileDetail.svelte` into `web/src/lib/file-kind.ts` and
+  `web/src/lib/markdown-html.ts`, with unit tests run by `make web-test`
+  (Node's built-in test runner; no new dependency).
 
 ### Fixed
 - A command run with missing or malformed arguments (`ctx deps`,
   `ctx replay`, `ctx skim`, …) no longer stops at "unsupported invocation":
   it prints the command's usage line and points at `ctx <command> --help`.
+- `ctx <command> --help` now lists the options of `browse`, `mcp`, `tui`,
+  `roots`, `map`, `skim`, `focus` and `noise` (it showed only `[args]...`),
+  so the usage hint above leads somewhere for them too.
+- `--help` / `-h` typed after other arguments (`ctx pack . --changed --help`,
+  `ctx mcp serve --help`, `ctx roots open --help`) shows the command's help
+  and exits 0 instead of failing as an unsupported invocation. A `--help`
+  after `--` is still an argument.
+- Web UI: long symbol names and paths wrap at `_`, `/`, `::` and camelCase
+  boundaries instead of mid-word (`run_browse_comma|nd`).
+- Web UI: with `prefers-contrast: more` or forced colours, jumpable symbols
+  in the code viewer carry a dotted underline, so they are distinguishable
+  without hovering and without relying on colour.
   `ctx replay --help` now lists its actions (list, show, diff, prune) and
   options.
 - `ctx browse`: the Imports / Importers "Pin with …" buttons' tooltips read
